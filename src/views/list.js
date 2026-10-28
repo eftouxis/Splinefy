@@ -3,8 +3,8 @@ import { movements, fx, othSum } from '../ledger.js';
 import { state } from '../store.js';
 import { itemHtml, bindEdit, ICON } from './common.js';
 
-let q = '', month = null, shown = 150, rng = null, view = 'mine';
-window.__listSet = (o) => { if (o.q !== undefined) q = o.q; if (o.month) { month = o.month; rng = null; } if (o.from) rng = [o.from, o.to]; shown = 150; };
+let q = '', month = null, shown = 150, rng = null, view = 'mine', catF = null;
+window.__listSet = (o) => { if (o.q !== undefined) q = o.q; if (o.month) { month = o.month; rng = null; } if (o.from) rng = [o.from, o.to]; if (o.view) view = o.view; catF = o.cat ? { cat: o.cat, kind: o.kind } : null; shown = 150; };
 const VIEWS_L = [['mine', 'Τα δικά μου'], ['home', 'Κοινά σπιτιού'], ['phil', 'Φίλιππος'], ['all', 'Όλες']];
 const when = (r) => r.md || r.d;            // salaries count in the month they concern
 
@@ -26,6 +26,7 @@ export default {
     const mine = (r) => Math.abs(fx(r, '9999-12-31')[col] || 0);
     const O = (r) => fx(r).O;
     const keep = { mine: (r) => r.kind !== 'Μεταφορά' && mine(r) > 0.004, home: (r) => r.kind !== 'Μεταφορά' && O(r) === 'Κοινό', phil: (r) => O(r) === 'Φίλιππος' || r.payer === 'Φίλιππος', all: () => true }[view];
+    if (catF) list = list.filter((r) => r.kind === catF.kind && (catF.kind === 'Έξοδο' ? (catF.cat === 'Ταξίδι' ? !!r.trip : !r.trip && r.cat === catF.cat) : r.cat === catF.cat));
     const hidden = list.length; list = list.filter(keep);
     const extra = hidden - list.length;
     const val = (r) => (view === 'mine' ? mine(r) : (r.a || 0) - (view === 'all' ? 0 : othSum(r)));
@@ -41,6 +42,7 @@ export default {
     return `<div class="top"><h1>Κινήσεις</h1></div>
     <input type="search" name="q" placeholder="🔍 Αναζήτηση σε όλα (από το 2008)" value="${esc(q)}" style="margin-bottom:10px">
     ${q ? '' : rng ? `<div class="row" style="margin-bottom:8px"><div class="grow center mid">${rng[0].split('-').reverse().join('/')} – ${rng[1].split('-').reverse().join('/')}</div><button class="btn sm ghost" data-norng>✕</button></div>` : `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${monthLabel(month)}</div><button class="btn sm ghost" data-m="1">▶</button></div>`}
+    ${catF ? `<div class="note row" style="margin-bottom:8px"><span class="grow">${ICON[catF.cat] || '•'} Μόνο <b>${esc(catF.cat)}</b> (${catF.kind === 'Έξοδο' ? 'έξοδα' : 'έσοδα'})</span><button class="btn sm ghost" data-nocat>✕</button></div>` : ''}
     <div class="chips" style="margin-bottom:10px">${VIEWS_L.map(([v, l]) => `<button class="chip ${view === v ? 'on' : ''}" data-view="${v}">${l}</button>`).join('')}</div>
     <div class="card grid3 center" style="padding:10px 6px;margin-bottom:8px">
       <div><div class="small muted">Έσοδα</div><b class="pos">${eur(inc)}</b></div>
@@ -58,7 +60,8 @@ export default {
       month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; ui.render();
     }));
     root.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { view = b.dataset.view; shown = 150; ui.render(); }));
-    root.querySelector('[data-norng]')?.addEventListener('click', () => { rng = null; ui.render(); });
+    root.querySelector('[data-nocat]')?.addEventListener('click', () => { catF = null; ui.render(); });
+    root.querySelector('[data-norng]')?.addEventListener('click', () => { rng = null; catF = null; ui.render(); });
     root.querySelector('[data-more]')?.addEventListener('click', () => { shown += 300; ui.render(); });
     bindEdit(root, ui);
   },

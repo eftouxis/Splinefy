@@ -73,11 +73,11 @@ export default {
       <div class="center" style="margin-top:8px"><button class="btn sm" data-plist="${from}|${to}">Κινήσεις περιόδου ›</button></div>
       ${cats.length ? `<h2 style="margin-top:14px">Πού πήγαν</h2>` + cats.map(([c, v]) => {
         const pv = ly.byCat.get(c) || 0; const dlt = v - pv;
-        return `<div style="margin:8px 0"><div class="row"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b>${eur(v)}</b>
+        return `<div style="margin:8px 0;cursor:pointer" data-hcat="Έξοδο|${esc(c)}"><div class="row"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b>${eur(v)}</b>
           <span class="small ${dlt > 0 ? 'neg' : 'pos'}" style="width:70px;text-align:right">${pv ? (dlt > 0 ? '▲ ' : '▼ ') + eur(Math.abs(dlt)).replace(' €', '') : ''}</span></div>
           <div class="bar" style="margin-top:4px"><i style="width:${Math.round((v / maxc) * 100)}%"></i></div></div>`;
       }).join('') + (catsAll.length > 5 ? `<div class="center"><button class="btn sm ghost" data-allcats>${allCats ? 'Λιγότερες ▴' : `Όλες οι κατηγορίες (${catsAll.length}) ▾`}</button></div>` : '') : ''}
-      ${incs.length && viewSel !== 'Κοινά' ? `<h2 style="margin-top:14px">Από πού ήρθαν</h2>` + incs.map(([c, v]) => `<div class="row" style="margin:6px 0"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b class="pos">${eur(v)}</b></div>`).join('') : ''}
+      ${incs.length ? `<h2 style="margin-top:14px">Από πού ήρθαν</h2>` + incs.map(([c, v]) => `<div class="row" style="margin:6px 0;cursor:pointer" data-hcat="Έσοδο|${esc(c)}"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b class="pos">${eur(v)}</b><span class="muted">›</span></div>`).join('') : ''}
     </div>
     ${LS.hasLessons() ? lessonsCard(lessonSum) : ''}
     ${peopleCard()}
@@ -91,7 +91,12 @@ export default {
     root.querySelectorAll('[data-per]').forEach((b) => b.addEventListener('click', () => { per = b.dataset.per; monthOff = 0; try { localStorage.setItem(LS_KEY, per); } catch (_) { /* private mode */ } ui.render(); }));
     root.querySelector('[data-allcats]')?.addEventListener('click', () => { allCats = !allCats; ui.render(); });
     root.querySelectorAll('[name=rf],[name=rt]').forEach((el) => el.addEventListener('change', () => { if (!el.value) return; if (el.name === 'rf') rFrom = el.value; else rTo = el.value; ui.render(); }));
-    root.querySelector('[data-plist]')?.addEventListener('click', (e) => { const [a, b] = e.target.dataset.plist.split('|'); window.__listSet?.({ from: a, to: b, q: '' }); ui.go('#/list'); });
+    const lview = () => (viewSel === 'Κοινά' ? 'home' : viewSel === 'Φίλιππος' ? 'phil' : 'mine');
+    root.querySelectorAll('[data-hcat]').forEach((el) => el.addEventListener('click', () => {
+      const [kind, cat] = el.dataset.hcat.split('|'); const [a, b] = root.querySelector('[data-plist]').dataset.plist.split('|');
+      window.__listSet?.({ from: a, to: b, q: '', cat, kind, view: lview() }); ui.go('#/list');
+    }));
+    root.querySelector('[data-plist]')?.addEventListener('click', (e) => { const [a, b] = e.target.dataset.plist.split('|'); window.__listSet?.({ from: a, to: b, q: '', view: lview() }); ui.go('#/list'); });
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { monthOff = Math.min(0, monthOff + Number(b.dataset.m)); ui.render(); }));
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { viewSel = b.dataset.v; ui.render(); }));
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
