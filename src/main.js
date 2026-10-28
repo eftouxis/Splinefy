@@ -9,6 +9,7 @@ import welcome from './views/welcome.js';
 import lessons from './views/lessons/index.js';
 import rec from './views/rec.js';
 import cats from './views/cats.js';
+import stats from './views/stats.js';
 import { hasLessons } from './lessons.js';
 
 const app = document.getElementById('app');
@@ -18,6 +19,7 @@ const ROUTES = [
   [/^#\/list(?:\/(.*))?$/, list, 'list'], [/^#\/settings$/, settings, 'settings'],
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
+  [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0 };
 
@@ -55,7 +57,7 @@ function navHtml(active) {
   const a = (h, i, t, k, cls = '') => `<a href="${h}" class="${cls} ${active === k ? 'on' : ''}"><span class="i">${svg(i)}</span>${t}</a>`;
   const les = hasLessons();
   return `<div class="in" style="grid-template-columns:repeat(${les ? 6 : 5},1fr)">${a('#/', 'home', 'Αρχική', 'home')}${a('#/list', 'list', 'Κινήσεις', 'list')}${a('#/add/exp', 'plus', 'Νέα', 'add', 'plus')}
-    ${les ? a('#/lessons', 'book', 'Μαθήματα', 'lessons') : ''}${a('#/list/stats', 'stats', 'Στατιστικά', 'stats')}${a('#/settings', 'gear', 'Ρυθμίσεις', 'settings')}</div>`;
+    ${les ? a('#/lessons', 'book', 'Μαθήματα', 'lessons') : ''}${a('#/stats', 'stats', 'Στατιστικά', 'stats')}${a('#/settings', 'gear', 'Ρυθμίσεις', 'settings')}</div>`;
 }
 
 export function render() {
@@ -66,7 +68,7 @@ export function render() {
   current = view;
   app.innerHTML = view.html(params, ui);
   view.mount?.(app, params, ui);
-  nav.innerHTML = key === 'welcome' ? '' : navHtml(key === 'list' && params[0] === 'stats' ? 'stats' : key);
+  nav.innerHTML = key === 'welcome' ? '' : navHtml(key);
   if (!view.keepScroll) window.scrollTo(0, 0);
 }
 

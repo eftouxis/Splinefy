@@ -4,12 +4,13 @@ import { state } from '../store.js';
 import { itemHtml, bindEdit, ICON } from './common.js';
 
 let q = '', month = null, spf = 'all', shown = 150;
+window.__listSet = (o) => { if (o.q !== undefined) q = o.q; if (o.month) month = o.month; spf = 'all'; shown = 150; };
 
 export default {
   live: true, keepScroll: false,
   html([mode]) {
     const t = today();
-    if (mode === 'stats') return stats();
+    if (mode === 'stats') { location.replace('#/stats'); return ''; }
     if (mode === 'shared') spf = 'shared';
     if (mode === 'philippos') { spf = 'all'; q = 'φίλιππος'; }
     if (!month) month = t.slice(0, 7);
@@ -47,18 +48,3 @@ export default {
     bindEdit(root, ui);
   },
 };
-
-function stats() {
-  const t = today(); const list = movements();
-  const me = state.user; const view = me;
-  const y = Number(t.slice(0, 4));
-  let rows = '';
-  for (let yr = y; yr >= y - 18; yr--) {
-    const tt = totals(list, view, `${yr}-01-01`, yr === y ? t : `${yr}-12-31`);
-    if (!tt.inc && !tt.exp) continue;
-    rows += `<tr><td><b>${yr}</b></td><td class="r pos">${eur(tt.inc)}</td><td class="r neg">${eur(tt.exp)}</td><td class="r ${tt.diff < 0 ? 'neg' : 'pos'}">${eur(tt.diff)}</td></tr>`;
-  }
-  return `<div class="top"><h1>Στατιστικά</h1></div>
-  <div class="note" style="margin-bottom:12px">Τα πλήρη στατιστικά (μήνες, κατηγορίες, γραφήματα, ταξίδια, λογαριασμοί) έρχονται στην επόμενη φάση. Εδώ μια πρώτη ματιά ανά χρονιά για ${esc(view)}.</div>
-  <div class="card"><table class="t"><tr><th>Έτος</th><th class="r">Έσοδα</th><th class="r">Έξοδα</th><th class="r">Διαφορά</th></tr>${rows}</table></div>`;
-}
