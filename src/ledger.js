@@ -10,8 +10,9 @@ export function othSum(r) {
   if (!r.oth || !r.oth.length || r.kind !== 'Έξοδο') return 0;
   return r.oth.reduce((s, o) => s + (o.a != null ? o.a : (o.f || 0) * (r.a || 0)), 0);
 }
+function whoFor(r) { const fo = r.for || '', k = r.kind; return fo === 'Φίλιππος' ? 'Φίλιππος' : k === 'Έσοδο' ? (fo === 'Κοινό' ? 'Κοινό' : r.payer) : (fo || 'Κοινό'); }
 export function fx(r, t = today()) {
-  if (r.fx) return r.fx;
+  if (r.fx) return r.fx.O ? r.fx : { ...r.fx, O: whoFor(r) };      // frozen Excel rows have no O
   const a = (r.a || 0) - othSum(r), k = r.kind, p = r.payer, fo = r.for || '';
   const N = r.d > t ? 0 : (k === 'Έσοδο' ? -a : a);
   const O = fo === 'Φίλιππος' ? 'Φίλιππος' : k === 'Έσοδο' ? (fo === 'Κοινό' ? 'Κοινό' : p) : (fo || 'Κοινό');
