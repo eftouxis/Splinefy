@@ -30,7 +30,7 @@ export function itemHtml(r, opts = {}) {
   return `<div class="item" data-edit="${esc(r._sp)}/${esc(r.id)}" style="${future || r.skipped ? 'opacity:.55' : ''}">
     <div class="dot">${icon(r)}</div>
     <div class="grow"><div class="t">${esc(r.desc || r.cat || '')}${r.rec ? ' <span class="small muted">↻</span>' : ''}</div>
-      <div class="s">${opts.showDate ? dShort(r.d) + ' · ' : ''}${esc(r.kind === 'Μεταφορά' ? 'Μεταφορά' : r.cat || '')} · ${who(r)}${othSum(r) ? ` · ${(() => { const o = fx(r).O; return o === 'Κοινό' ? 'κοινό μέρος' : 'μένει ' + esc(o); })()} ${eur((r.a || 0) - othSum(r))}` : ''} ${tag}</div></div>
+      <div class="s">${opts.showDate ? dShort(r.d) + ' · ' : ''}${esc(r.kind === 'Μεταφορά' ? 'Μεταφορά' : r.cat || '')} · ${who(r)}${r.trip && r.kind === 'Έξοδο' ? ` · <span style="color:var(--teal)">✈️ ${esc(r.trip)}</span>` : ''}${othSum(r) ? ` · ${(() => { const o = fx(r).O; return o === 'Κοινό' ? 'κοινό μέρος' : 'μένει ' + esc(o); })()} ${eur((r.a || 0) - othSum(r))}` : ''} ${tag}</div></div>
     <div class="right"><div class="amt ${cls}" style="${r.skipped ? 'text-decoration:line-through' : ''}">${sign}${eur(opts.amt != null ? opts.amt : r.a)}</div>${opts.amt != null && Math.abs(opts.amt - (r.a || 0)) > 0.004 ? `<div class="small muted">από ${eur(r.a)}</div>` : ''}</div></div>`;
 }
 export function bindEdit(root, ui) {

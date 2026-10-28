@@ -42,7 +42,7 @@ export default {
     return `<div class="top"><h1>Κινήσεις</h1></div>
     <input type="search" name="q" placeholder="🔍 Αναζήτηση σε όλα (από το 2008)" value="${esc(q)}" style="margin-bottom:10px">
     ${q ? '' : rng ? `<div class="row" style="margin-bottom:8px"><div class="grow center mid">${rng[0].split('-').reverse().join('/')} – ${rng[1].split('-').reverse().join('/')}</div><button class="btn sm ghost" data-norng>✕</button></div>` : `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${monthLabel(month)}</div><button class="btn sm ghost" data-m="1">▶</button></div>`}
-    ${catF ? `<div class="note row" style="margin-bottom:8px"><span class="grow">${ICON[catF.cat] || '•'} Μόνο <b>${esc(catF.cat)}</b> (${catF.kind === 'Έξοδο' ? 'έξοδα' : 'έσοδα'})</span><button class="btn sm ghost" data-nocat>✕</button></div>` : ''}
+    ${catF ? `<div class="note row" style="margin-bottom:8px"><span class="grow">${ICON[catF.cat] || '•'} Μόνο <b>${esc(catF.cat)}</b> (${catF.kind === 'Έξοδο' ? 'έξοδα' : 'έσοδα'})${catF.cat === 'Ταξίδι' ? '<br><span class="small muted">Όλα τα έξοδα με ταξίδι, όποια κατηγορία κι αν έχουν — το ταξίδι γράφεται σε κάθε γραμμή</span>' : ''}</span><button class="btn sm ghost" data-nocat>✕</button></div>` : ''}
     <div class="chips" style="margin-bottom:10px">${VIEWS_L.map(([v, l]) => `<button class="chip ${view === v ? 'on' : ''}" data-view="${v}">${l}</button>`).join('')}</div>
     <div class="card grid3 center" style="padding:10px 6px;margin-bottom:8px">
       <div><div class="small muted">Έσοδα</div><b class="pos">${eur(inc)}</b></div>

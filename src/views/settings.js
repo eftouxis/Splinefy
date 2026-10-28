@@ -47,7 +47,7 @@ export default {
       <input type="file" accept=".json,application/json" multiple data-import></div>
     <h2>Εμφάνιση</h2>
     <div class="card"><div class="chips">${[['auto', 'Αυτόματο'], ['light', 'Φωτεινό'], ['dark', 'Σκούρο']].map(([v, l]) => `<button class="chip ${theme === v ? 'on' : ''}" data-theme="${v}">${l}</button>`).join('')}</div></div>
-    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · έκδοση 0.9.7 (28/10)</div>`;
+    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · έκδοση 0.9.8 (28/10)</div>`;
   },
   mount(root, p, ui) {
     if (signed === null) sync.signedIn().then((s) => { signed = s; ui.render(); });
