@@ -19,7 +19,7 @@ const listView = {
     <div class="note small" style="margin-top:12px">Βάλε ημερομηνίες στο ταξίδι και όσο διαρκεί, κάθε νέο έξοδο μπαίνει μόνο του σε αυτό. Για έξοδα πριν φύγεις (π.χ. αεροπορικά), στο έξοδο → «Περισσότερα» → «Ταξίδι» και διαλέγεις το ταξίδι.</div>`;
   },
   mount(root, p, ui) {
-    root.querySelector('[data-back]').addEventListener('click', () => ui.go('#/stats/trips'));
+    root.querySelector('[data-back]').addEventListener('click', () => ui.back());
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
     root.querySelector('[data-new]').addEventListener('click', () => tripSheet(ui, null));
   },
@@ -29,17 +29,19 @@ const detail = {
     const s = T.summary(name); const x = s.trip; const t = today();
     const ls = s.list.slice().sort((a, b) => (a.d < b.d ? 1 : -1));
     const me = store.state.user;
-    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>✈️ ${esc(x.name)}</h1><button class="btn sm" data-edit>Επεξεργασία</button></div>
+    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>✈️ ${esc(x.name)}</h1><button class="btn sm" data-tedit>Επεξεργασία</button></div>
     <div class="small muted" style="margin:-6px 4px 10px">${x.start ? span(x) : s.from ? `${dFull(s.from)} – ${dFull(s.to)} (από τα έξοδα)` : 'χωρίς ημερομηνίες'}${x.auto !== false && x.start && x.end ? ' · τα έξοδα αυτών των ημερών μπαίνουν μόνα τους' : ''}</div>
     <div class="grid3"><div class="card kpi"><div class="label">Σύνολο</div><div class="mid">${eur(s.N)}</div></div>
       <div class="card kpi"><div class="label">Ανά μέρα (${s.days})</div><div class="mid">${eur(s.N / s.days)}</div></div>
       <div class="card kpi"><div class="label">${me === 'Χαρά' ? 'Μερίδιο Χαράς' : 'Μερίδιο Άλκη'}</div><div class="mid">${eur(me === 'Χαρά' ? s.S : s.Q)}</div><div class="small muted">${me === 'Χαρά' ? 'Άλκης' : 'Χαρά'} ${eur(me === 'Χαρά' ? s.Q : s.S)}</div></div></div>
+    ${x.start ? '' : `<button class="btn" style="width:100%;margin-bottom:8px" data-dates>📅 Βάλε ημερομηνίες (για να μπαίνουν τα έξοδα μόνα τους)</button>`}
     <a class="btn green" style="width:100%;margin-bottom:12px" href="#/add/exp?trip=${encodeURIComponent(x.name)}">+ Έξοδο σε αυτό το ταξίδι</a>
     <div class="list">${ls.map((r) => itemHtml(r, { showDate: true, today: t })).join('') || '<div class="item muted">Κανένα έξοδο ακόμα</div>'}</div>`;
   },
   mount(root, [name], ui) {
     root.querySelector('[data-back]').addEventListener('click', () => ui.go('#/trips'));
-    root.querySelector('[data-edit]').addEventListener('click', () => tripSheet(ui, T.byName(name) || { name }));
+    root.querySelector('[data-tedit]').addEventListener('click', () => tripSheet(ui, T.byName(name) || { name }));
+    root.querySelector('[data-dates]')?.addEventListener('click', () => tripSheet(ui, T.byName(name) || { name }));
     bindEdit(root, ui);
   },
 };
