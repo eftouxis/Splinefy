@@ -2,6 +2,7 @@ import { esc } from '../util.js';
 import * as store from '../store.js';
 import * as sync from '../sync.js';
 import { CONFIG } from '../config.js';
+import * as EX from '../export.js';
 
 let signed = null;
 
@@ -36,7 +37,10 @@ export default {
         <input data-folder="${sp.id}" value="${esc(sp.folder)}" style="margin-top:6px"></div>`).join('')}
       <button class="btn sm" data-savefolders>Αποθήκευση φακέλων</button>
     </div>
-    <h2>Αρχικά δεδομένα</h2>
+    <h2>Αντίγραφο ασφαλείας</h2>
+    <div class="card"><div class="small muted" style="margin-bottom:8px">Όλα σου τα δεδομένα σε αρχείο, όποτε θέλεις. Τα δεδομένα είναι πάντα και στο OneDrive· αυτό είναι επιπλέον.</div>
+      <div class="grid2"><button class="btn" data-xlsx>⬇ Excel</button><button class="btn" data-json>⬇ Πλήρες αντίγραφο</button></div></div>
+    <h2>Εισαγωγή</h2>
     <div class="card"><div class="small muted" style="margin-bottom:8px">Αρχεία που φτιάχτηκαν από τα Excel (οικονομικά ή μαθήματα). Μετά ανεβαίνουν μόνα τους στο OneDrive.</div>
       <input type="file" accept=".json,application/json" multiple data-import></div>
     <h2>Εμφάνιση</h2>
@@ -86,6 +90,8 @@ export default {
       }
       ui.render();
     });
+    root.querySelector('[data-xlsx]')?.addEventListener('click', async (e) => { e.target.disabled = true; try { const n = await EX.excel(); ui.toast(`Excel με ${n.toLocaleString('el-GR')} κινήσεις ✓`); } catch (err) { ui.toast('Σφάλμα: ' + err.message, 4000); } e.target.disabled = false; });
+    root.querySelector('[data-json]')?.addEventListener('click', () => { const n = EX.json(); ui.toast(`Αντίγραφο ${n.toLocaleString('el-GR')} εγγραφών ✓`); });
     root.querySelectorAll('[data-theme]').forEach((b) => b.addEventListener('click', () => {
       const v = b.dataset.theme;
       if (v === 'auto') { delete document.documentElement.dataset.theme; localStorage.removeItem('theme'); }
