@@ -90,10 +90,25 @@ function build() {
   const lessons = [...L.values()].map((l) => ({ ...l, v: l.h * rateAt(byId.get(l.stu), l.d) }))
     .sort((a, b) => (a.d === b.d ? (a.time < b.time ? -1 : 1) : a.d < b.d ? -1 : 1));
   const pays = records('tx', [LSP]).filter((r) => r.stu && byId.has(r.stu));
-  cache = { v: state.version, students, byId, slots, lx, hol, lessons, pays };
+  cache = { v: state.version, students, byId, slots, lx, hol, lessons, pays, labels: null };
   return cache;
 }
 export const students = () => build().students;
+const firstName = (s) => (s.full || s.name || '').trim().split(/\s+/)[0];
+/** how a student is shown: first name; full name only when two active students share it */
+export function label(s) {
+  if (!s) return '';
+  const c = build();
+  if (!c.labels) {
+    c.labels = new Map(); const act = c.students.filter((x) => isActive(x));
+    for (const x of c.students) {
+      const f = firstName(x);
+      const dup = isActive(x) && act.some((y) => y.id !== x.id && firstName(y) === f);
+      c.labels.set(x.id, dup ? (x.full || x.name) : f);
+    }
+  }
+  return c.labels.get(s.id) || firstName(s);
+}
 export const student = (id) => build().byId.get(id);
 export const slots = (stu) => build().slots.filter((s) => !stu || s.stu === stu);
 export const holidayOn = (d) => build().hol.get(d);

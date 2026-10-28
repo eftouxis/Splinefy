@@ -24,11 +24,11 @@ export async function excel() {
   if (L.hasLessons() && L.students().length) {
     const st = L.students();
     sheets.push({ name: 'Μαθητές', widths: [16, 24, 10, 9, 10, 12, 12, 12, 24], rows: [['Όνομα', 'Ονοματεπώνυμο', 'Τιμή', 'Ώρες', '€/ώρα', 'Υπόλοιπο', 'Από', 'Έως', 'Σημειώσεις'],
-      ...st.map((s) => { const p = L.priceAt(s); return [s.name, s.full || '', { m: p.price || 0 }, p.dur || 0, { m: L.rateAt(s, t) }, { m: L.balance(s.id) }, s.start ? { d: s.start } : '', s.end ? { d: s.end } : '', s.note || '']; })] });
+      ...st.map((s) => { const p = L.priceAt(s); return [L.label(s), s.full || '', { m: p.price || 0 }, p.dur || 0, { m: L.rateAt(s, t) }, { m: L.balance(s.id) }, s.start ? { d: s.start } : '', s.end ? { d: s.end } : '', s.note || '']; })] });
     sheets.push({ name: 'Μαθήματα', widths: [12, 16, 8, 10, 14], rows: [['Ημερομηνία', 'Μαθητής', 'Ώρες', 'Αξία', 'Σημείωση'],
-      ...L.lessons({ all: true, to: t }).reverse().map((l) => [{ d: l.d }, L.student(l.stu)?.name || '', Math.round(l.h * 1000) / 1000, { m: l.v }, !l.h ? 'δεν έγινε' : !l.sched ? 'έκτακτο' : l.ov ? 'αλλαγή' : ''])] });
+      ...L.lessons({ all: true, to: t }).reverse().map((l) => [{ d: l.d }, L.label(L.student(l.stu)), Math.round(l.h * 1000) / 1000, { m: l.v }, !l.h ? 'δεν έγινε' : !l.sched ? 'έκτακτο' : l.ov ? 'αλλαγή' : ''])] });
     sheets.push({ name: 'Πληρωμές μαθητών', widths: [12, 16, 10, 24], rows: [['Ημερομηνία', 'Μαθητής', 'Ποσό', 'Σημείωση'],
-      ...L.payments().map((p) => [{ d: p.d }, L.student(p.stu)?.name || '', { m: p.a || 0 }, p.note || ''])] });
+      ...L.payments().map((p) => [{ d: p.d }, L.label(L.student(p.stu)), { m: p.a || 0 }, p.note || ''])] });
   }
   const blob = await workbook(sheets);
   download(blob, `Oikonomika_${t}.xlsx`);

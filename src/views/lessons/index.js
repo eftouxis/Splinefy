@@ -36,7 +36,7 @@ const home = {
         const b = L.balance(l.stu); const after = !past && l.h ? L.balance(l.stu, l.d) : null;
         return `<div class="item" data-lesson="${esc(l.stu)}|${l.d}" style="${l.h ? '' : 'opacity:.6'}">
           <div class="dot" style="font-size:12px;font-weight:700">${esc((l.time || '').split(/[–-]/)[0] || '•')}</div>
-          <div class="grow"><div class="t" style="${l.h ? '' : 'text-decoration:line-through'}">${esc(st.name)}</div>
+          <div class="grow"><div class="t" style="${l.h ? '' : 'text-decoration:line-through'}">${esc(L.label(st))}</div>
           <div class="s">${l.h ? hoursTxt(l.h) : hoursTxt(l.sched)}${l.ov && l.sched && l.h ? ' · αλλαγή' : !l.sched ? ' · έκτακτο' : ''}${b > 0.005 ? ` · <b class="neg">χρωστάει ${eur(b)}</b>` : b < -0.005 ? ` · <span class="pos">προπλήρωσε ${eur(-b)}</span>` : ''}${after != null && Math.abs(b) > 0.005 && after > 0.005 ? ` · μετά ${eur(after)}` : ''}</div></div>
           <div class="right"><div class="amt">${l.h ? eur(l.v) : ''}</div><div class="small">${status}</div></div></div>`;
       }).join('') || '';
@@ -45,7 +45,7 @@ const home = {
     return `<div class="top"><h1>Μαθήματα</h1>${syncBadge()}</div>
     <div class="grid2">
       <div class="card kpi"><div class="label">Μου χρωστάνε</div><div class="big ${owed > 0.005 ? 'neg' : ''}">${eur(owed)}</div>
-        <div class="small">${sums.filter((x) => x.bal > 0.005).sort((a, b) => b.bal - a.bal).map((x) => `${esc(x.s.name)} <b>${eur(x.bal)}</b>`).join('<br>')}</div></div>
+        <div class="small">${sums.filter((x) => x.bal > 0.005).sort((a, b) => b.bal - a.bal).map((x) => `${esc(L.label(x.s))} <b>${eur(x.bal)}</b>`).join('<br>')}</div></div>
       <div class="card kpi" data-go="#/lessons/stats"><div class="label">${MONTHS[Number(m.slice(5)) - 1]}: μαθήματα ως σήμερα</div><div class="big">${eur(done)}</div>
         <div class="small muted">όλος ο μήνας: ${eur(plan)}</div></div>
     </div>
@@ -58,8 +58,8 @@ const home = {
     <div class="small muted" style="margin:6px 4px 0">«✓ έγινε» = το μάθημα έγινε (όχι ότι πληρώθηκε). Πάτα ένα μάθημα για «δεν έγινε» ή άλλες ώρες.</div>
     <h2>Μαθητές</h2>
     <div class="list">${order.map(({ s, bal, unpaidH, next }) => `<div class="item" data-go="#/lessons/s/${esc(s.id)}">
-      <div class="dot">${esc(s.name.slice(0, 1))}</div>
-      <div class="grow"><div class="t">${esc(s.name)}</div><div class="s">${next ? 'επόμενο ' + dShort(next.d) + (next.time ? ' ' + esc(next.time.split(/[–-]/)[0]) : '') : L.isActive(s) ? 'χωρίς πρόγραμμα' : 'σταμάτησε'}</div></div>
+      <div class="dot">${esc(L.label(s).slice(0, 1))}</div>
+      <div class="grow"><div class="t">${esc(L.label(s))}</div><div class="s">${next ? 'επόμενο ' + dShort(next.d) + (next.time ? ' ' + esc(next.time.split(/[–-]/)[0]) : '') : L.isActive(s) ? 'χωρίς πρόγραμμα' : 'σταμάτησε'}</div></div>
       <div class="right"><div class="amt ${bal > 0.005 ? 'neg' : bal < -0.005 ? 'pos' : 'muted'}">${Math.abs(bal) < 0.005 ? '✓' : eur(Math.abs(bal))}</div>
       <div class="small muted">${bal > 0.005 ? `χρωστάει · ${fmtH(unpaidH)} ώρ.` : bal < -0.005 ? 'προπληρωμένα' : 'εξοφλημένος'}</div></div></div>`).join('')}</div>
     <div class="grid3" style="margin-top:12px">

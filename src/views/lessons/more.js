@@ -15,8 +15,8 @@ export const editView = {
     const t = today(); const pr = st ? L.priceAt(st) : {};
     return `<div class="top">${back(st ? `#/lessons/s/${st.id}` : '#/lessons')}<h1>${st ? 'Επεξεργασία μαθητή' : 'Νέος μαθητής'}</h1></div>
     <div class="card">
-      <div class="grid2"><label class="f"><span>Όνομα (όπως θες να φαίνεται)</span><input name="name" value="${esc(st?.name || '')}" placeholder="π.χ. Πάνος"></label>
-      <label class="f"><span>Ονοματεπώνυμο</span><input name="full" value="${esc(st?.full || '')}" placeholder="π.χ. Πάνος Κανούρης"></label></div>
+      <label class="f"><span>Ονοματεπώνυμο</span><input name="full" value="${esc(st?.full || st?.name || '')}" placeholder="π.χ. Πάνος Κανούρης"></label>
+      <div class="small muted" style="margin:-4px 2px 10px">Φαίνεται με το μικρό όνομα· με το επώνυμο μόνο αν δύο ενεργοί μαθητές έχουν το ίδιο όνομα.</div>
       <div class="grid2"><label class="f"><span>Τιμή μαθήματος (€)</span><input name="price" inputmode="decimal" value="${esc(pr.price ?? '')}"></label>
       <label class="f"><span>Διάρκεια (ώρες:λεπτά, π.χ. 1:20)</span><input name="dur" inputmode="decimal" value="${pr.dur ? fmtH(pr.dur) : '1:00'}"></label></div>
       <div class="small muted" data-rate style="margin:-4px 2px 10px"></div>
@@ -37,7 +37,7 @@ export const editView = {
     const g = (n) => root.querySelector(`[name=${n}]`).value.trim();
     const rate = () => { const p = parseAmount(g('price')), d = hrs(g('dur')); root.querySelector('[data-rate]').textContent = p && d ? `Διάρκεια ${hoursTxt(d)} · ${eur(p)} το μάθημα = ${eur(p / d)} την ώρα` : 'Διάρκεια: π.χ. 1:20 = 1 ώρα και 20 λεπτά, 1,5 = μιάμιση ώρα'; };
     rate(); root.querySelector('[name=price]').addEventListener('input', rate); root.querySelector('[name=dur]').addEventListener('input', rate);
-    if (!st) setTimeout(() => root.querySelector('[name=name]').focus(), 50);
+    if (!st) setTimeout(() => root.querySelector('[name=full]').focus(), 50);
     root.querySelector('[data-del]')?.addEventListener('click', async () => {
       const n = L.lessons({ stu: id, to: today() }).length + L.payments(id).length;
       if (!(await ui.confirm(n ? `Ο μαθητής έχει ${n} μαθήματα/πληρωμές. Καλύτερα βάλε ημερομηνία «Σταμάτησε». Να διαγραφεί οριστικά;` : 'Διαγραφή μαθητή;', 'Διαγραφή'))) return;
@@ -45,9 +45,9 @@ export const editView = {
       ui.toast('Διαγράφηκε'); ui.go('#/lessons');
     });
     root.querySelector('[data-save]').addEventListener('click', async () => {
-      const name = g('name'); const price = parseAmount(g('price')); const dur = hrs(g('dur'));
-      if (!name || !price || !dur) { ui.toast('Όνομα, τιμή και διάρκεια'); return; }
-      const rec = { type: 'student', name, full: g('full') || null, start: g('start') || today(), end: g('end') || null, note: g('note') || null, open: parseAmount(g('open')) };
+      const full = g('full').replace(/\s+/g, ' '); const name = full.split(' ')[0]; const price = parseAmount(g('price')); const dur = hrs(g('dur'));
+      if (!full || !price || !dur) { ui.toast('Ονοματεπώνυμο, τιμή και διάρκεια'); return; }
+      const rec = { type: 'student', name, full, start: g('start') || today(), end: g('end') || null, note: g('note') || null, open: parseAmount(g('open')) };
       if (!st) {
         const nid = await store.put(L.LSP, null, { ...rec, price, dur });
         ui.toast('Προστέθηκε ✓ — βάλε τώρα το πρόγραμμά του'); ui.go(`#/lessons/s/${nid}`); setTimeout(() => slotSheet(ui, nid), 300); return;
@@ -89,11 +89,11 @@ export const schedView = {
     ${byDay.map((list, i) => list.length ? `<h2>${L.DAYNAMES[i]}</h2><div class="list">${list.map((s) => {
       const st = L.student(s.stu);
       return `<div class="item" data-slot="${esc(s.id)}"><div class="dot" style="font-size:12px;font-weight:700">${esc((s.time || '').split(/[–-]/)[0] || '•')}</div>
-      <div class="grow"><div class="t">${esc(st.name)}</div><div class="s">${hoursTxt(s.h)}${s.time ? ' · ' + esc(s.time) : ''} · ${s.from > t ? 'από ' + dFull(s.from) : 'έως ' + (s.to ? dFull(s.to) : '—')}</div></div>
+      <div class="grow"><div class="t">${esc(L.label(st))}</div><div class="s">${hoursTxt(s.h)}${s.time ? ' · ' + esc(s.time) : ''} · ${s.from > t ? 'από ' + dFull(s.from) : 'έως ' + (s.to ? dFull(s.to) : '—')}</div></div>
       <div class="amt">${eur(s.h * L.rateAt(st, t))}</div></div>`;
     }).join('')}</div>` : '').join('')}
     <h2>Προσθήκη ημέρας σε μαθητή</h2>
-    <div class="chips">${act.map((s) => `<button class="chip" data-newslot="${esc(s.id)}">+ ${esc(s.name)}</button>`).join('')}</div>
+    <div class="chips">${act.map((s) => `<button class="chip" data-newslot="${esc(s.id)}">+ ${esc(L.label(s))}</button>`).join('')}</div>
     <div class="note small" style="margin-top:12px">Τα μαθήματα του προγράμματος μπαίνουν μόνα τους στις καρτέλες, εκτός από τις αργίες. Αλλαγή από μια μέρα και μετά: πάτα τη γραμμή → «Η αλλαγή ισχύει από».</div>`;
   },
   mount(root, p, ui) {
@@ -272,8 +272,8 @@ export const allView = {
   html() {
     const t = today(); const list = L.students();
     const act = list.filter((s) => L.isActive(s)), old = list.filter((s) => !L.isActive(s));
-    const row = (s) => { const b = L.balance(s.id); return `<div class="item" data-go="#/lessons/s/${esc(s.id)}"><div class="dot">${esc(s.name.slice(0, 1))}</div>
-      <div class="grow"><div class="t">${esc(s.name)}</div><div class="s">${s.start ? 'από ' + dFull(s.start) : ''}${s.end ? ' έως ' + dFull(s.end) : ''} · ${eur(L.priceAt(s, t).price)}/${hoursTxt(L.priceAt(s, t).dur)}</div></div>
+    const row = (s) => { const b = L.balance(s.id); return `<div class="item" data-go="#/lessons/s/${esc(s.id)}"><div class="dot">${esc(L.label(s).slice(0, 1))}</div>
+      <div class="grow"><div class="t">${esc(L.label(s))}</div><div class="s">${s.start ? 'από ' + dFull(s.start) : ''}${s.end ? ' έως ' + dFull(s.end) : ''} · ${eur(L.priceAt(s, t).price)}/${hoursTxt(L.priceAt(s, t).dur)}</div></div>
       <div class="amt ${b > 0.005 ? 'neg' : ''}">${Math.abs(b) < 0.005 ? '✓' : eur(b)}</div></div>`; };
     return `<div class="top">${back()}<h1>Όλοι οι μαθητές</h1><a class="btn sm" href="#/lessons/edit/new">+ Νέος</a></div>
     <h2>Τώρα (${act.length})</h2><div class="list">${act.map(row).join('') || '<div class="item muted">—</div>'}</div>

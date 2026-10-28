@@ -43,8 +43,8 @@ export default {
     const slotRow = (s) => `<div class="item" data-slot="${esc(s.id)}"><div class="dot" style="font-size:13px;font-weight:700">${DSHORT[s.wd - 1]}</div>
       <div class="grow"><div class="t">${L.DAYNAMES[s.wd - 1]} · ${hoursTxt(s.h)}${s.time ? ' · ' + esc(s.time) : ''}</div>
       <div class="s">${dFull(s.from)} → ${s.to ? dFull(s.to) : 'χωρίς τέλος'}</div></div><div class="muted">›</div></div>`;
-    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(st.name)}</h1><a class="btn sm" href="#/lessons/edit/${esc(id)}">Επεξεργασία</a></div>
-    ${st.full && st.full !== st.name ? `<div class="small muted" style="margin:-6px 4px 10px">${esc(st.full)}${st.note ? ' · ' + esc(st.note) : ''}</div>` : st.note ? `<div class="small muted" style="margin:-6px 4px 10px">${esc(st.note)}</div>` : ''}
+    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(L.label(st))}</h1><a class="btn sm" href="#/lessons/edit/${esc(id)}">Επεξεργασία</a></div>
+    ${st.full && st.full !== L.label(st) ? `<div class="small muted" style="margin:-6px 4px 10px">${esc(st.full)}${st.note ? ' · ' + esc(st.note) : ''}</div>` : st.note ? `<div class="small muted" style="margin:-6px 4px 10px">${esc(st.note)}</div>` : ''}
     <div class="grid2">
       <div class="card kpi"><div class="label">${Math.abs(bal) < 0.005 ? 'Εξοφλημένος' : bal > 0 ? 'Χρωστάει' : 'Προπληρωμένα'}</div>
         <div class="big ${bal > 0.005 ? 'neg' : bal < -0.005 ? 'pos' : ''}">${Math.abs(bal) < 0.005 ? '✓' : eur(Math.abs(bal))}</div>

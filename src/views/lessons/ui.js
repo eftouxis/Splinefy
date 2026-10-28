@@ -33,9 +33,7 @@ function bindSeg(el, onPick) {
   }));
 }
 /** label of a student: the short name, or the full name when two have the same short name */
-export function label(s, list = L.students()) {
-  return list.filter((x) => x.name === s.name).length > 1 ? s.full || s.name : s.name;
-}
+export const label = (s) => L.label(s);
 export function studentChips(list, sel, name = 'stu') {
   return `<div class="chips" data-chips="${name}">${list.map((s) => `<button type="button" class="chip ${s.id === sel ? 'on' : ''}" data-id="${esc(s.id)}">${esc(label(s))}</button>`).join('')}</div>`;
 }
@@ -55,7 +53,7 @@ export function lessonSheet(stu, d, ui) {
   const hol = L.holidayOn(d);
   let h = l ? cur : (st.dur || 1), time = l?.time || '';
   const opts = [...new Set([0, 1, 1.5, 2, st.dur || 1].map((x) => Math.round(x * 1e6) / 1e6))].sort((a, b) => a - b);
-  sheet(`<div class="row"><div class="grow"><div class="mid">${esc(st.name)}</div><div class="small muted">${dShort(d)} ${d.slice(0, 4)}${hol ? ' · ' + esc(hol.name) : ''}</div></div>
+  sheet(`<div class="row"><div class="grow"><div class="mid">${esc(L.label(st))}</div><div class="small muted">${dShort(d)} ${d.slice(0, 4)}${hol ? ' · ' + esc(hol.name) : ''}</div></div>
       <div class="small muted right">${sched ? 'Πρόγραμμα: ' + hoursTxt(sched) : 'Εκτός προγράμματος'}<br>${(() => { const b = L.balance(stu); return Math.abs(b) < 0.005 ? 'εξοφλημένος' : b > 0 ? `<b class="neg">χρωστάει ${eur(b)}</b>` : `<span class="pos">προπλήρωσε ${eur(-b)}</span>`; })()}</div></div>
     <label class="f" style="margin-top:12px"><span>Ώρες</span>${segBtns('h', opts.map((x) => [x, x ? fmtH(x) : 'Δεν έγινε']), h)}</label>
     <div class="grid2"><label class="f"><span>Άλλη διάρκεια (π.χ. 1:20)</span><input name="hx" inputmode="decimal" placeholder="${fmtH(h)}"></label>
@@ -63,7 +61,7 @@ export function lessonSheet(stu, d, ui) {
     <div class="small muted" data-valtxt></div>
     <button class="btn primary" data-ok>Αποθήκευση</button>
     ${l?.ov ? '<button class="btn" data-reset>Όπως το πρόγραμμα</button>' : ''}
-    ${location.hash.startsWith('#/lessons/s/') ? '' : `<button class="btn" data-card>Καρτέλα ${esc(st.name)} › (πληρωμές, χρωστούμενα)</button>`}
+    ${location.hash.startsWith('#/lessons/s/') ? '' : `<button class="btn" data-card>Καρτέλα ${esc(L.label(st))} › (πληρωμές, χρωστούμενα)</button>`}
     <button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-card]')?.addEventListener('click', () => { close(); ui.go(`#/lessons/s/${stu}`); });
     const val = () => { el.querySelector("[data-valtxt]").textContent = h ? `Αξία: ${eur(h * L.rateAt(st, d))}` : 'Δεν χρεώνεται'; };
@@ -145,7 +143,7 @@ export function slotSheet(ui, stu, slot = null) {
   const Y = L.yearOf(t);
   let wd = slot?.wd || 1;
   const started = slot && slot.from < t;
-  sheet(`<div class="mid">${slot ? 'Αλλαγή προγράμματος' : 'Νέα ημέρα στο πρόγραμμα'} · ${esc(st.name)}</div>
+  sheet(`<div class="mid">${slot ? 'Αλλαγή προγράμματος' : 'Νέα ημέρα στο πρόγραμμα'} · ${esc(L.label(st))}</div>
     <label class="f" style="margin-top:10px"><span>Ημέρα</span>${segBtns('wd', DSHORT.map((n, i) => [i + 1, n]), wd)}</label>
     <div class="grid2"><label class="f"><span>Ώρες</span><input name="h" inputmode="decimal" value="${fmtH(slot?.h || st.dur || 1)}"></label>
     <label class="f"><span>Ώρα</span><input name="time" value="${esc(slot?.time || '')}" placeholder="π.χ. 17:00–18:30"></label></div>

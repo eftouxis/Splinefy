@@ -89,8 +89,8 @@ function lessonsCard(recv) {
   return `<div class="card row" data-go="#/lessons" style="cursor:pointer"><div class="dot">📚</div><div class="grow">
     <div class="small muted">Ιδιαίτερα ${MONTHS_GEN[new Date().getMonth()]}: εισπράξεις ${eur(recv)}</div>
     <div class="mid">${has ? `Μου χρωστάνε ${eur(owed)}` : 'Μαθήματα'}</div>
-    ${debt.length ? `<div class="small">${debt.map((x) => `${esc(x.s.name)} <b class="neg">${eur(x.b)}</b>`).join(' · ')}</div>` : ''}
-    ${has ? `<div class="small muted">${tl.length ? `Σήμερα: ${tl.map((l) => esc(LS.student(l.stu).name)).join(', ')}` : 'Σήμερα κανένα μάθημα'}</div>` : ''}</div><div class="muted">›</div></div>`;
+    ${debt.length ? `<div class="small">${debt.map((x) => `${esc(LS.label(x.s))} <b class="neg">${eur(x.b)}</b>`).join(' · ')}</div>` : ''}
+    ${has ? `<div class="small muted">${tl.length ? `Σήμερα: ${tl.map((l) => esc(LS.label(LS.student(l.stu)))).join(', ')}` : 'Σήμερα κανένα μάθημα'}</div>` : ''}</div><div class="muted">›</div></div>`;
 }
 const INC = new Set(['Μισθός', 'Ιδιαίτερα', 'Πωλήσεις', 'Επιδόματα', 'Δώρο', 'Από οικογένεια', 'Ενοίκιο', 'Άλλο']);
 function isIncomeCat(c) { return INC.has(c); }
