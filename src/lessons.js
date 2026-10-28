@@ -55,8 +55,10 @@ const RANK = { 'αργία': 3, 'γιορτή': 2, 'ειδική': 1 };
 let cache = { v: -1 };
 function build() {
   if (cache.v === state.version) return cache;
-  const students = records('student', [LSP]).sort((a, b) => a.name.localeCompare(b.name, 'el'));
-  const byId = new Map(students.map((s) => [s.id, s]));
+  const all = records('student', [LSP]).sort((a, b) => a.name.localeCompare(b.name, 'el'));
+  const byId = new Map(all.map((s) => [s.id, s]));
+  const students = all.filter((s) => !s.archived);               // archived = old school years (from the old Excel files)
+  const archive = all.filter((s) => s.archived);
   const slots = records('sched', [LSP]).filter((s) => byId.has(s.stu));
   const lx = records('lx', [LSP]).filter((x) => byId.has(x.stu));
   // holidays for every school year that has a slot or a lesson
@@ -84,16 +86,17 @@ function build() {
   }
   for (const x of lx) {
     const key = `${x.stu}|${x.d}`; const cur = L.get(key);
-    if (cur) { cur.h = x.h || 0; cur.ov = x.id; if (x.time) cur.time = x.time; }
-    else L.set(key, { stu: x.stu, d: x.d, h: x.h || 0, sched: 0, time: x.time || '', ov: x.id });
+    if (cur) { cur.h = x.h || 0; cur.ov = x.id; if (x.time) cur.time = x.time; if (x.v != null) cur.fv = x.v; }
+    else L.set(key, { stu: x.stu, d: x.d, h: x.h || 0, sched: 0, time: x.time || '', ov: x.id, fv: x.v });
   }
-  const lessons = [...L.values()].map((l) => ({ ...l, v: l.h * rateAt(byId.get(l.stu), l.d) }))
+  const lessons = [...L.values()].map((l) => ({ ...l, v: l.fv != null ? l.fv : l.h * rateAt(byId.get(l.stu), l.d) }))
     .sort((a, b) => (a.d === b.d ? (a.time < b.time ? -1 : 1) : a.d < b.d ? -1 : 1));
-  const pays = records('tx', [LSP]).filter((r) => r.stu && byId.has(r.stu));
-  cache = { v: state.version, students, byId, slots, lx, hol, lessons, pays, labels: null };
+  const pays = records('tx', [LSP]).filter((r) => r.stu && byId.has(r.stu)).concat(records('lpay', [LSP]).filter((r) => byId.has(r.stu)));
+  cache = { v: state.version, students, archive, byId, slots, lx, hol, lessons, pays, labels: null };
   return cache;
 }
 export const students = () => build().students;
+export const archive = () => build().archive;
 const firstName = (s) => (s.full || s.name || '').trim().split(/\s+/)[0];
 /** how a student is shown: first name; full name only when two active students share it */
 export function label(s) {
@@ -181,9 +184,15 @@ export function yearStats(Y) {
     r.sal = ended ? r.salGot : Math.max(r.salGot, r.salExp); r.salEst = !ended && r.salExp > r.salGot;
   }
   for (const r of out) r.total = r.les + r.sal + r.extra;
+  // old years (before the app): the monthly totals of the Excel history are the official ones
+  const lh = records('lhist', [LSP]).find((h) => h.y === Y); let excel = false;
+  if (lh && !students().some((s) => s.start && yearOf(s.start) <= Y && (!s.end || yearOf(s.end) >= Y) && lessons({ stu: s.id, from: yStart(Y), to: yEnd(Y) }).length)) {
+    excel = true;
+    out.forEach((r, i) => { r.les = lh.m[i] || 0; r.sal = 0; r.extra = 0; r.salEst = false; r.total = r.les; });
+  }
   const sum = (f) => out.reduce((s, r) => s + r[f], 0);
   const workMonths = weeks.size / 4.35;
-  return { Y, months: out, les: sum('les'), sal: sum('sal'), extra: sum('extra'), recv: sum('recv'), total: sum('total'),
+  return { Y, excel, months: out, les: sum('les'), sal: sum('sal'), extra: sum('extra'), recv: sum('recv'), total: sum('total'),
            weeks: weeks.size, workMonths, avgWork: workMonths ? sum('les') / workMonths : 0 };
 }
 /** totals per month for old years (history) and computed years */

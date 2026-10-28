@@ -199,6 +199,7 @@ export const statsView = {
     <div class="card" style="overflow-x:auto"><div class="small muted" style="margin-bottom:4px">σε €</div><table class="t st"><tr><th>Μήνας</th><th class="r">Μαθήμ.</th><th class="r">Μισθοί</th>${anyExtra ? '<th class="r">Έκτακτα</th>' : ''}<th class="r">Σύνολο</th><th class="r">Πέρσι</th><th class="r">Εισπρ.</th></tr>
       ${rows}<tr class="tot"><td>Σύνολο</td><td class="r">${n0(s.les)}</td><td class="r">${n0(s.sal)}</td>${anyExtra ? `<td class="r">${n0(s.extra)}</td>` : ''}<td class="r">${n0(s.total)}</td><td class="r muted">${prev ? n0(prev.total) : ''}</td><td class="r">${n0(s.recv)}</td></tr>
       <tr><td>÷12</td><td class="r">${n0(s.les / 12)}</td><td class="r">${n0(s.sal / 12)}</td>${anyExtra ? `<td class="r">${n0(s.extra / 12)}</td>` : ''}<td class="r"><b>${n0(s.total / 12)}</b></td><td class="r muted">${prev ? n0(prev.total / 12) : ''}</td><td></td></tr></table>
+      ${s.excel ? '<div class="note small" style="margin-top:8px">Παλιά χρονιά: τα ποσά είναι τα σύνολα του μήνα από το Excel σου (ιδιαίτερα, φροντιστήρια και ό,τι άλλο είχες βάλει εκεί). Τα μαθήματα του κάθε μαθητή: Όλοι οι μαθητές → Παλιές χρονιές.</div>' : ''}
       <div class="small muted" style="margin-top:8px">Μαθήματα = όλος ο μήνας μαζί με τα προγραμματισμένα (πλάγια = μελλοντικοί μήνες). Μισθοί: ό,τι πληρώθηκες στον μήνα που αφορά· για μήνες που δεν τελείωσαν, ο αναμενόμενος (Μισθοί → αναμενόμενος) αν είναι μεγαλύτερος. Έκτακτα (αναδρομικά κ.λπ.) προστίθενται πάντα. Εισπρ. = μόνο για πληροφορία: πόσα σου έδωσαν οι μαθητές μέσα στον μήνα (δεν μπαίνει στο σύνολο).
       Μ.Ο. μήνα δουλειάς: <b>${eur0(s.avgWork)}</b> (${s.weeks} εβδομάδες με μαθήματα ≈ ${s.workMonths.toFixed(1).replace('.', ',')} μήνες).</div></div>
     <h2>Όλες οι χρονιές</h2>
@@ -277,7 +278,15 @@ export const allView = {
       <div class="amt ${b > 0.005 ? 'neg' : ''}">${Math.abs(b) < 0.005 ? '✓' : eur(b)}</div></div>`; };
     return `<div class="top">${back()}<h1>Όλοι οι μαθητές</h1><a class="btn sm" href="#/lessons/edit/new">+ Νέος</a></div>
     <h2>Τώρα (${act.length})</h2><div class="list">${act.map(row).join('') || '<div class="item muted">—</div>'}</div>
-    <h2>Παλιοί (${old.length})</h2><div class="list">${old.map(row).join('') || '<div class="item muted">—</div>'}</div>`;
+    <h2>Παλιοί (${old.length})</h2><div class="list">${old.map(row).join('') || '<div class="item muted">—</div>'}</div>
+    ${(() => {
+      const ar = L.archive(); if (!ar.length) return '';
+      const ys = [...new Set(ar.map((s) => s.archived))].sort((a, b) => b - a);
+      return `<h2>Παλιές χρονιές (από τα Excel)</h2>` + ys.map((y) => { const l = ar.filter((s) => s.archived === y);
+        return `<details class="more"><summary>${L.yLabel(y)} · ${l.length} ▾</summary><div class="list">${l.map((s) => `<div class="item" data-go="#/lessons/s/${esc(s.id)}"><div class="dot">${esc(s.full.slice(0, 1))}</div>
+          <div class="grow"><div class="t">${esc(s.full)}</div><div class="s">${dFull(s.start)} – ${dFull(s.end)}${s.price ? ' · ' + eur(s.price) + '/ώρα' : ''}</div></div>
+          <div class="amt muted">${eur(L.lessons({ stu: s.id }).reduce((a, x) => a + x.v, 0))}</div></div>`).join('')}</div></details>`; }).join('');
+    })()}`;
   },
   mount(root, p, ui) { bindBack(root, ui); root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go))); },
 };

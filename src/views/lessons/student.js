@@ -4,12 +4,18 @@ import * as L from '../../lessons.js';
 import { lessonSheet, addLessonSheet, paySheet, slotSheet, fmtH, hoursTxt, DSHORT } from './ui.js';
 
 let month = null, cur = null;
+function archHead(id, st) {
+  const ls = L.lessons({ stu: id }); const v = ls.reduce((a, x) => a + x.v, 0), h = ls.reduce((a, x) => a + x.h, 0), p = L.payments(id).reduce((a, x) => a + (x.a || 0), 0);
+  return `<div class="grid3"><div class="card kpi"><div class="label">Ώρες</div><div class="mid">${fmtH(h)}</div></div><div class="card kpi"><div class="label">Αξία</div><div class="mid">${eur(v)}</div></div>
+    <div class="card kpi"><div class="label">Πληρωμές</div><div class="mid">${eur(p)}</div></div></div>
+    <div class="note small" style="margin-bottom:12px">Παλιά χρονιά (${esc(st.note || '')}) από τα Excel σου — για να τη βλέπεις· δεν μετράει στα «Μου χρωστάνε».</div>`;
+}
 export default {
   html([id]) {
     const st = L.student(id);
     if (!st) return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Δεν βρέθηκε</h1></div>`;
     const t = today();
-    if (cur !== id) { cur = id; month = t.slice(0, 7); }
+    if (cur !== id) { cur = id; month = st.archived && st.end ? st.end.slice(0, 7) : t.slice(0, 7); }
     const x = L.summary(id); const pr = L.priceAt(st);
     const bal = x.bal;
     // calendar
@@ -28,7 +34,7 @@ export default {
     }
     const mp = L.payments(id).filter((p) => p.d.startsWith(month)).reduce((s, p) => s + p.a, 0);
     // school-year table
-    const Y = L.yearOf(t);
+    const Y = st.archived ? Number(st.archived) : L.yearOf(t);
     const rows = L.yMonths(Y).map((mk, i) => {
       const from = i === 0 ? L.yStart(Y) : `${mk}-01`, to = i === 12 ? L.yEnd(Y) : `${mk}-31`;
       const ll = L.lessons({ stu: id, from, to });
@@ -45,7 +51,7 @@ export default {
       <div class="s">${dFull(s.from)} → ${s.to ? dFull(s.to) : 'χωρίς τέλος'}</div></div><div class="muted">›</div></div>`;
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(L.label(st))}</h1><a class="btn sm" href="#/lessons/edit/${esc(id)}">Επεξεργασία</a></div>
     ${st.full && st.full !== L.label(st) ? `<div class="small muted" style="margin:-6px 4px 10px">${esc(st.full)}${st.note ? ' · ' + esc(st.note) : ''}</div>` : st.note ? `<div class="small muted" style="margin:-6px 4px 10px">${esc(st.note)}</div>` : ''}
-    <div class="grid2">
+    ${st.archived ? archHead(id, st) : `    <div class="grid2">
       <div class="card kpi"><div class="label">${Math.abs(bal) < 0.005 ? 'Εξοφλημένος' : bal > 0 ? 'Χρωστάει' : 'Προπληρωμένα'}</div>
         <div class="big ${bal > 0.005 ? 'neg' : bal < -0.005 ? 'pos' : ''}">${Math.abs(bal) < 0.005 ? '✓' : eur(Math.abs(bal))}</div>
         <div class="small muted">${bal > 0.005 ? `${fmtH(x.unpaidH)} ώρες απλήρωτες` : x.lastPay ? 'τελευταία πληρωμή ' + dFull(x.lastPay.d) : ''}</div></div>
@@ -53,7 +59,8 @@ export default {
         <div class="small muted">${eur(x.rate)} την ώρα${st.end && st.end < t ? ' · σταμάτησε ' + dFull(st.end) : ''}</div></div>
     </div>
     <div class="grid2 quick" style="margin-bottom:12px"><button class="btn green" data-pay>+ Πληρωμή</button><button class="btn blue" data-addlesson>+ Μάθημα</button></div>
-    <div class="card">
+    `}
+<div class="card">
       <div class="row"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${MONTHS[m - 1]} ${y}</div><button class="btn sm ghost" data-m="1">▶</button></div>
       <div class="cal">${DSHORT.map((d) => `<div class="cal-h">${d}</div>`).join('')}${cells}</div>
       <div class="row small muted" style="margin-top:8px"><span class="grow">${hoursTxt(mh)} · ${eur(mv)}</span><span>πληρωμές μήνα: ${eur(mp)}</span></div>
@@ -67,7 +74,7 @@ export default {
     <div class="card"><table class="t"><tr><th>Μήνας</th><th class="r">Ώρες</th><th class="r">Αξία</th><th class="r">Πληρωμές</th></tr>${rows || '<tr><td colspan="4" class="muted">—</td></tr>'}</table>
       ${st.open ? `<div class="small muted" style="margin-top:6px">Από πριν: ${eur(st.open)}</div>` : ''}</div>
     <h2>Πληρωμές</h2>
-    <div class="list">${pays.slice(0, 40).map((p) => `<div class="item" data-paytx="${esc(p.id)}"><div class="dot">💶</div>
+    <div class="list">${pays.slice(0, 40).map((p) => `<div class="item" ${p.type === 'tx' ? `data-paytx="${esc(p.id)}"` : ''}><div class="dot">💶</div>
       <div class="grow"><div class="t">${dFull(p.d)}</div><div class="s">${esc(p.note || '')}</div></div><div class="amt pos">+${eur(p.a)}</div></div>`).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>`;
   },
   mount(root, [id], ui) {
