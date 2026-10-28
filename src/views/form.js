@@ -1,5 +1,6 @@
 import { esc, eur, today, parseAmount, norm, MONTHS, MONTHS_GEN, addMonths } from '../util.js';
 import { categories, memory, billType, recurringMovements } from '../ledger.js';
+import { addDays } from '../util.js';
 import * as store from '../store.js';
 import * as LS from '../lessons.js';
 import * as K from '../cars.js';
@@ -65,7 +66,8 @@ export default {
       <div class="card"><div class="muted small">Αυτή η φορά: ${esc(f.d)}</div>
         <label class="f"><span>Ποσό αυτή τη φορά</span><input class="amount" name="a" inputmode="decimal" value="${esc(f.a)}"></label>
         <label class="f"><span>Πλήρωσε</span>${seg('payer', people.map((p) => [p, p]), f.payer)}</label>
-        <div class="note">Αλλάζει μόνο αυτή τη φορά. <a href="#/rec/${esc(f.sp)}/${esc(f.rec)}">Μόνιμη αλλαγή του παγίου ›</a></div></div>
+        <label class="row" style="margin:4px 0 10px"><input type="checkbox" name="fwd" style="width:auto" ${f.fwd ? 'checked' : ''}> <b>Από εδώ και πέρα</b>&nbsp;με αυτό το ποσό (π.χ. νέα τιμή)</label>
+        <div class="note small">Χωρίς το τικ αλλάζει μόνο αυτή τη φορά. Οι προηγούμενες φορές μένουν πάντα όπως ήταν. <a href="#/rec/${esc(f.sp)}/${esc(f.rec)}">Όλες οι ρυθμίσεις του παγίου ›</a></div></div>
       <button class="btn primary" style="width:100%" data-save>Αποθήκευση</button>
       <button class="btn" style="width:100%;margin-top:8px" data-skip>${f.skipped ? 'Επαναφορά (έγινε κανονικά)' : 'Δεν έγινε αυτή τη φορά'}</button>`;
     }
@@ -112,6 +114,15 @@ export default {
         <div class="grid3"><label class="f"><span>Είδος</span><input name="bill" value="${esc(f.bill || billType(f.desc))}"></label>
         <label class="f"><span>Περίοδος</span><input name="period" value="${esc(f.period || '')}" placeholder="π.χ. 8/8–2/10"></label>
         <label class="f"><span>${({ 'Ρεύμα': 'kWh', 'Νερό': 'm³', 'Θέρμανση': 'Μονάδες' })[f.bill || billType(f.desc)] || 'Κατανάλωση'}</span><input name="cons" inputmode="decimal" value="${esc(f.cons ?? '')}"></label></div></div>` : ''}
+      ${!f.id && k !== 'Μεταφορά' ? (() => {
+        const n = norm(f.desc).trim(); const t0 = f.d || today();
+        const defs = n ? store.records('rec').filter((r) => norm(r.name).trim() === n) : [];
+        const occ = defs.length ? recurringMovements(addMonths(t0, 2)).find((m) => defs.some((x) => x.id === m.rec) && Math.abs((new Date(m.d) - new Date(t0)) / 864e5) <= 20) : null;
+        const def = occ ? defs.find((x) => x.id === occ.rec) : null;
+        if (occ) return `<div class="note" style="margin-bottom:10px">↻ Το «${esc(def.name)}» είναι πάγιο και μπαίνει μόνο του (${esc(occ.d.split('-').reverse().join('/'))}, ${eur(occ.a)}). Για νέο ποσό <a href="#/edit/${esc(def._sp)}/${esc(occ.id)}">πάτα εδώ</a> και διάλεξε «Από εδώ και πέρα» — αλλιώς θα μετρηθεί δύο φορές.</div>`;
+        return `<label class="row small" style="margin:0 2px 10px"><input type="checkbox" name="rep" style="width:auto" ${f.rep ? 'checked' : ''}> ↻ Επαναλαμβάνεται
+          <select name="repf" style="width:auto;padding:6px 8px;font-size:14px;margin-left:6px">${[['m1', 'κάθε μήνα'], ['m2', 'κάθε 2 μήνες'], ['m3', 'κάθε 3 μήνες'], ['m6', 'κάθε 6 μήνες'], ['m12', 'κάθε χρόνο'], ['d14', 'κάθε 2 εβδομάδες'], ['d7', 'κάθε εβδομάδα']].map(([v, l]) => `<option value="${v}" ${v === (f.repf || 'm1') ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
+      })() : ''}
       <details class="more" ${f.trip || f.share || (f.oth && f.oth.length) || f.moreOpen || (f.note && f.cat !== 'Αυτοκίνητο') ? 'open' : ''}><summary>Περισσότερα ▾</summary>
         ${k === 'Έξοδο' ? `<label class="f"><span>Ταξίδι</span><input name="trip" list="trips" value="${esc(f.trip)}" autocomplete="off"></label>
           <datalist id="trips">${trips.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>
@@ -181,6 +192,14 @@ export default {
       if (amt == null || amt < 0) { ui.toast('Γράψε ποσό'); return; }
       if (f.occ) {
         const [rid, d] = f.id.split('@');
+        if (f.fwd) {                                // split the recurring item: the old one ends the day before, a new one starts here
+          const def = store.state.data[f.sp].recs.get(rid);
+          const { id: _i, _t, _u, _m, _x, _sp, ...rest } = def;
+          const ov = store.state.data[f.sp].recs.has(f.id) ? [{ id: f.id, del: true }] : [];
+          if (!def.start || d <= def.start) await store.putMany(f.sp, [{ id: rid, set: { a: amt, payer: f.payer } }, ...ov]);   // the very first time: just change it
+          else await store.putMany(f.sp, [{ id: rid, set: { end: addDays(d, -1) } }, { id: null, set: { ...rest, a: amt, payer: f.payer, start: d } }, ...ov]);
+          f = null; ui.toast('Νέο ποσό από εδώ και πέρα ✓'); ui.back(); return;
+        }
         await store.put(f.sp, f.id, { type: 'recx', a: amt, payer: f.payer, skip: f.skipped || null });
         f = null; ui.toast('Αποθηκεύτηκε ✓'); ui.back(); return;
       }
@@ -213,7 +232,14 @@ export default {
         else if (want !== f.sp && f.sp !== 'shared') await store.move(f.sp, want, { ...cur, ...rec });
         else await store.put(f.sp, f.id, rec);
       } else {
-        await store.put(targetSpace(f), null, rec);
+        const tsp = targetSpace(f);
+        await store.put(tsp, null, rec);
+        if (f.rep && (f.rep === true || f.rep === 'on')) {        // from now on it is a recurring item (starts at the next time)
+          const [u, e] = [f.repf?.[0] === 'd' ? 'd' : 'm', Number((f.repf || 'm1').slice(1))];
+          const next = u === 'd' ? addDays(f.d, e) : addMonths(f.d, e);
+          await store.put(tsp, null, { type: 'rec', name: rec.desc || rec.cat, a: rec.a, cat: rec.cat, kind: rec.kind, payer: rec.payer, for: rec.for, unit: u, every: e, start: next, oth: rec.oth || null, both: null });
+          ui.toast('Καταχωρήθηκε ✓ και μπήκε στα πάγια');
+        }
       }
       ui.toast('Καταχωρήθηκε ✓');
       if (again) { const kk = KEY[f.kind]; const d = f.d; f = blank(kk); f.kindKey = kk; f.d = d; ui.render(); }

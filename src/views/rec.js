@@ -26,14 +26,14 @@ const listView = {
   live: true,
   html() {
     const t = today();
-    const all = store.records('rec').sort((a, b) => (nextDate(a) || '9') < (nextDate(b) || '9') ? -1 : 1);
+    const all = store.records('rec').filter((r) => !(r.start && r.end && r.end < r.start)).sort((a, b) => (nextDate(a) || '9') < (nextDate(b) || '9') ? -1 : 1);
     const act = all.filter((r) => !r.start || nextDate(r)), old = all.filter((r) => r.start && !nextDate(r));
     const mine = act.filter((r) => r._sp !== 'shared'), shared = act.filter((r) => r._sp === 'shared');
     const row = (r) => {
       const nx = nextDate(r);
       return `<div class="item" data-go="#/rec/${esc(r._sp)}/${esc(r.id)}"><div class="dot">${ICON[r.cat] || '📄'}</div>
         <div class="grow"><div class="t">${esc(r.name)}</div>
-        <div class="s">${r.start && r.start > t ? 'ξεκινά ' + dFull(r.start) + ' · ' : ''}${freqLabel(r)} · ${r.start ? (nx ? 'επόμενο ' + dShort(nx) : 'τελείωσε') : '<span class="neg">⚠ χωρίς ημερομηνία έναρξης</span>'}${r.for === 'Κοινό' ? ' · κοινό ½' : ''}${r.oth ? ' · μοιράζεται' : ''}${r.end && r.end >= t ? ' · έως ' + dFull(r.end) : ''}</div></div>
+        <div class="s">${r.start && r.start > t && nx ? 'ξεκινά ' + dFull(r.start) + ' · ' : ''}${freqLabel(r)} · ${r.start ? (nx ? 'επόμενο ' + dShort(nx) : 'τελείωσε') : '<span class="neg">⚠ χωρίς ημερομηνία έναρξης</span>'}${r.for === 'Κοινό' ? ' · κοινό ½' : ''}${r.oth ? ' · μοιράζεται' : ''}${r.end && r.end >= t ? ' · έως ' + dFull(r.end) : ''}</div></div>
         <div class="amt ${r.kind === 'Έσοδο' ? 'pos' : ''}">${eur(r.a)}</div></div>`;
     };
     const sum = (l) => l.filter((r) => !r.start || r.start <= addMonths(t, 1)).reduce((s, r) => s + monthly(r) * (r.for === 'Κοινό' ? 0.5 : 1), 0);
