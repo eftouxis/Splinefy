@@ -58,13 +58,18 @@ export function kmIn(carId, from, to) {
   const hi = Math.max(...inside), lo = before || Math.min(...inside);
   return Math.max(0, hi - lo);
 }
-/** consumption per 100 km for one fuel type in a date range (full fill-ups with km) */
+/** fuel used per 100 km of driving (all fuels share the same km): fills after the first km reading up to the last one.
+ *  Works for bi-fuel cars too (e.g. 5 kg gas + 1 l petrol per 100 km) and needs km only now and then, not at every fill. */
 export function consumption(carId, ft, from, to) {
-  const l = fills(carId).filter((f) => f.ft === ft && f.km && f.q && f.d >= from && f.d <= to).sort((a, b) => a.km - b.km);
-  if (l.length < 2) return null;
-  const dist = l[l.length - 1].km - l[0].km; if (dist <= 0) return null;
-  return (l.slice(1).reduce((s, f) => s + f.q, 0) / dist) * 100;
+  const all = fills(carId).filter((f) => f.d >= from && f.d <= to);
+  const wk = all.filter((f) => f.km).sort((a, b) => a.km - b.km || (a.d < b.d ? -1 : 1));
+  if (wk.length < 2) return null;
+  const first = wk[0], last = wk[wk.length - 1]; const dist = last.km - first.km; if (dist <= 0) return null;
+  const q = all.filter((f) => f !== first && f.ft === ft && f.q && (f.km ? f.km > first.km && f.km <= last.km : f.d > first.d && f.d <= last.d)).reduce((s, f) => s + f.q, 0);
+  return q ? (q / dist) * 100 : null;
 }
+/** car that runs on two fuels (CNG cars always have petrol too) */
+export const isBi = (carId) => { const c = car(carId); if (!c) return false; const fs = new Set(fills(carId).map((f) => f.ft)); return c.fuel === 'Αέριο' || fs.size > 1; };
 export function money(carId, from, to) {
   const fu = fills(carId).filter((f) => f.d >= from && f.d <= to).reduce((s, f) => s + (f.a || 0), 0);
   const sv = events(carId).filter((e) => e.d >= from && e.d <= to).reduce((s, e) => s + (e.a || 0), 0);
@@ -73,7 +78,11 @@ export function money(carId, from, to) {
 export function summary(carId) {
   const t = today(); const y0 = `${t.slice(0, 4)}-01-01`; const m12 = addMonths(t, -12);
   const km12 = kmIn(carId, m12, t); const mo12 = money(carId, m12, t); const yr = money(carId, y0, t);
-  const fuelKm = (() => { const l = fills(carId).filter((f) => f.km && f.d >= m12); if (l.length < 2) return null; const d = Math.max(...l.map((f) => f.km)) - Math.min(...l.map((f) => f.km)); return d > 0 ? (l.slice(1).reduce((s, f) => s + (f.a || 0), 0) / d) * 100 : null; })();
+  const fuelKm = (() => {
+    const all = fills(carId).filter((f) => f.d >= m12); const wk = all.filter((f) => f.km).sort((a, b) => a.km - b.km); if (wk.length < 2) return null;
+    const first = wk[0], last = wk[wk.length - 1], d = last.km - first.km; if (d <= 0) return null;
+    return (all.filter((f) => f !== first && (f.km ? f.km > first.km && f.km <= last.km : f.d > first.d && f.d <= last.d)).reduce((s, f) => s + (f.a || 0), 0) / d) * 100;
+  })();
   return { last: lastKm(carId), kmMonth: km12 / 12, km12, petrol: consumption(carId, 'Βενζίνη', m12, t), gas: consumption(carId, 'Αέριο', m12, t),
     eur100: fuelKm, year: yr, perKm: km12 ? mo12.total / km12 : null };
 }

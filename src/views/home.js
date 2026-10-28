@@ -37,7 +37,7 @@ export default {
     <div class="top"><h1>Οικονομικά</h1>${syncBadge()}</div>
     <div class="grid2">
       <div class="card kpi" data-go="#/list/shared"><div class="label">${debtTxt}</div><div class="big ${owe >= 0 ? '' : 'neg'}">${eur(Math.abs(owe))}</div></div>
-      <div class="card kpi" data-go="#/list/philippos"><div class="label">Ο Άλκης χρωστάει στον Φίλιππο</div><div class="big">${eur(d.philippos)}</div></div>
+      <div class="card kpi" data-go="#/philippos"><div class="label">Ο Άλκης χρωστάει στον Φίλιππο</div><div class="big">${eur(d.philippos)}</div></div>
     </div>
     <div class="grid3 quick" style="margin-bottom:12px">
       <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="#/add/inc">+ Έσοδο</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>

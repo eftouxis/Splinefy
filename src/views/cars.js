@@ -62,6 +62,7 @@ const detail = {
     <div class="grid2" style="margin-bottom:12px"><button class="btn" data-odo>+ Χιλιόμετρα (κοντέρ)</button><a class="btn" href="#/add/exp?cat=Αυτοκίνητο">+ Συνεργείο / έξοδο</a></div>
     <div class="card" style="overflow-x:auto"><table class="t st"><tr><th>Έτος</th><th class="r">km</th><th class="r">Καύσιμα</th>${hasP ? '<th class="r">l/100</th>' : ''}${hasG ? '<th class="r">kg/100</th>' : ''}<th class="r">Συνεργ.</th><th class="r">Σύνολο</th><th class="r">€/km</th></tr>${rows}</table>
       <div class="small muted" style="margin-top:6px">ποσά σε €</div></div>
+    ${K.isBi(id) ? `<div class="note small" style="margin-bottom:12px">⛽ Το ${esc(c.name)} καίει αέριο και βενζίνη. Η κατανάλωση μετράει ανά 100 km συνολικής οδήγησης: π.χ. «kg/100: 5» και «l/100: 1» σημαίνει ότι κάθε 100 km θέλουν περίπου 5 kg αέριο <b>και</b> 1 λίτρο βενζίνη. Το πιο χρήσιμο νούμερο είναι το €/100 km (τι κοστίζουν τα καύσιμα ανά 100 km). Αρκεί να γράφεις σε κάθε γέμισμα τι έβαλες και πόσο, και τα χιλιόμετρα του κοντέρ όποτε μπορείς.</div>` : ''}
     <h2>Υπενθυμίσεις</h2><div class="list">${K.reminders(id).map((r) => remRow(r, false)).join('') || '<div class="item muted">Καμία</div>'}</div>
     <h2>Συνεργεία, ΚΤΕΟ κ.λπ.</h2>
     <div class="list">${ev.slice(0, 40).map((e) => `<div class="item" ${e.tx ? `data-edit="${esc(e._sp)}/${esc(e.id)}"` : `data-ev="${esc(e.id)}"`}><div class="dot">🔧</div><div class="grow"><div class="t">${esc(e.title || e.typ || '')}</div>

@@ -12,6 +12,8 @@ import cats from './views/cats.js';
 import stats from './views/stats.js';
 import carsView from './views/cars.js';
 import peopleView from './views/people.js';
+import tripsView from './views/trips.js';
+import philView from './views/philippos.js';
 import { hasLessons } from './lessons.js';
 
 const app = document.getElementById('app');
@@ -22,6 +24,7 @@ const ROUTES = [
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
   [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'], [/^#\/cars(?:\/([\w-]+))?$/, carsView, 'stats'], [/^#\/people(?:\/([\w-]+))?$/, peopleView, 'home'],
+  [/^#\/trips(?:\/(.+))?$/, tripsView, 'stats'], [/^#\/philippos$/, philView, 'home'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0 };
 

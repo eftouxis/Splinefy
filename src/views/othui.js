@@ -5,12 +5,13 @@ import * as P from '../people.js';
 export const shareTxt = (o) => (o.a != null ? String(o.a).replace('.', ',') : o.f === 0.5 ? '½' : o.f != null ? `${Math.round(o.f * 100)}%` : '');
 export function othHtml(list) {
   const ps = P.people();
-  if (!ps.length) return `<div class="small muted" style="margin:4px 2px 10px">Μέρος το χρωστάει άλλος: πρόσθεσε πρώτα άτομα (Αρχική → Χρωστούμενα).</div>`;
+  if (!ps.length) return `<div class="small muted" style="margin:4px 2px 10px">Μέρος το πληρώνει κάποιος τρίτος (αδερφή, φίλοι…): πρόσθεσε πρώτα το άτομο στο Αρχική → Χρωστούμενα.</div>`;
   const rows = (list && list.length ? list : []).map((o, i) => `<div class="grid2" data-othrow="${i}" style="margin-bottom:6px">
       <select name="othp">${ps.map((p) => `<option value="${esc(p.id)}" ${p.id === o.p ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}<option value="">— κανείς —</option></select>
       <input name="otha" inputmode="decimal" value="${esc(shareTxt(o))}" placeholder="½ ή ποσό ή %"></div>`).join('');
-  return `<label class="f"><span>Μέρος το χρωστάει άλλος (μετράει μόνο το δικό σου μέρος)</span>${rows}
-    <button type="button" class="btn sm" data-othadd>+ Άτομο</button></label>`;
+  return `<label class="f"><span>Μέρος το χρωστάει κάποιος τρίτος (αδερφή, φίλοι…)</span>${rows}
+    <button type="button" class="btn sm" data-othadd>+ Άτομο</button>
+    <div class="small muted" style="margin:6px 2px 0">Γράψε ½, 30% ή ποσό. Αυτό το κομμάτι δεν μετράει στα έξοδά σας — μπαίνει στα Χρωστούμενα ως «μου χρωστάει». Το υπόλοιπο μοιράζεται κανονικά με το «Για ποιον» (π.χ. Χαρά + Σοφία & Μάνος ½).</div></label>`;
 }
 export function readOth(root) {
   const out = [];

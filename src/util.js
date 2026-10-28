@@ -29,7 +29,7 @@ export const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replac
 export const round2 = (x) => Math.round((x || 0) * 100) / 100;
 export function parseAmount(v) {
   if (v == null) return null;
-  let s = String(v).trim().replace(/\s/g, '').replace(/€/g, '');
+  let s = String(v).trim().replace(/\s/g, '').replace(/€/g, '').replace(/[×xX]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').replace(/[+\-*/]+$/, '');
   if (!s) return null;
   if (/^[\d.,+\-*/()]+$/.test(s)) {
     s = s.replace(/,/g, '.');

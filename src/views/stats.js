@@ -4,6 +4,7 @@ import { state, records } from '../store.js';
 import { movements, fx, VIEWS } from '../ledger.js';
 import * as ST from '../stats.js';
 import { ICON } from './common.js';
+import * as T from '../trips.js';
 
 let view = null, tab = 'months', selY = null, selCat = null;
 const TABS = [['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί']];
@@ -127,13 +128,11 @@ const pages = {
     <div class="card"><table class="t st">${yrs.map(([y, v]) => `<tr><td>${y}</td><td class="r">${eur(v)}</td><td class="r muted">${eur(v / (y === Y ? Number(t.slice(5, 7)) : 12))}/μήνα</td></tr>`).join('')}</table></div>`;
   },
   trips() {
-    const meta = new Map(records('trip').map((x) => [x.name, x]));
-    const list = [...ST.cube().trips.values()].sort((a, b) => (a.to < b.to ? 1 : -1));
-    const days = (tr) => { const m = meta.get(tr.name); const a = m?.start || tr.from, b = m?.end || tr.to; return Math.round((new Date(b) - new Date(a)) / 864e5) + 1; };
-    return `<div class="note small" style="margin-bottom:10px">Ό,τι γράφεις με «Ταξίδι» (στα «Περισσότερα» του εξόδου). Μερίδιο = πόσο κόστισε στον καθένα.</div>
-    <div class="list">${list.map((tr) => { const d = days(tr); return `<div class="item" data-q="${esc(tr.name)}"><div class="dot">✈️</div>
-      <div class="grow"><div class="t">${esc(tr.name)}</div><div class="s">${dFull(meta.get(tr.name)?.start || tr.from)} · ${d} ${d === 1 ? 'μέρα' : 'μέρες'} · ${eur(tr.N / d)}/μέρα · Άλκης ${eur(tr.Q)} · Χαρά ${eur(tr.S)}</div></div>
-      <div class="amt">${eur(tr.N)}</div></div>`; }).join('') || '<div class="item muted">Κανένα ταξίδι</div>'}</div>`;
+    const list = T.trips().map((x) => ({ x, s: T.summary(x.name) })).sort((a, b) => ((b.s.to || '9') > (a.s.to || '9') ? 1 : -1));
+    return `<div class="row" style="margin-bottom:10px"><div class="grow small muted">Πάτα ένα ταξίδι για τα έξοδά του, τις ημερομηνίες και αλλαγή ονόματος.</div><a class="btn sm primary" href="#/trips">+ / Επεξεργασία</a></div>
+    <div class="list">${list.map(({ x, s }) => `<div class="item" data-trip="${esc(x.name)}"><div class="dot">✈️</div>
+      <div class="grow"><div class="t">${esc(x.name)}</div><div class="s">${s.from ? dFull(s.from) + ' · ' : ''}${s.days} ${s.days === 1 ? 'μέρα' : 'μέρες'} · ${eur(s.N / s.days)}/μέρα · Άλκης ${eur(s.Q)} · Χαρά ${eur(s.S)}</div></div>
+      <div class="amt">${eur(s.N)}</div></div>`).join('') || '<div class="item muted">Κανένα ταξίδι</div>'}</div>`;
   },
   bills() {
     const t = today(); const Y = Number(t.slice(0, 4));
@@ -178,6 +177,7 @@ export default {
     root.querySelectorAll('[data-cat]').forEach((b) => b.addEventListener('click', () => { selCat = b.dataset.cat; tab = 'cats'; ui.go('#/stats/cats'); }));
     root.querySelectorAll('[data-q]').forEach((b) => b.addEventListener('click', () => { window.__listSet?.({ q: b.dataset.q }); ui.go('#/list'); }));
     root.querySelector('[data-listm]')?.addEventListener('click', (e) => { window.__listSet?.({ month: e.target.dataset.listm, q: '' }); ui.go('#/list'); });
+    root.querySelectorAll('[data-trip]').forEach((b) => b.addEventListener('click', () => ui.go(`#/trips/${encodeURIComponent(b.dataset.trip)}`)));
     root.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => ui.go(`#/edit/${b.dataset.edit}`)));
   },
 };

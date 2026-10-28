@@ -6,6 +6,28 @@ import * as LS from '../lessons.js';
 import * as K from '../cars.js';
 import { othHtml, readOth } from './othui.js';
 import { label as stuLabel } from './lessons/ui.js';
+import { calcHtml, bindCalc } from './calc.js';
+import * as T from '../trips.js';
+import * as P from '../people.js';
+import { fx } from '../ledger.js';
+import { tripSheet } from './trips.js';
+
+/** «who finally pays what» line under the expense form */
+function burdenHtml(f) {
+  const amt = parseAmount(f.a); if (f.kind !== 'Έξοδο' || !amt) return '';
+  const oth = (f.oth || []).filter((o) => o.p && (o.a != null || o.f));
+  const both = f.payer === 'Και οι 2' ? parseAmount(f.both) ?? (parseAmount(f.bothX) != null ? amt - parseAmount(f.bothX) : null) : null;
+  const r = { kind: 'Έξοδο', d: '2000-01-01', a: amt, payer: f.payer === 'Και οι 2' ? 'Άλκης' : f.payer, for: f.for || 'Κοινό', both, share: f.for === 'Κοινό' ? parseAmount(f.share) : null, oth };
+  const x = fx(r, '9999-12-31');
+  const othParts = oth.map((o) => [P.person(o.p)?.name || '—', o.a != null ? o.a : o.f * amt]);
+  const parts = (x.O === 'Φίλιππος' ? [['Φίλιππος', x.N]] : [['Άλκης', x.Q], ['Χαρά', x.S]]).filter(([, v]) => Math.abs(v) > 0.004).concat(othParts);
+  const lines = [`Τελικά το επιβαρύνονται: ${parts.map(([n, v]) => `${esc(n)} <b>${eur(v)}</b>`).join(' · ') || '—'}`];
+  if (x.O === 'Φίλιππος') lines.push('Βγαίνει από τα χρήματα του Φιλίππου (πορτοφόλι του).');
+  else { const net = x.P - x.Q; if (Math.abs(net) > 0.004) lines.push(net > 0 ? `→ Η Χαρά χρωστάει στον Άλκη <b>${eur(net)}</b> από αυτό` : `→ Ο Άλκης χρωστάει στη Χαρά <b>${eur(-net)}</b> από αυτό`); }
+  if (othParts.length) lines.push(r.payer === store.state.user ? `→ ${othParts.map(([n, v]) => `${esc(n)} <b>${eur(v)}</b>`).join(', ')} στα Χρωστούμενα (σου τα χρωστάνε)` : '→ Τα Χρωστούμενα μετράνε μόνο όταν πλήρωσες εσύ.');
+  if (parseAmount(f.share) != null && f.for !== 'Κοινό') lines.push('<span class="neg">Το «όχι μισό-μισό» ισχύει μόνο με «Κοινό».</span>');
+  return lines.join('<br>');
+}
 
 const KIND = { exp: 'Έξοδο', inc: 'Έσοδο', trf: 'Μεταφορά' };
 const KEY = { 'Έξοδο': 'exp', 'Έσοδο': 'inc', 'Μεταφορά': 'trf' };
@@ -24,7 +46,7 @@ function blank(kindKey) {
   const me = store.state.user;
   const pre = new URLSearchParams(location.hash.split('?')[1] || '');
   return { mm: '', kind: KIND[kindKey], d: today(), a: '', desc: '', cat: '', payer: me, for: kindKey === 'exp' ? 'Κοινό' : kindKey === 'trf' ? (me === 'Άλκης' ? 'Χαρά' : 'Άλκης') : '',
-    both: '', share: '', trip: '', note: '', bill: '', period: '', cons: '', toShared: false, id: null, sp: null, touched: {}, ...(pre.get('cat') ? { cat: pre.get('cat') } : {}) };
+    both: '', share: '', trip: '', note: '', bill: '', period: '', cons: '', toShared: false, id: null, sp: null, touched: {}, ...(pre.get('cat') ? { cat: pre.get('cat') } : {}), ...(pre.get('trip') ? { trip: pre.get('trip'), tripTouched: 1 } : {}), ...(pre.get('for') ? { for: pre.get('for'), touched: { for: 1 } } : {}) };
 }
 /** where a movement is stored: personal space only when it concerns the user alone */
 function targetSpace(x) {
@@ -38,6 +60,7 @@ function targetSpace(x) {
   if (parseAmount(x.both) != null || parseAmount(x.share) != null) return 'shared';
   return personal.id;
 }
+const ftOf = (f) => (f.touched?.ft && f.ft ? f.ft : K.fuelFromText(f.desc, f.car));
 const seg = (name, opts, val, cls = '') => `<div class="seg ${cls}" data-seg="${name}">${opts.map(([v, l]) => `<button type="button" data-val="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
 
 export default {
@@ -50,7 +73,7 @@ export default {
         let r = store.state.data[sp]?.recs.get(id);
         if (!r && id.includes('@')) { occ = recurringMovements('2100-01-01').find((x) => x.id === id); r = occ; }
         if (!r) return `<h1>Δεν βρέθηκε</h1><a class="btn" href="#/">Αρχική</a>`;
-        f = { ...blank(KEY[r.kind] || 'exp'), ...Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith('_'))), a: r.a ?? '', both: r.both ?? '', share: r.share ?? '', cons: r.cons ?? '', id, sp, occ: id.includes('@'), touched: { cat: 1, for: 1, payer: 1 }, mm: r.md ? r.md.slice(0, 7) : '' };
+        f = { ...blank(KEY[r.kind] || 'exp'), ...Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith('_'))), a: r.a ?? '', both: r.both ?? '', share: r.share ?? '', cons: r.cons ?? '', id, sp, occ: id.includes('@'), touched: { cat: 1, for: 1, payer: 1, ft: r.ft ? 1 : 0 }, tripTouched: 1, mm: r.md ? r.md.slice(0, 7) : '' };
         if (r.kind === 'Έξοδο' && r.both != null) { f.payer = 'Και οι 2'; f.bothX = String(Math.round(((r.a || 0) - r.both) * 100) / 100).replace('.', ','); }
       }
     } else if (!f || f.id || f.kindKey !== a || location.hash.includes('?')) { f = blank(a); f.kindKey = a; if (location.hash.includes('?')) history.replaceState(null, '', `#/add/${a}`); }
@@ -60,11 +83,13 @@ export default {
     const descs = [...new Set(store.records('tx').sort((x, y) => (x.d < y.d ? 1 : -1)).map((r) => r.desc).filter(Boolean))].slice(0, 400);
     const trips = store.records('trip').map((t) => t.name);
     const target = f.id ? f.sp : targetSpace(f);
+    if (k === 'Έξοδο' && !f.id && !f.tripTouched) { const on = T.tripOn(f.d || today()); f.trip = on ? on.name : ''; f.tripAuto = !!on; }
+    const tripPicks = k === 'Έξοδο' ? [...new Set([...(f.trip ? [f.trip] : []), ...T.recentTrips(f.d || today())])] : [];
     const tgtName = target === 'shared' ? 'Κοινό — το βλέπει και η Χαρά' : 'Προσωπικό — μόνο εσύ';
     if (f.occ) {
       return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(f.desc)} <span class="small muted">↻ πάγιο</span></h1></div>
       <div class="card"><div class="muted small">Αυτή η φορά: ${esc(f.d)}</div>
-        <label class="f"><span>Ποσό αυτή τη φορά</span><input class="amount" name="a" inputmode="decimal" value="${esc(f.a)}"></label>
+        <label class="f"><span>Ποσό αυτή τη φορά</span><input class="amount" name="a" inputmode="decimal" value="${esc(f.a)}">${calcHtml()}</label>
         <label class="f"><span>Πλήρωσε</span>${seg('payer', people.map((p) => [p, p]), f.payer)}</label>
         <label class="row" style="margin:4px 0 10px"><input type="checkbox" name="fwd" style="width:auto" ${f.fwd ? 'checked' : ''}> <b>Από εδώ και πέρα</b>&nbsp;με αυτό το ποσό (π.χ. νέα τιμή)</label>
         <div class="note small">Χωρίς το τικ αλλάζει μόνο αυτή τη φορά. Οι προηγούμενες φορές μένουν πάντα όπως ήταν. <a href="#/rec/${esc(f.sp)}/${esc(f.rec)}">Όλες οι ρυθμίσεις του παγίου ›</a></div></div>
@@ -75,6 +100,7 @@ export default {
     ${f.id ? '' : seg('kind', [['Έξοδο', 'Έξοδο'], ['Έσοδο', 'Έσοδο'], ['Μεταφορά', 'Μεταφορά']], k, kk)}
     <div class="card" style="margin-top:10px">
       <input class="amount" name="a" inputmode="decimal" placeholder="0,00 €" value="${esc(f.a)}" autocomplete="off">
+      ${calcHtml()}
       <div class="grid2" style="margin-top:10px">
         <label class="f"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(f.d)}"></label>
         ${k === 'Μεταφορά' ? '<div></div>' : `<label class="f"><span>Κατηγορία</span><select name="cat"><option value=""></option>${cats.map((c) => `<option ${c === f.cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>`}
@@ -101,14 +127,17 @@ export default {
           <label class="f"><span>Έδωσε η Χαρά (€)</span><input name="bothX" inputmode="decimal" value="${esc(f.bothX ?? '')}"></label></div>` : ''}
         <label class="f"><span>Για ποιον</span>${k === 'Έσοδο'
           ? seg('for', [['', 'Μόνο γι’ αυτόν'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for)
-          : seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>`}
+          : seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>
+        ${k === 'Έξοδο' ? `<div class="burden muted" data-burden>${burdenHtml(f)}</div>` : ''}`}
+      ${k === 'Έξοδο' && f.trip && f.tripAuto && !f.tripTouched ? `<div class="note trip-on" style="margin-bottom:10px"><span class="grow">✈️ Μπαίνει στο ταξίδι <b>${esc(f.trip)}</b> (είσαι σε ταξίδι αυτές τις μέρες)</span><button type="button" class="btn sm" data-notrip>Όχι</button></div>` : ''}
       ${k === 'Έξοδο' && K.cars().length && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο' || f.car) ? (() => {
         const fuel = K.isFuelText(f.desc) && f.cat !== 'Αυτοκίνητο', service = !fuel && f.cat === 'Αυτοκίνητο';
         if (!f.carTouched && !f.id) f.car = K.carFromText(f.desc, f.cat) || null;
         return `<div class="note" style="margin-bottom:10px"><label class="f"><span>${fuel ? '⛽ Καύσιμα για' : '🔧 Ποιο αυτοκίνητο'}</span><div class="chips" data-car>${K.cars().filter((c) => !c.sold || c.id === f.car).map((c) => `<button type="button" class="chip ${c.id === f.car ? 'on' : ''}" data-id="${esc(c.id)}">🚗 ${esc(c.name)}</button>`).join('')}
           ${service ? '' : `<button type="button" class="chip ${f.car ? '' : 'on'}" data-id="">Κανένα</button>`}</div></label>
+          ${fuel && f.car && K.isBi(f.car) ? `<label class="f"><span>Τι έβαλες</span>${seg('ft', [['Αέριο', 'Αέριο (CNG)'], ['Βενζίνη', 'Βενζίνη']], ftOf(f))}</label>` : ''}
           ${fuel && f.car ? `<div class="grid2"><label class="f"><span>Χιλιόμετρα κοντέρ (προαιρετικά)</span><input name="km" inputmode="numeric" value="${esc(f.km ?? '')}"></label>
-            <label class="f"><span>${K.fuelFromText(f.desc, f.car) === 'Αέριο' ? 'Κιλά' : 'Λίτρα'} (προαιρετικά)</span><input name="q" inputmode="decimal" value="${esc(f.q ?? '')}"></label></div>` : ''}
+            <label class="f"><span>${ftOf(f) === 'Αέριο' ? 'Κιλά' : 'Λίτρα'} (προαιρετικά)</span><input name="q" inputmode="decimal" value="${esc(f.q ?? '')}"></label></div>` : ''}
           ${service ? `<label class="f" style="margin:0"><span>Τι έκαναν (προαιρετικά)</span><textarea name="note" rows="2" placeholder="π.χ. λάδια, φίλτρα, τακάκια">${esc(f.note || '')}</textarea></label>` : ''}</div>`;
       })() : ''}
       ${k === 'Έξοδο' && (f.bill || billType(f.desc)) ? `<div class="note" style="margin-bottom:10px"><div class="small" style="font-weight:600;margin-bottom:6px">📄 Λογαριασμός (προαιρετικά)</div>
@@ -125,9 +154,12 @@ export default {
           <select name="repf" style="width:auto;padding:6px 8px;font-size:14px;margin-left:6px">${[['m1', 'κάθε μήνα'], ['m2', 'κάθε 2 μήνες'], ['m3', 'κάθε 3 μήνες'], ['m6', 'κάθε 6 μήνες'], ['m12', 'κάθε χρόνο'], ['d14', 'κάθε 2 εβδομάδες'], ['d7', 'κάθε εβδομάδα']].map(([v, l]) => `<option value="${v}" ${v === (f.repf || 'm1') ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
       })() : ''}
       <details class="more" ${f.trip || f.share || (f.oth && f.oth.length) || f.moreOpen || (f.note && f.cat !== 'Αυτοκίνητο') ? 'open' : ''}><summary>Περισσότερα ▾</summary>
-        ${k === 'Έξοδο' ? `<label class="f"><span>Ταξίδι</span><input name="trip" list="trips" value="${esc(f.trip)}" autocomplete="off"></label>
+        ${k === 'Έξοδο' ? `<label class="f"><span>✈️ Ταξίδι (για να μετράει στα έξοδα του ταξιδιού)</span>
+          ${tripPicks.length ? `<div class="chips" data-trips style="margin-bottom:6px">${tripPicks.map((t) => `<button type="button" class="chip ${t === f.trip ? 'on' : ''}" data-t="${esc(t)}">${esc(t)}</button>`).join('')}${f.trip ? '<button type="button" class="chip" data-t="">Κανένα</button>' : ''}</div>` : ''}
+          <div class="row"><input name="trip" list="trips" value="${esc(f.trip)}" autocomplete="off" placeholder="διάλεξε ή γράψε όνομα" class="grow"><button type="button" class="btn sm" data-newtrip>+ Νέο</button></div></label>
           <datalist id="trips">${trips.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>
-          <label class="f"><span>Άλλο μοίρασμα (όχι μισά-μισά): μερίδιο Άλκη (€)</span><input name="share" inputmode="decimal" value="${esc(f.share)}"></label>
+          ${f.for === 'Κοινό' || parseAmount(f.share) != null ? `<label class="f"><span>Κοινό αλλά όχι μισό-μισό: πόσα είναι ${me === 'Άλκης' ? 'τα δικά σου' : 'του Άλκη'} (€)</span><input name="share" inputmode="decimal" value="${esc(f.share)}" placeholder="άδειο = μισό-μισό">
+            <div class="small muted" style="margin:4px 2px 0">Π.χ. λογαριασμός 46,73 € όπου τα 10 € ${me === 'Άλκης' ? 'είναι δικά σου' : 'είναι του Άλκη'}: γράψε 10 — τα υπόλοιπα χρεώνονται στη${me === 'Άλκης' ? ' Χαρά' : ' Χαρά (σε σένα)'}.</div></label>` : ''}
           ${othHtml(f.oth)}
 ` : ''}
         ${k === 'Έξοδο' && f.cat === 'Αυτοκίνητο' && K.cars().length && !K.isFuelText(f.desc) ? '' : `<label class="f"><span>Σημείωση</span><textarea name="note" rows="2">${esc(f.note || '')}</textarea></label>`}
@@ -186,6 +218,15 @@ export default {
     root.querySelector('[name=mm]')?.addEventListener('change', () => { read(); f.mmTouched = 1; });
     root.querySelector('[name=desc]')?.addEventListener('blur', () => { if (f.cat !== 'Μισθός' || f.mmTouched) return; read(); const m = monthFromText(f.desc, f.d); if (m && m !== f.mm) { f.mm = m; ui.render(); } });
     if (!f.id && !f.a) setTimeout(() => root.querySelector('[name=a]')?.focus(), 50);
+    const upBurden = () => { const b = root.querySelector('[data-burden]'); if (!b) return; read(); b.innerHTML = burdenHtml(f); };
+    bindCalc(root, aI, upBurden);
+    root.addEventListener('input', (e) => { if (['a', 'share', 'both', 'bothX', 'otha'].includes(e.target.name)) upBurden(); });
+    root.addEventListener('change', (e) => { if (e.target.name === 'othp') upBurden(); });
+    root.querySelector('[name=d]')?.addEventListener('change', () => { read(); if (f.kind === 'Έξοδο' && !f.tripTouched) ui.render(); });
+    root.querySelector('[data-notrip]')?.addEventListener('click', () => { read(); f.trip = ''; f.tripTouched = 1; f.tripAuto = false; ui.render(); });
+    root.querySelector('[data-trips]')?.addEventListener('click', (e) => { const t = e.target.dataset.t; if (t === undefined) return; read(); f.trip = t === f.trip ? '' : t; f.tripTouched = 1; f.moreOpen = 1; ui.render(); });
+    root.querySelector('[name=trip]')?.addEventListener('change', () => { read(); f.tripTouched = 1; f.moreOpen = 1; });
+    root.querySelector('[data-newtrip]')?.addEventListener('click', () => { read(); tripSheet(ui, null, (name) => { f.trip = name; f.tripTouched = 1; f.moreOpen = 1; ui.render(); }); });
 
     const save = async (again) => {
       read();
@@ -220,7 +261,7 @@ export default {
         extra: f.kind === 'Έσοδο' && f.cat === 'Μισθός' && (f.extra === true || f.extra === 'on') ? true : null,
         car: f.kind === 'Έξοδο' && f.car && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο') ? f.car : null,
         km: f.car && K.isFuelText(f.desc) ? parseAmount(String(f.km ?? '').replace(/\./g, '')) : null, q: f.car && K.isFuelText(f.desc) ? parseAmount(f.q) : null,
-        ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? K.fuelFromText(f.desc, f.car) : null,
+        ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? ftOf(f) : null,
         oth: f.kind === 'Έξοδο' ? readOth(root) : null };
       if (f.kind === 'Έσοδο' && f.cat === 'Μισθός') {
         const mm = f.mm || monthFromText(f.desc, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);
