@@ -18,7 +18,7 @@ export const editView = {
       <div class="grid2"><label class="f"><span>Όνομα (όπως θες να φαίνεται)</span><input name="name" value="${esc(st?.name || '')}" placeholder="π.χ. Πάνος"></label>
       <label class="f"><span>Ονοματεπώνυμο</span><input name="full" value="${esc(st?.full || '')}" placeholder="π.χ. Πάνος Κανούρης"></label></div>
       <div class="grid2"><label class="f"><span>Τιμή μαθήματος (€)</span><input name="price" inputmode="decimal" value="${esc(pr.price ?? '')}"></label>
-      <label class="f"><span>Διάρκεια (ώρες, π.χ. 1,5 ή 1:20)</span><input name="dur" inputmode="decimal" value="${pr.dur ? fmtH(pr.dur) : '1'}"></label></div>
+      <label class="f"><span>Διάρκεια (ώρες:λεπτά, π.χ. 1:20)</span><input name="dur" inputmode="decimal" value="${pr.dur ? fmtH(pr.dur) : '1:00'}"></label></div>
       <div class="small muted" data-rate style="margin:-4px 2px 10px"></div>
       <div class="grid2"><label class="f"><span>Ξεκίνησε</span><input type="date" name="start" value="${esc(st?.start || t)}"></label>
       <label class="f"><span>Σταμάτησε (κενό = συνεχίζει)</span><input type="date" name="end" value="${esc(st?.end || '')}"></label></div>
@@ -35,7 +35,7 @@ export const editView = {
     bindBack(root, ui);
     const st = id === 'new' ? null : L.student(id);
     const g = (n) => root.querySelector(`[name=${n}]`).value.trim();
-    const rate = () => { const p = parseAmount(g('price')), d = hrs(g('dur')); root.querySelector('[data-rate]').textContent = p && d ? `= ${eur(p / d)} την ώρα` : ''; };
+    const rate = () => { const p = parseAmount(g('price')), d = hrs(g('dur')); root.querySelector('[data-rate]').textContent = p && d ? `Διάρκεια ${hoursTxt(d)} · ${eur(p)} το μάθημα = ${eur(p / d)} την ώρα` : 'Διάρκεια: π.χ. 1:20 = 1 ώρα και 20 λεπτά, 1,5 = μιάμιση ώρα'; };
     rate(); root.querySelector('[name=price]').addEventListener('input', rate); root.querySelector('[name=dur]').addEventListener('input', rate);
     if (!st) setTimeout(() => root.querySelector('[name=name]').focus(), 50);
     root.querySelector('[data-del]')?.addEventListener('click', async () => {

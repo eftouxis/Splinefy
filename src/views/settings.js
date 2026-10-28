@@ -8,7 +8,7 @@ let signed = null;
 export default {
   html() {
     const S = store.state;
-    const counts = S.spaces.map((sp) => {
+    const counts = store.visibleSpaces().map((sp) => {
       const d = S.data[sp.id]; const n = d ? [...d.recs.values()].filter((r) => !r._x && r.type === 'tx').length : 0;
       return { sp, n, base: d?.hasBase };
     });
@@ -37,7 +37,7 @@ export default {
       <input type="file" accept=".json,application/json" multiple data-import></div>
     <h2>Εμφάνιση</h2>
     <div class="card"><div class="chips">${[['auto', 'Αυτόματο'], ['light', 'Φωτεινό'], ['dark', 'Σκούρο']].map(([v, l]) => `<button class="chip ${theme === v ? 'on' : ''}" data-theme="${v}">${l}</button>`).join('')}</div></div>
-    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · έκδοση 0.2</div>`;
+    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · έκδοση 0.3</div>`;
   },
   mount(root, p, ui) {
     if (signed === null) sync.signedIn().then((s) => { signed = s; ui.render(); });
@@ -46,13 +46,22 @@ export default {
     root.querySelector('[data-signout]')?.addEventListener('click', async () => { await sync.signOut(); signed = false; ui.render(); });
     root.querySelector('[data-syncnow]')?.addEventListener('click', () => ui.syncNow(true));
     root.querySelector('[data-savefolders]')?.addEventListener('click', async () => {
-      const list = store.state.spaces.map((sp) => ({ ...sp, folder: root.querySelector(`[data-folder="${sp.id}"]`).value.trim() }));
+      const list = store.state.spaces.map((sp) => ({ ...sp, folder: root.querySelector(`[data-folder="${sp.id}"]`)?.value.trim() || sp.folder }));
       await store.setSpaces(list); ui.toast('Αποθηκεύτηκε ✓');
     });
     root.querySelector('[data-import]')?.addEventListener('change', async (e) => {
       for (const file of e.target.files) {
         try {
           const j = JSON.parse(await file.text());
+          if (j.mode === 'changes') {                    // corrections over several spaces
+            const by = {};
+            for (const c of j.changes) {
+              const d = store.state.data[c.sp]; if (!d || !d.recs.has(c.id)) continue;
+              (by[c.sp] = by[c.sp] || []).push(c.delete ? { id: c.id, del: true } : { id: c.id, set: c.set });
+            }
+            let n = 0; for (const [sp, ch] of Object.entries(by)) { await store.putMany(sp, ch); n += ch.length; }
+            ui.toast(`${j.what || file.name}: ${n} αλλαγές ✓`, 3500); continue;
+          }
           if (!j.space || !j.records) throw new Error('άγνωστη μορφή');
           if (j.mode === 'merge') {                      // e.g. lessons from the Excel: added as normal changes (they sync)
             if (!store.state.data[j.space.id]?.hasBase) throw new Error('φέρε πρώτα τα βασικά δεδομένα αυτού του χώρου');

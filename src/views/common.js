@@ -13,7 +13,8 @@ export const icon = (r) => (r.kind === 'Μεταφορά' ? '⇄' : ICON[r.cat] 
 /** «Άλκης → Κοινό» style subtitle */
 export function who(r) {
   if (r.kind === 'Μεταφορά') return `${esc(r.payer)} → ${esc(r.for)}`;
-  const f = fx(r);
+  const O = fx(r).O || (r.for === 'Φίλιππος' ? 'Φίλιππος' : r.for || 'Κοινό');
+  const f = { O };
   const fo = r.kind === 'Έσοδο' ? (r.for === 'Κοινό' ? 'κοινό' : r.for === 'Φίλιππος' ? 'για Φίλιππο' : '') : (f.O === 'Κοινό' ? 'κοινό' : f.O === r.payer ? '' : `για ${f.O}`);
   return [esc(r.payer), fo].filter(Boolean).join(' · ');
 }

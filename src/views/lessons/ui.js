@@ -8,7 +8,10 @@ export const fmtH = (h) => {
   if (Math.abs(h * 2 - Math.round(h * 2)) < 1e-6) return String(Math.round(h * 2) / 2).replace('.', ',');
   const m = Math.round(h * 60); return `${Math.floor(m / 60)}:${pad(m % 60)}`;
 };
-export const hoursTxt = (h) => `${fmtH(h)} ${h === 1 ? 'ώρα' : 'ώρες'}`;
+export const hoursTxt = (h) => {
+  if (h && Math.abs(h * 2 - Math.round(h * 2)) > 1e-6) { const m = Math.round(h * 60), H = Math.floor(m / 60); return `${H ? H + (H === 1 ? ' ώρα ' : ' ώρες ') : ''}${m % 60}΄`; }
+  return `${fmtH(h)} ${h === 1 ? 'ώρα' : 'ώρες'}`;
+};
 export const DSHORT = ['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ'];
 
 /** bottom sheet with its own form; mount(el, close) wires it up */
@@ -53,18 +56,20 @@ export function lessonSheet(stu, d, ui) {
   let h = l ? cur : (st.dur || 1), time = l?.time || '';
   const opts = [...new Set([0, 1, 1.5, 2, st.dur || 1].map((x) => Math.round(x * 1e6) / 1e6))].sort((a, b) => a - b);
   sheet(`<div class="row"><div class="grow"><div class="mid">${esc(st.name)}</div><div class="small muted">${dShort(d)} ${d.slice(0, 4)}${hol ? ' · ' + esc(hol.name) : ''}</div></div>
-      <div class="small muted right">${sched ? 'Πρόγραμμα: ' + hoursTxt(sched) : 'Εκτός προγράμματος'}</div></div>
+      <div class="small muted right">${sched ? 'Πρόγραμμα: ' + hoursTxt(sched) : 'Εκτός προγράμματος'}<br>${(() => { const b = L.balance(stu); return Math.abs(b) < 0.005 ? 'εξοφλημένος' : b > 0 ? `<b class="neg">χρωστάει ${eur(b)}</b>` : `<span class="pos">προπλήρωσε ${eur(-b)}</span>`; })()}</div></div>
     <label class="f" style="margin-top:12px"><span>Ώρες</span>${segBtns('h', opts.map((x) => [x, x ? fmtH(x) : 'Δεν έγινε']), h)}</label>
-    <div class="grid2"><label class="f"><span>Άλλη διάρκεια (π.χ. 1,25 ή 4/3)</span><input name="hx" inputmode="decimal" placeholder="${fmtH(h)}"></label>
+    <div class="grid2"><label class="f"><span>Άλλη διάρκεια (π.χ. 1:20)</span><input name="hx" inputmode="decimal" placeholder="${fmtH(h)}"></label>
       <label class="f"><span>Ώρα / σημείωση</span><input name="time" value="${esc(time)}" placeholder="π.χ. 17:00"></label></div>
     <div class="small muted" data-valtxt></div>
     <button class="btn primary" data-ok>Αποθήκευση</button>
     ${l?.ov ? '<button class="btn" data-reset>Όπως το πρόγραμμα</button>' : ''}
+    ${location.hash.startsWith('#/lessons/s/') ? '' : `<button class="btn" data-card>Καρτέλα ${esc(st.name)} › (πληρωμές, χρωστούμενα)</button>`}
     <button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    el.querySelector('[data-card]')?.addEventListener('click', () => { close(); ui.go(`#/lessons/s/${stu}`); });
     const val = () => { el.querySelector("[data-valtxt]").textContent = h ? `Αξία: ${eur(h * L.rateAt(st, d))}` : 'Δεν χρεώνεται'; };
     val();
     bindSeg(el, (n, v) => { h = Number(v); el.querySelector('[name=hx]').value = ''; val(); });
-    el.querySelector('[name=hx]').addEventListener('input', (e) => { const x = parseAmount(e.target.value); if (x != null) { h = x; el.querySelectorAll('[data-seg] button').forEach((b) => b.classList.remove('on')); val(); } });
+    el.querySelector('[name=hx]').addEventListener('input', (e) => { const x = parseAmount(e.target.value.replace(/(\d+):(\d+)/, '$1+$2/60')); if (x != null) { h = x; el.querySelectorAll('[data-seg] button').forEach((b) => b.classList.remove('on')); val(); } });
     el.querySelector('[data-no]').onclick = close;
     el.querySelector('[data-reset]')?.addEventListener('click', async () => { await store.del(L.LSP, l.ov); close(); ui.toast('Όπως το πρόγραμμα ✓'); });
     el.querySelector('[data-ok]').onclick = async () => {
@@ -91,7 +96,7 @@ export function addLessonSheet(ui, stu0 = null, d0 = today()) {
     bindChips(el, 'stu', (id) => { stu = id; el.querySelector('[name=h]').value = fmtH(L.student(id).dur || 1); });
     el.querySelector('[data-no]').onclick = close;
     el.querySelector('[data-ok]').onclick = async () => {
-      d = el.querySelector('[name=d]').value; const h = parseAmount(el.querySelector('[name=h]').value.replace(':', '+1/60*'));
+      d = el.querySelector('[name=d]').value; const h = parseAmount(el.querySelector('[name=h]').value.replace(/(\d+):(\d+)/, '$1+$2/60'));
       if (!d || !h) { ui.toast('Ημερομηνία και ώρες'); return; }
       const ex = L.lessons({ stu, from: d, to: d, all: true })[0];
       await store.put(L.LSP, `lx:${stu}:${d}`, { type: 'lx', stu, d, h: (ex && ex.h > 0 ? ex.h : 0) + h });

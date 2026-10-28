@@ -6,6 +6,7 @@ import { uid } from './util.js';
 export const DEFAULT_SPACES = [
   { id: 'shared', name: 'Κοινό', folder: 'Χαρά & Άλκης/Εφαρμογή', owner: 'Άλκης', members: ['Άλκης', 'Χαρά'] },
   { id: 'alkis', name: 'Προσωπικό Άλκη', folder: 'Εφαρμογή – Άλκης', owner: 'Άλκης', members: ['Άλκης'] },
+  { id: 'chara', name: 'Προσωπικό Χαράς', folder: 'Εφαρμογή – Χαρά', owner: 'Χαρά', members: ['Χαρά'] },
 ];
 
 const S = {
@@ -38,6 +39,7 @@ export async function init() {
   if (!S.device) { S.device = uid().slice(0, 8); await idb.kvSet('device', S.device); }
   S.user = (await idb.kvGet('user')) || null;
   S.spaces = (await idb.kvGet('spaces')) || DEFAULT_SPACES;
+  for (const d of DEFAULT_SPACES) if (!S.spaces.some((x) => x.id === d.id)) S.spaces = [...S.spaces, d];   // new spaces in later versions
   S.data = {};
   for (const sp of S.spaces) {
     S.data[sp.id] = emptySpace();

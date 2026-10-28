@@ -33,11 +33,11 @@ const home = {
       days += ls.map((l) => {
         const st = L.student(l.stu); const past = l.d <= t;
         const status = !l.h ? '<span class="neg">δεν έγινε</span>' : past ? '<span class="pos">✓ έγινε</span>' : '';
-        const b = L.balance(l.stu);
+        const b = L.balance(l.stu); const after = !past && l.h ? L.balance(l.stu, l.d) : null;
         return `<div class="item" data-lesson="${esc(l.stu)}|${l.d}" style="${l.h ? '' : 'opacity:.6'}">
           <div class="dot" style="font-size:12px;font-weight:700">${esc((l.time || '').split(/[–-]/)[0] || '•')}</div>
           <div class="grow"><div class="t" style="${l.h ? '' : 'text-decoration:line-through'}">${esc(st.name)}</div>
-          <div class="s">${l.h ? hoursTxt(l.h) : hoursTxt(l.sched)}${l.ov && l.sched && l.h ? ' · αλλαγή' : !l.sched ? ' · έκτακτο' : ''}${b > 0.005 ? ` · <b class="neg">χρωστάει ${eur(b)}</b>` : b < -0.005 ? ` · <span class="pos">προπλήρωσε ${eur(-b)}</span>` : ''}</div></div>
+          <div class="s">${l.h ? hoursTxt(l.h) : hoursTxt(l.sched)}${l.ov && l.sched && l.h ? ' · αλλαγή' : !l.sched ? ' · έκτακτο' : ''}${b > 0.005 ? ` · <b class="neg">χρωστάει ${eur(b)}</b>` : b < -0.005 ? ` · <span class="pos">προπλήρωσε ${eur(-b)}</span>` : ''}${after != null && Math.abs(b) > 0.005 && after > 0.005 ? ` · μετά ${eur(after)}` : ''}</div></div>
           <div class="right"><div class="amt">${l.h ? eur(l.v) : ''}</div><div class="small">${status}</div></div></div>`;
       }).join('') || '';
     }

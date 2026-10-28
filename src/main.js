@@ -102,7 +102,7 @@ async function start() {
   catch (e) { setTimeout(() => ui.toast('Σύνδεση: ' + e.message, 4000), 300); }
   await store.init();
   syncState.last = (await store.kv.get('lastSync')) || 0;
-  window.addEventListener('hashchange', render);
+  window.addEventListener('hashchange', () => { document.querySelectorAll('.sheet-bg').forEach((e) => e.remove()); render(); });
   let lastV = store.state.version;
   store.on((v) => {
     if (current?.live && v !== lastV) { lastV = v; render(); }
