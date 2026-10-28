@@ -23,8 +23,9 @@ export function itemHtml(r, opts = {}) {
   const sign = r.kind === 'Έσοδο' ? '+' : r.kind === 'Μεταφορά' ? '' : '−';
   const cls = r.kind === 'Έσοδο' ? 'pos' : r.kind === 'Μεταφορά' ? '' : '';
   const sp = spaceById(r._sp);
-  const tag = sp && state.spaces.filter((s) => s.members.includes(state.user)).length > 1
-    ? `<span class="space-tag ${r._sp === 'shared' ? 'shared' : ''}">${r._sp === 'shared' ? 'Κοινό' : 'Προσωπικό'}</span>` : '';
+  // only personal items get a tag (shared is the default); «κοινό» in the text already means «μισά-μισά»
+  const tag = sp && r._sp !== 'shared' && state.spaces.filter((s) => s.members.includes(state.user)).length > 1
+    ? `<span class="space-tag">Προσωπικό</span>` : '';
   const future = r.d > opts.today;
   return `<div class="item" data-edit="${esc(r._sp)}/${esc(r.id)}" style="${future || r.skipped ? 'opacity:.55' : ''}">
     <div class="dot">${icon(r)}</div>
