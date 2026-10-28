@@ -10,6 +10,7 @@ import lessons from './views/lessons/index.js';
 import rec from './views/rec.js';
 import cats from './views/cats.js';
 import stats from './views/stats.js';
+import carsView from './views/cars.js';
 import { hasLessons } from './lessons.js';
 
 const app = document.getElementById('app');
@@ -19,7 +20,7 @@ const ROUTES = [
   [/^#\/list(?:\/(.*))?$/, list, 'list'], [/^#\/settings$/, settings, 'settings'],
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
-  [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'],
+  [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'], [/^#\/cars(?:\/([\w-]+))?$/, carsView, 'stats'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0 };
 

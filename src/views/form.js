@@ -2,6 +2,7 @@ import { esc, eur, today, parseAmount, norm, MONTHS, MONTHS_GEN, addMonths } fro
 import { categories, memory, billType, recurringMovements } from '../ledger.js';
 import * as store from '../store.js';
 import * as LS from '../lessons.js';
+import * as K from '../cars.js';
 import { label as stuLabel } from './lessons/ui.js';
 
 const KIND = { exp: 'Έξοδο', inc: 'Έσοδο', trf: 'Μεταφορά' };
@@ -97,6 +98,14 @@ export default {
         <label class="f"><span>Για ποιον</span>${k === 'Έσοδο'
           ? seg('for', [['', 'Μόνο γι’ αυτόν'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for)
           : seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>`}
+      ${k === 'Έξοδο' && (f.cat === 'Μεταφορικά' || f.cat === 'Αυτοκίνητο' || f.car) && K.cars().length ? (() => {
+        if (!f.carTouched && !f.id) f.car = K.carFromText(f.desc, f.cat) || f.car || null;
+        const fuel = f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc);
+        return `<label class="f"><span>Αυτοκίνητο</span><div class="chips" data-car>${K.cars().filter((c) => !c.sold || c.id === f.car).map((c) => `<button type="button" class="chip ${c.id === f.car ? 'on' : ''}" data-id="${esc(c.id)}">🚗 ${esc(c.name)}</button>`).join('')}
+          <button type="button" class="chip ${f.car ? '' : 'on'}" data-id="">Κανένα</button></div></label>
+          ${f.car ? `<div class="grid2"><label class="f"><span>Χιλιόμετρα κοντέρ (προαιρετικά)</span><input name="km" inputmode="numeric" value="${esc(f.km ?? '')}"></label>
+          ${fuel ? `<label class="f"><span>${K.fuelFromText(f.desc, f.car) === 'Αέριο' ? 'Κιλά' : 'Λίτρα'} (προαιρετικά)</span><input name="q" inputmode="decimal" value="${esc(f.q ?? '')}"></label>` : '<div></div>'}</div>` : ''}`;
+      })() : ''}
       <details class="more" ${f.trip || f.note || f.share || f.bill ? 'open' : ''}><summary>Περισσότερα ▾</summary>
         ${k === 'Έξοδο' ? `<label class="f"><span>Ταξίδι</span><input name="trip" list="trips" value="${esc(f.trip)}" autocomplete="off"></label>
           <datalist id="trips">${trips.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>
@@ -133,13 +142,17 @@ export default {
         const act = hit.filter((s) => LS.isActive(s)); const one = act.length === 1 ? act[0] : hit.length === 1 ? hit[0] : null;
         if (one) { f.stu = one.id; f.desc = one.full || one.name; if (!parseAmount(f.a)) { const b = LS.balance(one.id); f.a = String(b > 0.005 ? b : LS.priceAt(one).price || '').replace('.', ','); } ui.render(); return; }
       }
-      const m = memory().get(norm(f.desc)); if (!m) return;
+      const m = memory().get(norm(f.desc));
+      if (!m) { if (f.kind === 'Έξοδο' && K.cars().length && K.carFromText(f.desc, f.cat)) ui.render(); return; }
       if (!f.touched.cat && m.kind === f.kind && m.cat) f.cat = m.cat;
       if (!f.touched.for && m.kind === f.kind) f.for = m.for ?? f.for;
       if (!f.bill) f.bill = billType(f.desc);
       ui.render(); root.querySelector('[name=a]')?.focus();
     });
     root.querySelector('[name=cat]')?.addEventListener('change', () => { f.touched.cat = 1; if (f.kind === 'Έσοδο') { read(); ui.render(); } });
+    root.querySelector('[data-car]')?.addEventListener('click', (e) => {
+      if (e.target.dataset.id === undefined) return; read(); f.car = e.target.dataset.id || null; f.carTouched = 1; ui.render();
+    });
     root.querySelector('[data-stu]')?.addEventListener('click', (e) => {
       if (e.target.dataset.allstu !== undefined) { read(); f.allStu = 1; ui.render(); return; }
       if (e.target.dataset.id === undefined) return; read();
@@ -175,7 +188,9 @@ export default {
       const rec = { type: 'tx', d: f.d, a: amt, desc: f.desc.trim(), cat: f.kind === 'Μεταφορά' ? 'Μεταφορά μεταξύ μας' : f.cat, kind: f.kind,
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,
         bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons),
-        stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null, md: null };
+        stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null, md: null,
+        car: f.kind === 'Έξοδο' && f.car ? f.car : null, km: f.car ? parseAmount(String(f.km ?? '').replace(/\./g, '')) : null, q: f.car ? parseAmount(f.q) : null,
+        ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? K.fuelFromText(f.desc, f.car) : null };
       if (f.kind === 'Έσοδο' && f.cat === 'Μισθός') {
         const mm = f.mm || monthFromText(f.desc, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);
         rec.md = mm < dm ? eomOf(mm) : mm > dm ? `${mm}-01` : null;

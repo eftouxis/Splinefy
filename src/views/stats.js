@@ -164,11 +164,12 @@ export default {
     const body = sub === 'm' ? pages.month([arg]) : sub === 'y' ? pages.year([arg]) : pages[tab]();
     return `<div class="top"><h1>Στατιστικά</h1></div>
     <div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>
-    <div class="tabs">${TABS.map(([k, l]) => `<button class="${k === tab && sub !== 'm' && sub !== 'y' ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+    <div class="tabs">${TABS.map(([k, l]) => `<button class="${k === tab && sub !== 'm' && sub !== 'y' ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}<button data-cars>Αυτοκίνητα ›</button></div>
     ${body}`;
   },
   mount(root, [sub], ui) {
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { view = b.dataset.v; ui.render(); }));
+    root.querySelector('[data-cars]')?.addEventListener('click', () => ui.go('#/cars'));
     root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; ui.go(`#/stats/${tab}`); }));
     root.querySelectorAll('[data-y]').forEach((b) => b.addEventListener('click', () => { selY += Number(b.dataset.y); ui.render(); }));
     root.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => { selCat = b.dataset.c; ui.render(); }));

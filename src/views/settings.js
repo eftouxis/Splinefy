@@ -70,8 +70,13 @@ export default {
           if (j.mode === 'merge') {                      // e.g. lessons from the Excel: added as normal changes (they sync)
             if (!store.state.data[j.space.id]?.hasBase) throw new Error('φέρε πρώτα τα βασικά δεδομένα αυτού του χώρου');
             const ch = j.records.map(({ id, ...set }) => ({ id, set }));
-            for (const l of j.links || []) if (store.state.data[j.space.id].recs.has(l.id)) ch.push({ id: l.id, set: l.set });
+            const other = {};
+            for (const l of j.links || []) {
+              const sp = l.sp || j.space.id; if (!store.state.data[sp]?.recs.has(l.id)) continue;
+              if (sp === j.space.id) ch.push({ id: l.id, set: l.set }); else (other[sp] = other[sp] || []).push({ id: l.id, set: l.set });
+            }
             await store.putMany(j.space.id, ch);
+            for (const [sp, c2] of Object.entries(other)) await store.putMany(sp, c2);
             ui.toast(`${j.what || file.name}: ${ch.length} εγγραφές ✓`, 3000); continue;
           }
           if (!store.spaceById(j.space.id)) await store.setSpaces([...store.state.spaces, { ...j.space, folder: j.space.name, owner: j.space.members[0] }]);
