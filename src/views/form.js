@@ -63,7 +63,7 @@ export default {
       <div class="card"><div class="muted small">Αυτή η φορά: ${esc(f.d)}</div>
         <label class="f"><span>Ποσό αυτή τη φορά</span><input class="amount" name="a" inputmode="decimal" value="${esc(f.a)}"></label>
         <label class="f"><span>Πλήρωσε</span>${seg('payer', people.map((p) => [p, p]), f.payer)}</label>
-        <div class="note">Αλλάζει μόνο αυτή τη φορά. Για μόνιμη αλλαγή: Ρυθμίσεις → Πάγια.</div></div>
+        <div class="note">Αλλάζει μόνο αυτή τη φορά. <a href="#/rec/${esc(f.sp)}/${esc(f.rec)}">Μόνιμη αλλαγή του παγίου ›</a></div></div>
       <button class="btn primary" style="width:100%" data-save>Αποθήκευση</button>
       <button class="btn" style="width:100%;margin-top:8px" data-skip>${f.skipped ? 'Επαναφορά (έγινε κανονικά)' : 'Δεν έγινε αυτή τη φορά'}</button>`;
     }

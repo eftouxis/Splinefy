@@ -73,7 +73,7 @@ export function totals(list, view, from, to) {
 
 export function categories(kind) {
   const cats = setting().cats || [];
-  return cats.filter((c) => !kind || c.kind === kind).map((c) => c.name);
+  return cats.filter((c) => (!kind || c.kind === kind) && !c.hidden).map((c) => c.name);
 }
 
 /** bill type («Είδος») from description keywords */

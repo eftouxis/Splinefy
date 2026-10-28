@@ -7,6 +7,8 @@ import list from './views/list.js';
 import settings from './views/settings.js';
 import welcome from './views/welcome.js';
 import lessons from './views/lessons/index.js';
+import rec from './views/rec.js';
+import cats from './views/cats.js';
 import { hasLessons } from './lessons.js';
 
 const app = document.getElementById('app');
@@ -15,6 +17,7 @@ const ROUTES = [
   [/^#?\/?$/, home, 'home'], [/^#\/add\/(exp|inc|trf)(?:\?.*)?$/, form, 'add'], [/^#\/edit\/([\w-]+)\/(.+)$/, form, 'add'],
   [/^#\/list(?:\/(.*))?$/, list, 'list'], [/^#\/settings$/, settings, 'settings'],
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
+  [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0 };
 

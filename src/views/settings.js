@@ -16,6 +16,10 @@ export default {
     return `<div class="top"><h1>Ρυθμίσεις</h1></div>
     <h2>Ποιος είσαι σε αυτή τη συσκευή</h2>
     <div class="card"><div class="chips">${['Άλκης', 'Χαρά'].map((u) => `<button class="chip ${S.user === u ? 'on' : ''}" data-user="${u}">${u}</button>`).join('')}</div></div>
+    <h2>Οργάνωση</h2>
+    <div class="list"><a class="item" href="#/rec" style="text-decoration:none;color:inherit"><div class="dot">↻</div><div class="grow t">Πάγια</div><div class="muted">›</div></a>
+      <a class="item" href="#/cats" style="text-decoration:none;color:inherit"><div class="dot">🏷️</div><div class="grow t">Κατηγορίες και «Είδος»</div><div class="muted">›</div></a>
+      ${store.state.user === 'Άλκης' ? '<a class="item" href="#/lessons/help" style="text-decoration:none;color:inherit"><div class="dot">📚</div><div class="grow t">Μαθήματα: οδηγίες</div><div class="muted">›</div></a>' : ''}</div>
     <h2>Συγχρονισμός (OneDrive)</h2>
     <div class="card">
       ${CONFIG.devServer ? `<div class="note">Δοκιμαστική λειτουργία: συγχρονισμός με τοπικό φάκελο δοκιμών.</div>` :
