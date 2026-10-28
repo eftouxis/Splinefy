@@ -3,6 +3,7 @@ import { movements, debt, totals, fx } from '../ledger.js';
 import { state } from '../store.js';
 import { itemHtml, bindEdit, ICON } from './common.js';
 import { syncBadge } from '../main.js';
+import * as LS from '../lessons.js';
 
 let viewSel = null, monthOff = 0;
 
@@ -57,7 +58,7 @@ export default {
           <div class="bar" style="margin-top:4px"><i style="width:${Math.round((v / maxc) * 100)}%"></i></div></div>`;
       }).join('') : ''}
     </div>
-    ${me === 'Άλκης' ? `<div class="card row"><div class="dot">📚</div><div class="grow"><div class="small muted">Ιδιαίτερα ${MONTHS_GEN[new Date().getMonth()]} ως τώρα</div><div class="mid">${eur(lessonSum)}</div></div></div>` : ''}
+    ${LS.hasLessons() ? lessonsCard(lessonSum) : ''}
     <h2>Έρχονται τις επόμενες 14 μέρες</h2>
     <div class="list">${up.length ? up.map((r) => itemHtml(r, { showDate: true, today: t })).join('') : '<div class="item muted">Τίποτα</div>'}</div>
     <h2>Τελευταίες κινήσεις</h2>
@@ -71,6 +72,15 @@ export default {
     bindEdit(root, ui);
   },
 };
+function lessonsCard(recv) {
+  const t = today(); const has = LS.students().length;
+  const owed = LS.students().reduce((a, s) => { const b = LS.balance(s.id); return a + (b > 0.005 ? b : 0); }, 0);
+  const tl = LS.lessons({ from: t, to: t });
+  return `<div class="card row" data-go="#/lessons" style="cursor:pointer"><div class="dot">📚</div><div class="grow">
+    <div class="small muted">Ιδιαίτερα ${MONTHS_GEN[new Date().getMonth()]}: εισπράξεις ${eur(recv)}</div>
+    <div class="mid">${has ? `Μου χρωστάνε ${eur(owed)}` : 'Μαθήματα'}</div>
+    ${has ? `<div class="small muted">${tl.length ? `Σήμερα: ${tl.map((l) => esc(LS.student(l.stu).name)).join(', ')}` : 'Σήμερα κανένα μάθημα'}</div>` : ''}</div><div class="muted">›</div></div>`;
+}
 const INC = new Set(['Μισθός', 'Ιδιαίτερα', 'Πωλήσεις', 'Επιδόματα', 'Δώρο', 'Από οικογένεια', 'Ενοίκιο', 'Άλλο']);
 function isIncomeCat(c) { return INC.has(c); }
 export { fx };

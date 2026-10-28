@@ -87,6 +87,18 @@ export async function put(spaceId, id, fields) {
   await idb.opsPut([op]); applyOp(sp, op); bump();
   return id;
 }
+/** several changes in one go: [{id, set:{...}} | {id, del:true}] */
+export async function putMany(spaceId, changes) {
+  const sp = S.data[spaceId]; const ops = [];
+  for (const ch of changes) {
+    const k = `${spaceId}|${tick(S.device)}`;
+    const op = { k, sp: spaceId, r: ch.id || uid(), u: S.user, synced: 0, i: k.split('|')[1] };
+    if (ch.del) op.x = 1; else op.s = Object.fromEntries(Object.entries(ch.set).map(([f, v]) => [f, v === '' || v === undefined ? null : v]));
+    ops.push(op);
+  }
+  if (!ops.length) return;
+  await idb.opsPut(ops); for (const op of ops) applyOp(sp, op); bump();
+}
 export async function del(spaceId, id) {
   const sp = S.data[spaceId];
   const op = { k: `${spaceId}|${tick(S.device)}`, sp: spaceId, r: id, x: 1, u: S.user, synced: 0 };

@@ -1,6 +1,7 @@
 import { esc, eur, today, parseAmount, norm } from '../util.js';
 import { categories, memory, billType, recurringMovements } from '../ledger.js';
 import * as store from '../store.js';
+import * as LS from '../lessons.js';
 
 const KIND = { exp: 'Έξοδο', inc: 'Έσοδο', trf: 'Μεταφορά' };
 const KEY = { 'Έξοδο': 'exp', 'Έσοδο': 'inc', 'Μεταφορά': 'trf' };
@@ -14,6 +15,7 @@ function blank(kindKey) {
 /** where a movement is stored: personal space only when it concerns the user alone */
 function targetSpace(x) {
   const me = store.state.user;
+  if (x.stu && x.kind === 'Έσοδο' && x.cat === 'Ιδιαίτερα') return LS.LSP;
   const personal = store.state.spaces.find((s) => s.owner === me && s.members.length === 1);
   if (!personal || x.toShared) return 'shared';
   if (x.kind === 'Μεταφορά' || x.payer !== me) return 'shared';
@@ -61,6 +63,9 @@ export default {
         <label class="f"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(f.d)}"></label>
         ${k === 'Μεταφορά' ? '<div></div>' : `<label class="f"><span>Κατηγορία</span><select name="cat"><option value=""></option>${cats.map((c) => `<option ${c === f.cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>`}
       </div>
+      ${k === 'Έσοδο' && f.cat === 'Ιδιαίτερα' && LS.hasLessons() && LS.students().length ? `<label class="f"><span>Μαθητής (για να ξεχρεώνει στην καρτέλα του)</span>
+        <div class="chips" data-stu>${LS.students().filter((s) => LS.isActive(s) || s.id === f.stu || LS.balance(s.id) > 0.005).map((s) => `<button type="button" class="chip ${s.id === f.stu ? 'on' : ''}" data-id="${esc(s.id)}">${esc(s.name)}</button>`).join('')}
+        <button type="button" class="chip ${f.stu ? '' : 'on'}" data-id="">Κανένας</button></div></label>` : ''}
       <label class="f"><span>Περιγραφή</span><input name="desc" list="descs" value="${esc(f.desc)}" autocomplete="off" placeholder="${k === 'Μεταφορά' ? 'π.χ. revolut' : 'π.χ. Σκλαβενίτης'}"></label>
       <datalist id="descs">${descs.map((d) => `<option value="${esc(d)}">`).join('')}</datalist>
       ${k === 'Μεταφορά' ? `
@@ -108,7 +113,13 @@ export default {
       if (!f.bill) f.bill = billType(f.desc);
       ui.render(); root.querySelector('[name=a]')?.focus();
     });
-    root.querySelector('[name=cat]')?.addEventListener('change', () => { f.touched.cat = 1; });
+    root.querySelector('[name=cat]')?.addEventListener('change', () => { f.touched.cat = 1; if (f.kind === 'Έσοδο') { read(); ui.render(); } });
+    root.querySelector('[data-stu]')?.addEventListener('click', (e) => {
+      if (e.target.dataset.id === undefined) return; read();
+      f.stu = e.target.dataset.id || null;
+      if (f.stu) { const st = LS.student(f.stu); f.desc = st.full || st.name; if (!parseAmount(f.a)) { const b = LS.balance(f.stu); f.a = String(b > 0.005 ? b : LS.priceAt(st).price || '').replace('.', ','); } }
+      ui.render();
+    });
     root.querySelector('[name=toShared]')?.addEventListener('change', () => { read(); ui.render(); });
     if (!f.id && !f.a) setTimeout(() => root.querySelector('[name=a]')?.focus(), 50);
 
@@ -125,7 +136,8 @@ export default {
       if (f.kind === 'Μεταφορά' && f.payer === f.for) { ui.toast('«Έδωσε» και «Πήρε» δεν μπορεί να είναι ίδιοι'); return; }
       const rec = { type: 'tx', d: f.d, a: amt, desc: f.desc.trim(), cat: f.kind === 'Μεταφορά' ? 'Μεταφορά μεταξύ μας' : f.cat, kind: f.kind,
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,
-        bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons) };
+        bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons),
+        stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null };
       if (f.id) {
         const want = targetSpace({ ...f, toShared: f.sp === 'shared' });
         const cur = store.state.data[f.sp].recs.get(f.id);

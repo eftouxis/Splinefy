@@ -6,12 +6,15 @@ import form from './views/form.js';
 import list from './views/list.js';
 import settings from './views/settings.js';
 import welcome from './views/welcome.js';
+import lessons from './views/lessons/index.js';
+import { hasLessons } from './lessons.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
 const ROUTES = [
   [/^#?\/?$/, home, 'home'], [/^#\/add\/(exp|inc|trf)$/, form, 'add'], [/^#\/edit\/([\w-]+)\/(.+)$/, form, 'add'],
   [/^#\/list(?:\/(.*))?$/, list, 'list'], [/^#\/settings$/, settings, 'settings'],
+  [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0 };
 
@@ -41,19 +44,21 @@ const SVG = {
   list: '<path d="M4 6h16M4 12h16M4 18h10"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
 };
 const svg = (k) => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SVG[k]}</svg>`;
 function navHtml(active) {
   const a = (h, i, t, k, cls = '') => `<a href="${h}" class="${cls} ${active === k ? 'on' : ''}"><span class="i">${svg(i)}</span>${t}</a>`;
-  return `<div class="in">${a('#/', 'home', 'Αρχική', 'home')}${a('#/list', 'list', 'Κινήσεις', 'list')}${a('#/add/exp', 'plus', 'Νέα', 'add', 'plus')}
-    ${a('#/list/stats', 'stats', 'Στατιστικά', 'stats')}${a('#/settings', 'gear', 'Ρυθμίσεις', 'settings')}</div>`;
+  const les = hasLessons();
+  return `<div class="in" style="grid-template-columns:repeat(${les ? 6 : 5},1fr)">${a('#/', 'home', 'Αρχική', 'home')}${a('#/list', 'list', 'Κινήσεις', 'list')}${a('#/add/exp', 'plus', 'Νέα', 'add', 'plus')}
+    ${les ? a('#/lessons', 'book', 'Μαθήματα', 'lessons') : ''}${a('#/list/stats', 'stats', 'Στατιστικά', 'stats')}${a('#/settings', 'gear', 'Ρυθμίσεις', 'settings')}</div>`;
 }
 
 export function render() {
   const h = location.hash || '#/';
   let view = home, params = [], key = 'home';
-  for (const [re, v, k] of ROUTES) { const m = h.match(re); if (m) { view = v; params = m.slice(1); key = k; break; } }
+  for (const [re, v, k] of ROUTES) { const m = h.match(re); if (m) { view = v; params = m.slice(1).filter((x) => x !== undefined).map(decodeURIComponent); key = k; break; } }
   if (!store.state.user) { view = welcome; key = 'welcome'; }
   current = view;
   app.innerHTML = view.html(params, ui);

@@ -59,7 +59,8 @@ export function totals(list, view, from, to) {
   const col = Object.fromEntries(VIEWS)[view];
   let inc = 0, exp = 0; const byCat = new Map(), byInc = new Map();
   for (const r of list) {
-    if (r.d < from || r.d > to) continue;
+    const d = r.md || r.d;                       // salaries: the month they concern (md), not the payment day
+    if (d < from || d > to) continue;
     const f = fx(r); const v = f[col] || 0; if (!v) continue;
     if (r.kind === 'Έσοδο') inc += -v;
     else if (r.kind === 'Έξοδο') exp += v;

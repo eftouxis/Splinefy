@@ -33,11 +33,11 @@ export default {
       <button class="btn sm" data-savefolders>Αποθήκευση φακέλων</button>
     </div>
     <h2>Αρχικά δεδομένα</h2>
-    <div class="card"><div class="small muted" style="margin-bottom:8px">Μία φορά: τα αρχεία shared.json / alkis.json που φτιάχτηκαν από τα Excel. Μετά ανεβαίνουν μόνα τους στο OneDrive.</div>
+    <div class="card"><div class="small muted" style="margin-bottom:8px">Αρχεία που φτιάχτηκαν από τα Excel (οικονομικά ή μαθήματα). Μετά ανεβαίνουν μόνα τους στο OneDrive.</div>
       <input type="file" accept=".json,application/json" multiple data-import></div>
     <h2>Εμφάνιση</h2>
     <div class="card"><div class="chips">${[['auto', 'Αυτόματο'], ['light', 'Φωτεινό'], ['dark', 'Σκούρο']].map(([v, l]) => `<button class="chip ${theme === v ? 'on' : ''}" data-theme="${v}">${l}</button>`).join('')}</div></div>
-    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · έκδοση 0.1</div>`;
+    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · έκδοση 0.2</div>`;
   },
   mount(root, p, ui) {
     if (signed === null) sync.signedIn().then((s) => { signed = s; ui.render(); });
@@ -54,6 +54,13 @@ export default {
         try {
           const j = JSON.parse(await file.text());
           if (!j.space || !j.records) throw new Error('άγνωστη μορφή');
+          if (j.mode === 'merge') {                      // e.g. lessons from the Excel: added as normal changes (they sync)
+            if (!store.state.data[j.space.id]?.hasBase) throw new Error('φέρε πρώτα τα βασικά δεδομένα αυτού του χώρου');
+            const ch = j.records.map(({ id, ...set }) => ({ id, set }));
+            for (const l of j.links || []) if (store.state.data[j.space.id].recs.has(l.id)) ch.push({ id: l.id, set: l.set });
+            await store.putMany(j.space.id, ch);
+            ui.toast(`${j.what || file.name}: ${ch.length} εγγραφές ✓`, 3000); continue;
+          }
           if (!store.spaceById(j.space.id)) await store.setSpaces([...store.state.spaces, { ...j.space, folder: j.space.name, owner: j.space.members[0] }]);
           await store.importBase(j.space.id, j);
           ui.toast(`${file.name}: ${j.records.length.toLocaleString('el-GR')} εγγραφές ✓`);
