@@ -104,3 +104,6 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--chip); } .cb
 .burden { margin: -2px 2px 10px; font-size: 13px; line-height: 1.5; }
 .burden b { font-weight: 700; }
 .trip-on { display: flex; align-items: center; gap: 8px; }
+.seg.per button { font-size: 12.5px; padding: 8px 2px; }
+input[type=date] { min-width: 0; max-width: 100%; }
+.grid2 > *, .grid3 > * { min-width: 0; }

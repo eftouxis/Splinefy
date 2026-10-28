@@ -6,7 +6,23 @@ import { syncBadge } from '../main.js';
 import * as LS from '../lessons.js';
 import * as PP from '../people.js';
 
-let viewSel = null, monthOff = 0;
+let viewSel = null, monthOff = 0, allCats = false;
+const LS_KEY = 'homePer';
+let per = (() => { try { return localStorage.getItem(LS_KEY) || 'm'; } catch (_) { return 'm'; } })();
+let rFrom = null, rTo = null;
+const PERS = [['d', 'Μέρα'], ['w', 'Εβδομάδα'], ['m', 'Μήνας'], ['y', 'Έτος'], ['r', 'Διάστημα']];
+const dd = (s) => `${s.slice(8)}/${s.slice(5, 7)}`;
+/** the chosen period: {from, to, label, cur(=includes today)} */
+function period(t) {
+  if (per === 'd') { const d = addDays(t, monthOff); return { from: d, to: d, label: `${dShort(d)}/${d.slice(2, 4)}`, cur: monthOff === 0 }; }
+  if (per === 'w') { const wd = (new Date(t + 'T12:00').getDay() + 6) % 7; const a = addDays(t, -wd + 7 * monthOff), b = addDays(a, 6); return { from: a, to: b, label: `${dd(a)} – ${dd(b)}/${b.slice(2, 4)}`, cur: monthOff === 0 }; }
+  if (per === 'y') { const y = Number(t.slice(0, 4)) + monthOff; return { from: `${y}-01-01`, to: `${y}-12-31`, label: String(y), cur: monthOff === 0 }; }
+  if (per === 'r') { const a = rFrom || `${t.slice(0, 7)}-01`, b = rTo || t; return { from: a <= b ? a : b, to: a <= b ? b : a, label: '', cur: false }; }
+  const base = new Date(); base.setDate(1); base.setMonth(base.getMonth() + monthOff);
+  const mk = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`; const last = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+  return { from: `${mk}-01`, to: `${mk}-${last}`, label: monthLabel(mk), cur: monthOff === 0 };
+}
+const yb = (s) => `${Number(s.slice(0, 4)) - 1}${s.slice(4)}`;
 
 export default {
   live: true,
@@ -18,14 +34,14 @@ export default {
     const owe = d.alkisMinusShare;
     const debtTxt = owe >= 0 ? 'Η Χαρά χρωστάει στον Άλκη' : 'Ο Άλκης χρωστάει στη Χαρά';
     // month
-    const base = new Date(); base.setDate(1); base.setMonth(base.getMonth() + monthOff);
-    const mk = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
-    const from = `${mk}-01`, last = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
-    const to = monthOff === 0 ? t : `${mk}-${last}`;
+    const P = period(t); const from = P.from, to = P.to > t ? t : P.to;          // never count the future (planned recurring items)
+    const nDays = Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1);
     const cur = totals(list, viewSel, from, to);
-    const lyFrom = `${base.getFullYear() - 1}${from.slice(4)}`, lyTo = `${base.getFullYear() - 1}${to.slice(4)}`;
+    const lyFrom = yb(from), lyTo = yb(to);
     const ly = totals(list, viewSel, lyFrom, lyTo);
-    const cats = [...cur.byCat.entries()].filter(([c, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const catsAll = [...cur.byCat.entries()].filter(([c, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const cats = allCats ? catsAll : catsAll.slice(0, 5);
+    const incs = [...cur.byInc.entries()].filter(([c, v]) => v > 0.004).sort((a, b) => b[1] - a[1]);
     const maxc = cats.length ? cats[0][1] : 1;
     const views = [me, 'Κοινά', 'Φίλιππος'];
     // upcoming recurring (14 days)
@@ -43,21 +59,25 @@ export default {
       <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="#/add/inc">+ Έσοδο</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
     </div>
     <div class="card">
-      <div class="row"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${monthLabel(mk)}${monthOff === 0 ? ' <span class="small muted">ως σήμερα</span>' : ''}</div>
-        <button class="btn sm ghost" data-m="1" ${monthOff >= 0 ? 'disabled' : ''}>▶</button></div>
+      <div class="seg per" style="margin-bottom:10px">${PERS.map(([k, l]) => `<button class="${k === per ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
+      ${per === 'r' ? `<div class="grid2"><label class="f"><span>Από</span><input type="date" name="rf" value="${from}"></label><label class="f"><span>Έως</span><input type="date" name="rt" value="${P.to}"></label></div>`
+        : `<div class="row"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${P.label}${P.cur && per !== 'd' ? ' <span class="small muted">ως σήμερα</span>' : ''}</div>
+        <button class="btn sm ghost" data-m="1" ${monthOff >= 0 ? 'disabled' : ''}>▶</button></div>`}
       <div class="chips" style="margin:8px 0 12px;justify-content:center">${views.map((v) => `<button class="chip ${v === viewSel ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>
       <div class="grid3 center">
         <div><div class="small muted">Έσοδα</div><div class="mid pos">${eur(cur.inc)}</div></div>
         <div><div class="small muted">Έξοδα</div><div class="mid neg">${eur(cur.exp)}</div></div>
         <div><div class="small muted">Διαφορά</div><div class="mid ${cur.diff < 0 ? 'neg' : 'pos'}">${eur(cur.diff)}</div></div>
       </div>
-      <div class="small muted center" style="margin-top:6px">Ίδια περίοδος πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</div>
+      <div class="small muted center" style="margin-top:6px">${nDays > 1 ? `${nDays} μέρες · έξοδα ${eur(cur.exp / nDays)} τη μέρα<br>` : ''}Ίδια περίοδος πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</div>
+      <div class="center" style="margin-top:8px"><button class="btn sm" data-plist="${from}|${to}">Κινήσεις περιόδου ›</button></div>
       ${cats.length ? `<h2 style="margin-top:14px">Πού πήγαν</h2>` + cats.map(([c, v]) => {
         const pv = ly.byCat.get(c) || 0; const dlt = v - pv;
         return `<div style="margin:8px 0"><div class="row"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b>${eur(v)}</b>
           <span class="small ${dlt > 0 ? 'neg' : 'pos'}" style="width:70px;text-align:right">${pv ? (dlt > 0 ? '▲ ' : '▼ ') + eur(Math.abs(dlt)).replace(' €', '') : ''}</span></div>
           <div class="bar" style="margin-top:4px"><i style="width:${Math.round((v / maxc) * 100)}%"></i></div></div>`;
-      }).join('') : ''}
+      }).join('') + (catsAll.length > 5 ? `<div class="center"><button class="btn sm ghost" data-allcats>${allCats ? 'Λιγότερες ▴' : `Όλες οι κατηγορίες (${catsAll.length}) ▾`}</button></div>` : '') : ''}
+      ${incs.length && viewSel !== 'Κοινά' ? `<h2 style="margin-top:14px">Από πού ήρθαν</h2>` + incs.map(([c, v]) => `<div class="row" style="margin:6px 0"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b class="pos">${eur(v)}</b></div>`).join('') : ''}
     </div>
     ${LS.hasLessons() ? lessonsCard(lessonSum) : ''}
     ${peopleCard()}
@@ -68,6 +88,10 @@ export default {
     <div class="center" style="margin-top:10px"><a class="btn sm" href="#/list">Όλες οι κινήσεις ›</a></div>`;
   },
   mount(root, p, ui) {
+    root.querySelectorAll('[data-per]').forEach((b) => b.addEventListener('click', () => { per = b.dataset.per; monthOff = 0; try { localStorage.setItem(LS_KEY, per); } catch (_) { /* private mode */ } ui.render(); }));
+    root.querySelector('[data-allcats]')?.addEventListener('click', () => { allCats = !allCats; ui.render(); });
+    root.querySelectorAll('[name=rf],[name=rt]').forEach((el) => el.addEventListener('change', () => { if (!el.value) return; if (el.name === 'rf') rFrom = el.value; else rTo = el.value; ui.render(); }));
+    root.querySelector('[data-plist]')?.addEventListener('click', (e) => { const [a, b] = e.target.dataset.plist.split('|'); window.__listSet?.({ from: a, to: b, q: '' }); ui.go('#/list'); });
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { monthOff = Math.min(0, monthOff + Number(b.dataset.m)); ui.render(); }));
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { viewSel = b.dataset.v; ui.render(); }));
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));

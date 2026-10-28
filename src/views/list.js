@@ -3,8 +3,8 @@ import { movements, fx, totals } from '../ledger.js';
 import { state } from '../store.js';
 import { itemHtml, bindEdit, ICON } from './common.js';
 
-let q = '', month = null, spf = 'all', shown = 150;
-window.__listSet = (o) => { if (o.q !== undefined) q = o.q; if (o.month) month = o.month; spf = 'all'; shown = 150; };
+let q = '', month = null, spf = 'all', shown = 150, rng = null;
+window.__listSet = (o) => { if (o.q !== undefined) q = o.q; if (o.month) { month = o.month; rng = null; } if (o.from) rng = [o.from, o.to]; spf = 'all'; shown = 150; };
 
 export default {
   live: true, keepScroll: false,
@@ -19,7 +19,8 @@ export default {
     if (q) {
       const n = norm(q);
       list = list.filter((r) => norm(`${r.desc} ${r.cat} ${r.note || ''} ${r.trip || ''} ${r.payer} ${r.for}`).includes(n));
-    } else list = list.filter((r) => r.d.startsWith(month));
+    } else if (rng) list = list.filter((r) => r.d >= rng[0] && r.d <= rng[1]);
+    else list = list.filter((r) => r.d.startsWith(month));
     list.sort((a, b) => (a.d === b.d ? ((b._m || '') > (a._m || '') ? 1 : -1) : a.d < b.d ? 1 : -1));
     const total = list.reduce((s, r) => s + (r.kind === 'Έξοδο' ? r.a || 0 : 0), 0);
     let html = '', lastD = '';
@@ -30,7 +31,7 @@ export default {
     const multi = state.spaces.filter((s) => s.members.includes(state.user)).length > 1;
     return `<div class="top"><h1>Κινήσεις</h1></div>
     <input type="search" name="q" placeholder="🔍 Αναζήτηση σε όλα (από το 2008)" value="${esc(q)}" style="margin-bottom:10px">
-    ${q ? '' : `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${monthLabel(month)}</div><button class="btn sm ghost" data-m="1">▶</button></div>`}
+    ${q ? '' : rng ? `<div class="row" style="margin-bottom:8px"><div class="grow center mid">${rng[0].split('-').reverse().join('/')} – ${rng[1].split('-').reverse().join('/')}</div><button class="btn sm ghost" data-norng>✕</button></div>` : `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${monthLabel(month)}</div><button class="btn sm ghost" data-m="1">▶</button></div>`}
     ${multi ? `<div class="chips" style="margin-bottom:10px">${[['all', 'Όλα'], ['shared', 'Κοινό'], ['mine', 'Προσωπικό']].map(([v, l]) => `<button class="chip ${spf === v ? 'on' : ''}" data-sp="${v}">${l}</button>`).join('')}</div>` : ''}
     <div class="small muted" style="margin:0 2px 6px">${list.length} κινήσεις · έξοδα ${eur(total)}</div>
     <div class="list">${html || '<div class="item muted">Καμία κίνηση</div>'}</div>
@@ -43,6 +44,7 @@ export default {
       const [y, m] = month.split('-').map(Number); const d = new Date(y, m - 1 + Number(b.dataset.m), 1);
       month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; ui.render();
     }));
+    root.querySelector('[data-norng]')?.addEventListener('click', () => { rng = null; ui.render(); });
     root.querySelectorAll('[data-sp]').forEach((b) => b.addEventListener('click', () => { spf = b.dataset.sp; ui.render(); }));
     root.querySelector('[data-more]')?.addEventListener('click', () => { shown += 300; ui.render(); });
     bindEdit(root, ui);
