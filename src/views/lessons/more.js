@@ -177,7 +177,7 @@ export const statsView = {
   html() {
     const t = today(); statY = statY ?? L.yearOf(t);
     const s = L.yearStats(statY);
-    const n0 = (x) => eur0(x).replace(' €', '');
+    const n0 = (x) => eur(x).replace(' €', '');
     const hist = L.history(); const prev = hist.find((h) => h.Y === statY - 1);
     const anyExtra = s.months.some((r) => r.extra);
     const rows = s.months.map((r, i) => {

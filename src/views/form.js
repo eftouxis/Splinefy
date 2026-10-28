@@ -3,6 +3,7 @@ import { categories, memory, billType, recurringMovements } from '../ledger.js';
 import * as store from '../store.js';
 import * as LS from '../lessons.js';
 import * as K from '../cars.js';
+import { othHtml, readOth } from './othui.js';
 import { label as stuLabel } from './lessons/ui.js';
 
 const KIND = { exp: 'Έξοδο', inc: 'Έσοδο', trf: 'Μεταφορά' };
@@ -111,10 +112,11 @@ export default {
         <div class="grid3"><label class="f"><span>Είδος</span><input name="bill" value="${esc(f.bill || billType(f.desc))}"></label>
         <label class="f"><span>Περίοδος</span><input name="period" value="${esc(f.period || '')}" placeholder="π.χ. 8/8–2/10"></label>
         <label class="f"><span>${({ 'Ρεύμα': 'kWh', 'Νερό': 'm³', 'Θέρμανση': 'Μονάδες' })[f.bill || billType(f.desc)] || 'Κατανάλωση'}</span><input name="cons" inputmode="decimal" value="${esc(f.cons ?? '')}"></label></div></div>` : ''}
-      <details class="more" ${f.trip || f.share || (f.note && f.cat !== 'Αυτοκίνητο') ? 'open' : ''}><summary>Περισσότερα ▾</summary>
+      <details class="more" ${f.trip || f.share || (f.oth && f.oth.length) || f.moreOpen || (f.note && f.cat !== 'Αυτοκίνητο') ? 'open' : ''}><summary>Περισσότερα ▾</summary>
         ${k === 'Έξοδο' ? `<label class="f"><span>Ταξίδι</span><input name="trip" list="trips" value="${esc(f.trip)}" autocomplete="off"></label>
           <datalist id="trips">${trips.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>
           <label class="f"><span>Άλλο μοίρασμα (όχι μισά-μισά): μερίδιο Άλκη (€)</span><input name="share" inputmode="decimal" value="${esc(f.share)}"></label>
+          ${othHtml(f.oth)}
 ` : ''}
         ${k === 'Έξοδο' && f.cat === 'Αυτοκίνητο' && K.cars().length && !K.isFuelText(f.desc) ? '' : `<label class="f"><span>Σημείωση</span><textarea name="note" rows="2">${esc(f.note || '')}</textarea></label>`}
         ${!f.id && target !== 'shared' ? `<label class="row small"><input type="checkbox" name="toShared" style="width:auto" ${f.toShared ? 'checked' : ''}> Να μπει στο Κοινό (να το βλέπει και η Χαρά)</label>` : ''}
@@ -127,8 +129,10 @@ export default {
   },
   mount(root, [a, b], ui) {
     const read = () => {
-      root.querySelectorAll('input[name],select[name],textarea[name]').forEach((el) => { f[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+      root.querySelectorAll('input[name],select[name],textarea[name]').forEach((el) => { if (el.name === 'othp' || el.name === 'otha') return; f[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+      if (root.querySelector('[data-othrow]') || f.oth) f.oth = readOth(root) || (root.querySelector('[data-othrow]') ? [] : f.oth);
     };
+    root.querySelector('[data-othadd]')?.addEventListener('click', () => { read(); f.oth = [...(f.oth || []), { p: '', f: 0.5 }]; f.moreOpen = 1; ui.render(); });
     root.querySelector('[data-back]')?.addEventListener('click', () => { f = null; ui.back(); });
     root.querySelectorAll('[data-seg]').forEach((sg) => sg.addEventListener('click', (e) => {
       const v = e.target.dataset.val; if (v === undefined) return; read();
@@ -195,7 +199,8 @@ export default {
         stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null, md: null,
         car: f.kind === 'Έξοδο' && f.car && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο') ? f.car : null,
         km: f.car && K.isFuelText(f.desc) ? parseAmount(String(f.km ?? '').replace(/\./g, '')) : null, q: f.car && K.isFuelText(f.desc) ? parseAmount(f.q) : null,
-        ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? K.fuelFromText(f.desc, f.car) : null };
+        ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? K.fuelFromText(f.desc, f.car) : null,
+        oth: f.kind === 'Έξοδο' ? readOth(root) : null };
       if (f.kind === 'Έσοδο' && f.cat === 'Μισθός') {
         const mm = f.mm || monthFromText(f.desc, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);
         rec.md = mm < dm ? eomOf(mm) : mm > dm ? `${mm}-01` : null;

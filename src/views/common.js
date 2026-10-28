@@ -1,5 +1,5 @@
 import { esc, eur, dShort } from '../util.js';
-import { fx } from '../ledger.js';
+import { fx, othSum } from '../ledger.js';
 import { spaceById, state } from '../store.js';
 
 export const ICON = {
@@ -29,7 +29,7 @@ export function itemHtml(r, opts = {}) {
   return `<div class="item" data-edit="${esc(r._sp)}/${esc(r.id)}" style="${future || r.skipped ? 'opacity:.55' : ''}">
     <div class="dot">${icon(r)}</div>
     <div class="grow"><div class="t">${esc(r.desc || r.cat || '')}${r.rec ? ' <span class="small muted">↻</span>' : ''}</div>
-      <div class="s">${opts.showDate ? dShort(r.d) + ' · ' : ''}${esc(r.kind === 'Μεταφορά' ? 'Μεταφορά' : r.cat || '')} · ${who(r)} ${tag}</div></div>
+      <div class="s">${opts.showDate ? dShort(r.d) + ' · ' : ''}${esc(r.kind === 'Μεταφορά' ? 'Μεταφορά' : r.cat || '')} · ${who(r)}${othSum(r) ? ` · <span title="το υπόλοιπο το χρωστάνε άλλοι">δικό μου ${eur((r.a || 0) - othSum(r))}</span>` : ''} ${tag}</div></div>
     <div class="amt ${cls}" style="${r.skipped ? 'text-decoration:line-through' : ''}">${sign}${eur(r.a)}</div></div>`;
 }
 export function bindEdit(root, ui) {

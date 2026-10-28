@@ -4,6 +4,7 @@ import { state } from '../store.js';
 import { itemHtml, bindEdit, ICON } from './common.js';
 import { syncBadge } from '../main.js';
 import * as LS from '../lessons.js';
+import * as PP from '../people.js';
 
 let viewSel = null, monthOff = 0;
 
@@ -26,7 +27,7 @@ export default {
     const ly = totals(list, viewSel, lyFrom, lyTo);
     const cats = [...cur.byCat.entries()].filter(([c, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const maxc = cats.length ? cats[0][1] : 1;
-    const views = me === 'Χαρά' ? ['Χαρά', 'Κοινά', 'Φίλιππος'] : ['Άλκης', 'Χαρά', 'Κοινά', 'Φίλιππος'];
+    const views = [me, 'Κοινά', 'Φίλιππος'];
     // upcoming recurring (14 days)
     const up = list.filter((r) => r.rec && !r.skipped && r.d > t && r.d <= addDays(t, 14)).sort((a, b) => (a.d < b.d ? -1 : 1)).slice(0, 8);
     const recent = list.filter((r) => !r.rec && r.d <= t).sort((a, b) => (a.d === b.d ? ((b._m || '') > (a._m || '') ? 1 : -1) : a.d < b.d ? 1 : -1)).slice(0, 8);
@@ -59,6 +60,7 @@ export default {
       }).join('') : ''}
     </div>
     ${LS.hasLessons() ? lessonsCard(lessonSum) : ''}
+    ${peopleCard()}
     <h2>Έρχονται τις επόμενες 14 μέρες</h2>
     <div class="list">${up.length ? up.map((r) => itemHtml(r, { showDate: true, today: t })).join('') : '<div class="item muted">Τίποτα</div>'}</div>
     <h2>Τελευταίες κινήσεις</h2>
@@ -72,6 +74,13 @@ export default {
     bindEdit(root, ui);
   },
 };
+function peopleCard() {
+  const ps = PP.people().map((p) => ({ p, b: PP.balance(p.id) })).filter((x) => Math.abs(x.b) > 0.005);
+  return `<div class="card row" data-go="#/people" style="cursor:pointer"><div class="dot">🤝</div><div class="grow">
+    <div class="small muted">Χρωστούμενα με άλλους</div>
+    ${ps.length ? `<div class="small">${ps.map((x) => `${esc(x.p.name)} <b class="${x.b > 0 ? 'pos' : 'neg'}">${x.b > 0 ? 'μου χρωστάει ' : 'χρωστάω '}${eur(Math.abs(x.b))}</b>`).join('<br>')}</div>` : '<div class="small muted">Όλα εντάξει — πάτα για αδερφή, μαμά, φίλους…</div>'}
+    </div><div class="muted">›</div></div>`;
+}
 function lessonsCard(recv) {
   const t = today(); const has = LS.students().length;
   const debt = LS.students().map((s) => ({ s, b: LS.balance(s.id) })).filter((x) => x.b > 0.005).sort((a, b) => b.b - a.b);

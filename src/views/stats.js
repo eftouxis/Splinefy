@@ -1,5 +1,5 @@
 // #/stats — statistics: months, years, categories, trips, bills
-import { esc, eur, eur0, today, MONTHS, MSHORT, addMonths, dFull, norm } from '../util.js';
+import { esc, eur, today, MONTHS, MSHORT, addMonths, dFull, norm } from '../util.js';
 import { state, records } from '../store.js';
 import { movements, fx, VIEWS } from '../ledger.js';
 import * as ST from '../stats.js';
@@ -8,7 +8,7 @@ import { ICON } from './common.js';
 let view = null, tab = 'months', selY = null, selCat = null;
 const TABS = [['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί']];
 const short = (m) => `${MSHORT[Number(m.slice(5)) - 1]} ${m.slice(2, 4)}`;
-const k0 = (x) => eur0(x).replace(' €', '');
+const k0 = (x) => eur(x).replace(' €', '');
 
 /** grouped bars: series = [{name, cls, values}] ; labels = x labels ; onclick keys */
 function bars(labels, series, keys = [], h = 170) {
@@ -36,7 +36,7 @@ function catBars(entries, cmp = null, cmpLabel = '') {
   return entries.map(([c, v]) => {
     const p = cmp?.get(c) || 0; const dl = v - p;
     return `<div class="cbar" data-cat="${esc(c)}"><div class="row"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b>${eur(v)}</b>
-      ${cmp ? `<span class="small ${dl > 0 ? 'neg' : 'pos'}" style="width:78px;text-align:right" title="${esc(cmpLabel)}">${p ? (dl > 0 ? '▲ ' : '▼ ') + k0(Math.abs(dl)) : 'νέο'}</span>` : ''}</div>
+      ${cmp ? `<span class="small ${dl > 0 ? 'neg' : 'pos'}" style="width:96px;text-align:right" title="${esc(cmpLabel)}">${p ? (dl > 0 ? '▲ ' : '▼ ') + k0(Math.abs(dl)) : 'νέο'}</span>` : ''}</div>
       <div class="bar" style="margin-top:4px"><i style="width:${Math.round((v / max) * 100)}%"></i></div></div>`;
   }).join('');
 }
@@ -65,10 +65,10 @@ const pages = {
     const avgMap = new Map([...avg.cats].map(([c, v]) => [c, v / 12]));
     return `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-back>‹</button><div class="grow mid">${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</div>
       <button class="btn sm" data-listm="${m}">Κινήσεις ›</button></div>
-    <div class="grid3"><div class="card kpi"><div class="label">Έσοδα</div><div class="mid pos">${eur0(s.inc)}</div></div>
-      <div class="card kpi"><div class="label">Έξοδα</div><div class="mid">${eur0(s.exp)}</div></div>
-      <div class="card kpi"><div class="label">Διαφορά</div><div class="mid ${s.inc - s.exp < 0 ? 'neg' : 'pos'}">${eur0(s.inc - s.exp)}</div></div></div>
-    <div class="small muted" style="margin:0 4px 8px">Ίδιος μήνας πέρσι: έσοδα ${eur0(ly.inc)} · έξοδα ${eur0(ly.exp)} · Μ.Ο. 12 μηνών: έξοδα ${eur0(avg.exp / 12)}</div>
+    <div class="grid3"><div class="card kpi"><div class="label">Έσοδα</div><div class="mid pos">${eur(s.inc)}</div></div>
+      <div class="card kpi"><div class="label">Έξοδα</div><div class="mid">${eur(s.exp)}</div></div>
+      <div class="card kpi"><div class="label">Διαφορά</div><div class="mid ${s.inc - s.exp < 0 ? 'neg' : 'pos'}">${eur(s.inc - s.exp)}</div></div></div>
+    <div class="small muted" style="margin:0 4px 8px">Ίδιος μήνας πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)} · Μ.Ο. 12 μηνών: έξοδα ${eur(avg.exp / 12)}</div>
     <h2>Έξοδα ανά κατηγορία <span class="small muted">(▲▼ σε σχέση με τον Μ.Ο. 12 μηνών)</span></h2>
     <div class="card">${catBars(cats, avgMap, 'Μ.Ο. 12 μηνών') || '<span class="muted">—</span>'}</div>
     ${inc.length ? `<h2>Έσοδα</h2><div class="card">${catBars(inc)}</div>` : ''}`;
@@ -90,9 +90,9 @@ const pages = {
     const cats = [...s.cats.entries()].filter(([, v]) => v > 0.004).sort((a, b) => b[1] - a[1]);
     const inc = [...s.icats.entries()].filter(([, v]) => v > 0.004).sort((a, b) => b[1] - a[1]);
     return `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-back>‹</button><div class="grow mid">${y}</div></div>
-    <div class="grid3"><div class="card kpi"><div class="label">Έσοδα</div><div class="mid pos">${eur0(s.inc)}</div><div class="small muted">πέρσι ${eur0(ly.inc)}</div></div>
-      <div class="card kpi"><div class="label">Έξοδα</div><div class="mid">${eur0(s.exp)}</div><div class="small muted">πέρσι ${eur0(ly.exp)}</div></div>
-      <div class="card kpi"><div class="label">Διαφορά</div><div class="mid ${s.inc - s.exp < 0 ? 'neg' : 'pos'}">${eur0(s.inc - s.exp)}</div></div></div>
+    <div class="grid3"><div class="card kpi"><div class="label">Έσοδα</div><div class="mid pos">${eur(s.inc)}</div><div class="small muted">πέρσι ${eur(ly.inc)}</div></div>
+      <div class="card kpi"><div class="label">Έξοδα</div><div class="mid">${eur(s.exp)}</div><div class="small muted">πέρσι ${eur(ly.exp)}</div></div>
+      <div class="card kpi"><div class="label">Διαφορά</div><div class="mid ${s.inc - s.exp < 0 ? 'neg' : 'pos'}">${eur(s.inc - s.exp)}</div></div></div>
     <div class="card">${bars(ms.map((m) => MSHORT[Number(m.slice(5)) - 1]), [{ name: 'Έσοδα', cls: 's-inc', values: ms.map((m) => ST.month(view, m).inc) }, { name: 'Έξοδα', cls: 's-exp', values: ms.map((m) => ST.month(view, m).exp) }], ms.map((m) => 'm:' + m), 150)}</div>
     <h2>Έξοδα ανά κατηγορία <span class="small muted">(▲▼ σε σχέση με το ${y - 1})</span></h2>
     <div class="card">${catBars(cats, ly.cats, String(y - 1)) || '—'}</div>
@@ -118,13 +118,13 @@ const pages = {
     }
     const tops = [...top.values()].sort((a, b) => b.a - a.a).slice(0, 12);
     return `<div class="chips" style="margin-bottom:10px">${all.map(([c, v]) => `<button class="chip ${c === selCat ? 'on' : ''}" data-c="${esc(c)}">${ICON[c] || ''} ${esc(c)}</button>`).join('')}</div>
-    <div class="grid2"><div class="card kpi"><div class="label">Τελευταίοι 12 μήνες</div><div class="mid">${eur0(last12.cats.get(selCat) || 0)}</div></div>
-      <div class="card kpi"><div class="label">Μ.Ο. μήνα</div><div class="mid">${eur0((last12.cats.get(selCat) || 0) / 12)}</div></div></div>
+    <div class="grid2"><div class="card kpi"><div class="label">Τελευταίοι 12 μήνες</div><div class="mid">${eur(last12.cats.get(selCat) || 0)}</div></div>
+      <div class="card kpi"><div class="label">Μ.Ο. μήνα</div><div class="mid">${eur((last12.cats.get(selCat) || 0) / 12)}</div></div></div>
     <div class="card"><div class="small muted" style="margin-bottom:4px">${esc(selCat)} · τελευταίοι 24 μήνες</div>${bars(ms.map(short), [{ name: selCat, cls: 's-exp', values: vals }], ms.map((m) => 'm:' + m), 150)}</div>
     <h2>Πού πήγαν (12 μήνες)</h2>
     <div class="list">${tops.map((x) => `<div class="item" data-q="${esc(x.d)}"><div class="grow"><div class="t">${esc(x.d)}</div><div class="s">${x.n} φορές</div></div><div class="amt">${eur(x.a)}</div></div>`).join('')}</div>
     <h2>Ανά χρονιά</h2>
-    <div class="card"><table class="t st">${yrs.map(([y, v]) => `<tr><td>${y}</td><td class="r">${eur0(v)}</td><td class="r muted">${eur0(v / (y === Y ? Number(t.slice(5, 7)) : 12))}/μήνα</td></tr>`).join('')}</table></div>`;
+    <div class="card"><table class="t st">${yrs.map(([y, v]) => `<tr><td>${y}</td><td class="r">${eur(v)}</td><td class="r muted">${eur(v / (y === Y ? Number(t.slice(5, 7)) : 12))}/μήνα</td></tr>`).join('')}</table></div>`;
   },
   trips() {
     const meta = new Map(records('trip').map((x) => [x.name, x]));
@@ -132,8 +132,8 @@ const pages = {
     const days = (tr) => { const m = meta.get(tr.name); const a = m?.start || tr.from, b = m?.end || tr.to; return Math.round((new Date(b) - new Date(a)) / 864e5) + 1; };
     return `<div class="note small" style="margin-bottom:10px">Ό,τι γράφεις με «Ταξίδι» (στα «Περισσότερα» του εξόδου). Μερίδιο = πόσο κόστισε στον καθένα.</div>
     <div class="list">${list.map((tr) => { const d = days(tr); return `<div class="item" data-q="${esc(tr.name)}"><div class="dot">✈️</div>
-      <div class="grow"><div class="t">${esc(tr.name)}</div><div class="s">${dFull(meta.get(tr.name)?.start || tr.from)} · ${d} ${d === 1 ? 'μέρα' : 'μέρες'} · ${eur0(tr.N / d)}/μέρα · Άλκης ${eur0(tr.Q)} · Χαρά ${eur0(tr.S)}</div></div>
-      <div class="amt">${eur0(tr.N)}</div></div>`; }).join('') || '<div class="item muted">Κανένα ταξίδι</div>'}</div>`;
+      <div class="grow"><div class="t">${esc(tr.name)}</div><div class="s">${dFull(meta.get(tr.name)?.start || tr.from)} · ${d} ${d === 1 ? 'μέρα' : 'μέρες'} · ${eur(tr.N / d)}/μέρα · Άλκης ${eur(tr.Q)} · Χαρά ${eur(tr.S)}</div></div>
+      <div class="amt">${eur(tr.N)}</div></div>`; }).join('') || '<div class="item muted">Κανένα ταξίδι</div>'}</div>`;
   },
   bills() {
     const t = today(); const Y = Number(t.slice(0, 4));
@@ -158,7 +158,7 @@ const pages = {
 export default {
   live: true,
   html([sub, arg]) {
-    const me = state.user; const views = me === 'Χαρά' ? ['Χαρά', 'Κοινά', 'Φίλιππος'] : ['Άλκης', 'Χαρά', 'Κοινά', 'Φίλιππος'];
+    const me = state.user; const views = [me, 'Κοινά', 'Φίλιππος'];
     view = view && views.includes(view) ? view : me;
     if (sub && TABS.some(([k]) => k === sub)) tab = sub;
     const body = sub === 'm' ? pages.month([arg]) : sub === 'y' ? pages.year([arg]) : pages[tab]();

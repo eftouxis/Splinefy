@@ -5,9 +5,14 @@ import { today, addDays, addMonths, monthKey, norm } from './util.js';
 export const KINDS = { exp: 'Έξοδο', inc: 'Έσοδο', trf: 'Μεταφορά' };
 
 /** computed values of one movement (N amount±, P/Q Άλκης paid/share, R/S Χαρά paid/share, T Φίλιππος, U/V/W/X views) */
+/** part of an expense that other people (sister, friends…) owe back to the payer */
+export function othSum(r) {
+  if (!r.oth || !r.oth.length || r.kind !== 'Έξοδο') return 0;
+  return r.oth.reduce((s, o) => s + (o.a != null ? o.a : (o.f || 0) * (r.a || 0)), 0);
+}
 export function fx(r, t = today()) {
   if (r.fx) return r.fx;
-  const a = r.a || 0, k = r.kind, p = r.payer, fo = r.for || '';
+  const a = (r.a || 0) - othSum(r), k = r.kind, p = r.payer, fo = r.for || '';
   const N = r.d > t ? 0 : (k === 'Έσοδο' ? -a : a);
   const O = fo === 'Φίλιππος' ? 'Φίλιππος' : k === 'Έσοδο' ? (fo === 'Κοινό' ? 'Κοινό' : p) : (fo || 'Κοινό');
   const both = r.both ?? null, share = r.share ?? null;
@@ -37,7 +42,7 @@ export function recurringMovements(until = addDays(today(), 60)) {
       const oid = `${def.id}@${d}`; const ov = overrides.get(oid) || {};
       if (ov.skip) { out.push({ id: oid, type: 'tx', d, a: 0, desc: def.name, cat: def.cat, kind: def.kind, payer: def.payer, for: def.for, rec: def.id, skipped: true, _sp: def._sp }); continue; }
       out.push({ id: oid, type: 'tx', d, a: ov.a ?? def.a, desc: def.name, cat: def.cat, kind: def.kind, payer: ov.payer || def.payer,
-                 for: ov.for ?? def.for, rec: def.id, bill: def.bill, _sp: def._sp });
+                 for: ov.for ?? def.for, rec: def.id, bill: def.bill, oth: def.oth, _sp: def._sp });
     }
   }
   return out;

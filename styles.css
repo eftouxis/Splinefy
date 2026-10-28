@@ -66,7 +66,7 @@ nav.bottom a.plus .i { width: 46px; height: 46px; border-radius: 15px; backgroun
 .cal-d.off b { color: var(--red); } .cal-d.today { outline: 2px solid var(--brand); outline-offset: -2px; }
 :root[data-theme="dark"] .cal-d.hol { background: #3a2f1c; } :root[data-theme="dark"] .cal-d.done { background: #1e3a26; } :root[data-theme="dark"] .cal-d.plan { background: #1c2e44; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cal-d.hol { background: #3a2f1c; } :root:not([data-theme="light"]) .cal-d.done { background: #1e3a26; } :root:not([data-theme="light"]) .cal-d.plan { background: #1c2e44; } }
-table.st { font-size: 13px; white-space: nowrap; } table.st td, table.st th { padding: 6px 4px; } table.st tr.tot td { font-weight: 700; border-top: 2px solid var(--line); }
+table.st { font-size: 12.5px; white-space: nowrap; } table.st td, table.st th { padding: 6px 3px; } table.st tr.tot td { font-weight: 700; border-top: 2px solid var(--line); }
 table.st tr.cur td { background: var(--chip); }
 .top { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; } .top h1 { margin: 0; flex: 1; }
 .sync { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; background: var(--chip); padding: 5px 10px; border-radius: 999px; border: 0; }
@@ -96,4 +96,4 @@ svg.chart .hit:hover { fill: var(--ink); fill-opacity: .05; }
 .tabs { display: flex; gap: 4px; overflow-x: auto; margin: 0 0 12px; border-bottom: 1px solid var(--line); }
 .tabs button { border: 0; background: none; padding: 9px 10px; font: 600 14px system-ui; color: var(--muted); border-bottom: 2.5px solid transparent; cursor: pointer; white-space: nowrap; }
 .tabs button.on { color: var(--brand); border-bottom-color: var(--brand); }
-tr.click { cursor: pointer; } tr.click:hover td { background: var(--chip); } .cbar { margin: 8px 0; cursor: pointer; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--chip); } .cbar { margin: 8px 0; cursor: pointer; } .cbar .small { white-space: nowrap; }
