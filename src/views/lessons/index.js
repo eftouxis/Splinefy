@@ -4,7 +4,7 @@ import * as L from '../../lessons.js';
 import { syncBadge } from '../../main.js';
 import { sheet, lessonSheet, addLessonSheet, paySheet, fmtH, hoursTxt } from './ui.js';
 import studentView from './student.js';
-import { editView, schedView, salView, statsView, holView, allView } from './more.js';
+import { editView, schedView, salView, statsView, holView, allView, helpView } from './more.js';
 
 let weekOff = 0;
 const home = {
@@ -62,7 +62,7 @@ const home = {
       <div class="small muted">${bal > 0.005 ? `χρωστάει · ${fmtH(unpaidH)} ώρ.` : bal < -0.005 ? 'προπληρωμένα' : 'εξοφλημένος'}</div></div></div>`).join('')}</div>
     <div class="grid3" style="margin-top:12px">
       <a class="btn sm" href="#/lessons/sched">🗓 Πρόγραμμα</a><a class="btn sm" href="#/lessons/sal">💼 Μισθοί</a><a class="btn sm" href="#/lessons/stats">📊 Στατιστικά</a>
-      <a class="btn sm" href="#/lessons/hol">🏖 Αργίες</a><a class="btn sm" href="#/lessons/all">👥 Όλοι οι μαθητές</a><a class="btn sm" href="#/lessons/edit/new">+ Μαθητής</a>
+      <a class="btn sm" href="#/lessons/hol">🏖 Αργίες</a><a class="btn sm" href="#/lessons/all">👥 Όλοι οι μαθητές</a><a class="btn sm" href="#/lessons/help">❓ Οδηγίες</a>
     </div>`;
   },
   mount(root, p, ui) {
@@ -74,7 +74,7 @@ const home = {
   },
 };
 
-const PAGES = { s: studentView, edit: editView, sched: schedView, sal: salView, stats: statsView, hol: holView, all: allView };
+const PAGES = { s: studentView, edit: editView, sched: schedView, sal: salView, stats: statsView, hol: holView, all: allView, help: helpView };
 const pick = (p) => (!L.hasLessons() ? denied : PAGES[p[0]] || home);
 const denied = { html: () => '<div class="card">Τα μαθήματα φαίνονται μόνο στον Άλκη.</div>' };
 export default {

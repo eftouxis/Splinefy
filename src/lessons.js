@@ -17,6 +17,7 @@ export const yLabel = (Y) => `${Y}–${String(Y + 1).slice(2)}`;
 /** the 13 month keys of a school year (June … June) */
 export const yMonths = (Y) => Array.from({ length: 13 }, (_, i) => { const d = new Date(Y, 5 + i, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; });
 const wd = (d) => { const x = parseISO(d).getDay(); return x === 0 ? 7 : x; };   // 1 = Monday … 7 = Sunday
+export const eom = (m) => { const [y, mo] = m.split('-').map(Number); return `${m}-${pad(new Date(y, mo, 0).getDate())}`; };
 export const isoWeekStart = (d) => addDays(d, 1 - wd(d));
 
 /** Orthodox Easter (same formula as the Excel) */
@@ -112,7 +113,14 @@ export function rateAt(st, d) {
   return price && dur ? price / dur : 0;
 }
 export const priceAt = (st, d = today()) => { let p = st.price, du = st.dur; for (const r of st.rates || []) if (r.from <= d) { p = r.price; du = r.dur; } return { price: p, dur: du }; };
-export const isActive = (st, d = today()) => (!st.end || st.end >= d) && (!st.start || st.start <= addDays(d, 60));
+/** «now» student: not stopped, and has a lesson in the last 45 / next 60 days or a running schedule (no yearly bookkeeping) */
+export function isActive(st, d = today()) {
+  if (st.end && st.end < d) return false;
+  if (st.start && st.start > d && st.start > addDays(d, 60)) return false;
+  if (st.start && st.start >= addDays(d, -45)) return true;
+  if (slots(st.id).some((s) => !s.to || s.to >= d)) return true;
+  return lessons({ stu: st.id, from: addDays(d, -45), to: addDays(d, 60) }).length > 0;
+}
 
 /** balance of a student: + he owes, − paid in advance */
 export function balance(stu, asOf = today()) {
@@ -137,24 +145,25 @@ export function monthIdx(Y, d) {
 /** month totals of a school year: lessons value (with planned), received, salaries, extras */
 export function yearStats(Y) {
   const months = yMonths(Y); const t = today();
-  const out = months.map((m) => ({ m, les: 0, lesDone: 0, hours: 0, recv: 0, sal: 0, salPaid: 0, extra: 0, total: 0 }));
+  const out = months.map((m) => ({ m, les: 0, lesDone: 0, hours: 0, recv: 0, sal: 0, salGot: 0, salExp: 0, extra: 0, total: 0 }));
   const weeks = new Set();
   for (const l of lessons({ from: yStart(Y), to: yEnd(Y) })) {
     const r = out[monthIdx(Y, l.d)];
     r.les += l.v; r.hours += l.h; if (l.d <= t) r.lesDone += l.v;
     weeks.add(isoWeekStart(l.d));
   }
+  // salaries: what you received, in the month it concerns (md); June salary belongs to the end of the year
+  const sIdx = (d) => { const i = (Number(d.slice(0, 4)) - Y) * 12 + Number(d.slice(5, 7)) - 6; return i >= 1 && i <= 12 ? i : -1; };
   for (const tx of records('tx', [LSP])) {
     if (tx.kind !== 'Έσοδο') continue;
     if (tx.cat === 'Ιδιαίτερα') { const i = monthIdx(Y, tx.d); if (i >= 0) out[i].recv += tx.a || 0; }
-    else if (tx.cat === 'Μισθός' && !tx.sal && !tx.src) {   // new one-off pay (old imported ones are not in the lessons Excel)
-      const i = monthIdx(Y, tx.md || tx.d); if (i >= 0) out[i].extra += tx.a || 0; }
+    else if (tx.cat === 'Μισθός') { const i = sIdx(tx.md || tx.d); if (i >= 0) out[i].salGot += tx.a || 0; }
   }
-  // salaries count in the month they concern; June salary belongs to the end of the year
-  for (const s of records('sal', [LSP])) {
-    const i = (Number(s.m.slice(0, 4)) - Y) * 12 + Number(s.m.slice(5)) - 6;
-    if (i < 1 || i > 12) continue;
-    out[i].sal += s.a || 0; if (s.paid) out[i].salPaid += s.a || 0;
+  // expected salaries (for the months that have not ended yet)
+  for (const s of records('sal', [LSP])) { const i = sIdx(`${s.m}-01`); if (i >= 0) out[i].salExp += s.a || 0; }
+  for (const r of out) {
+    const ended = eom(r.m) < t;
+    r.sal = ended ? r.salGot : Math.max(r.salGot, r.salExp); r.salEst = !ended && r.salExp > r.salGot;
   }
   for (const r of out) r.total = r.les + r.sal + r.extra;
   const sum = (f) => out.reduce((s, r) => s + r[f], 0);

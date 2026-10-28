@@ -103,69 +103,50 @@ export const schedView = {
   },
 };
 
-// ---------------- salaries (amount per month it concerns + the day it was paid) ----------------
+// ---------------- salaries: what you received (normal income «Μισθός», in the month it concerns) + expected ----------------
 let salY = null;
-const eom = (m) => { const [y, mo] = m.split('-').map(Number); return `${m}-${pad(new Date(y, mo, 0).getDate())}`; };
+const eom = L.eom;
 export const salView = {
   html() {
     const t = today(); salY = salY ?? L.yearOf(t);
-    const months = L.yMonths(salY).slice(1);            // July … June
-    const sal = store.records('sal', [L.LSP]).filter((s) => months.includes(s.m));
-    const srcs = [...new Set(store.records('sal', [L.LSP]).map((s) => s.src))];
-    const tot = sal.reduce((a, s) => a + (s.a || 0), 0), paid = sal.filter((s) => s.paid).reduce((a, s) => a + (s.a || 0), 0);
-    const rows = months.map((m) => {
-      const list = sal.filter((s) => s.m === m); if (!list.length) return '';
-      return `<div class="day">${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</div>` + list.map((s) => {
-        const late = !s.paid && eom(m) < t;
-        return `<div class="item" data-sal="${esc(s.id)}"><div class="dot">💼</div><div class="grow"><div class="t">${esc(s.src)}</div>
-          <div class="s ${late ? 'neg' : ''}">${s.paid ? '✓ πληρώθηκε ' + dFull(s.paid) : late ? '⚠ ο μήνας τελείωσε — δεν έχει πληρωθεί' : 'αναμένεται'}</div></div>
-          <div class="amt ${s.paid ? 'pos' : 'muted'}">${eur(s.a)}</div></div>`;
-      }).join('');
+    const st = L.yearStats(salY);
+    const months = st.months.slice(1);            // July … June
+    const exp = store.records('sal', [L.LSP]);
+    const got = store.records('tx', [L.LSP]).filter((x) => x.kind === 'Έσοδο' && x.cat === 'Μισθός');
+    const rows = months.map((r) => {
+      const ex = exp.filter((x) => x.m === r.m), g = got.filter((x) => (x.md || x.d).startsWith(r.m)).sort((x, y) => (x.d < y.d ? -1 : 1));
+      if (!ex.length && !g.length) return '';
+      const late = eom(r.m) < t && r.salGot + 0.005 < r.salExp;
+      return `<div class="day">${MONTHS[Number(r.m.slice(5)) - 1]} ${r.m.slice(0, 4)}${late ? ' · <span class="neg">λείπει ' + eur(r.salExp - r.salGot) + '</span>' : ''}</div>`
+        + g.map((x) => `<div class="item" data-edit="${esc(x._sp)}/${esc(x.id)}"><div class="dot">💼</div><div class="grow"><div class="t">${esc(x.desc || 'Μισθός')}</div>
+          <div class="s">πληρώθηκε ${dFull(x.d)}</div></div><div class="amt pos">${eur(x.a)}</div></div>`).join('')
+        + (eom(r.m) < t ? [] : ex).map((x) => `<div class="item" data-sal="${esc(x.id)}" style="opacity:.75"><div class="dot">⏳</div><div class="grow"><div class="t">Αναμενόμενος · ${esc(x.src)}</div>
+          <div class="s">για τις προβλέψεις</div></div><div class="amt muted">${eur(x.a)}</div></div>`).join('');
     }).join('');
     return `<div class="top">${back()}<h1>Μισθοί</h1></div>
     <div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-y="-1">◀</button><div class="grow center mid">Χρονιά ${L.yLabel(salY)}</div><button class="btn sm ghost" data-y="1">▶</button></div>
-    <div class="grid2"><div class="card kpi"><div class="label">Σύνολο χρονιάς</div><div class="mid">${eur(tot)}</div></div>
-      <div class="card kpi"><div class="label">Έχουν πληρωθεί</div><div class="mid pos">${eur(paid)}</div></div></div>
-    <div class="list">${rows || '<div class="item muted">Κανένας μισθός σε αυτή τη χρονιά</div>'}</div>
-    <button class="btn primary" style="width:100%;margin-top:12px" data-add>+ Μισθός (ένας ή πολλοί μήνες)</button>
-    <div class="note small" style="margin-top:12px">Ο μισθός γράφεται στον μήνα που αφορά (π.χ. ο Οκτωβρίου στον Οκτώβριο). Μόλις πατήσεις «Πληρώθηκε» με την ημερομηνία που μπήκαν τα χρήματα, μπαίνει μόνος του στα έσοδα (Μισθός) και μετράει στον μήνα που αφορά.${srcs.length ? '' : ''}</div>`;
+    <div class="grid2"><div class="card kpi"><div class="label">Πήρες μέχρι τώρα</div><div class="mid pos">${eur(months.reduce((a, r) => a + r.salGot, 0))}</div></div>
+      <div class="card kpi"><div class="label">Όλη η χρονιά (με τους αναμενόμενους)</div><div class="mid">${eur(st.sal)}</div></div></div>
+    <a class="btn green" style="width:100%;margin-bottom:12px" href="#/add/inc?cat=Μισθός">+ Πληρώθηκα μισθό</a>
+    <div class="list">${rows || '<div class="item muted">Τίποτα σε αυτή τη χρονιά</div>'}</div>
+    <button class="btn" style="width:100%;margin-top:12px" data-add>+ Αναμενόμενος μισθός (για τις προβλέψεις)</button>
+    <div class="note small" style="margin-top:12px">Ο μισθός μπαίνει σαν κανονικό έσοδο («Νέα → Έσοδο → Μισθός») με την ημερομηνία που πληρώθηκες. Στο «Αφορά μήνα» διαλέγεις τον μήνα (ή γράφεις π.χ. «Μισθός Οκτωβρίου» στην περιγραφή και διαλέγεται μόνος του) και μετράει σε εκείνον τον μήνα. Οι αναμενόμενοι χρησιμοποιούνται μόνο για τους μήνες που δεν έχουν τελειώσει, για το «÷12».</div>`;
   },
   mount(root, p, ui) {
     bindBack(root, ui);
     root.querySelectorAll('[data-y]').forEach((b) => b.addEventListener('click', () => { salY += Number(b.dataset.y); ui.render(); }));
+    root.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => ui.go(`#/edit/${b.dataset.edit}`)));
     root.querySelectorAll('[data-sal]').forEach((b) => b.addEventListener('click', () => salSheet(ui, store.records('sal', [L.LSP]).find((s) => s.id === b.dataset.sal))));
     root.querySelector('[data-add]').addEventListener('click', () => salAddSheet(ui, salY));
   },
 };
 function salSheet(ui, s) {
-  const t = today();
-  sheet(`<div class="mid">${esc(s.src)} · ${MONTHS[Number(s.m.slice(5)) - 1]} ${s.m.slice(0, 4)}</div>
-    <div class="grid2" style="margin-top:10px"><label class="f"><span>Ποσό</span><input name="a" inputmode="decimal" value="${esc(String(s.a).replace('.', ','))}"></label>
-    <label class="f"><span>Πληρώθηκε στις</span><input type="date" name="paid" value="${esc(s.paid || (eom(s.m) < t ? t : t))}"></label></div>
-    <button class="btn green" data-paid>${s.paid ? 'Αποθήκευση' : '✓ Πληρώθηκε'}</button>
-    ${s.paid ? '<button class="btn" data-unpaid>Δεν έχει πληρωθεί ακόμα</button>' : '<button class="btn" data-save>Αλλαγή ποσού μόνο</button>'}
-    <button class="btn" data-del style="color:var(--red)">Διαγραφή</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
-    const a = () => parseAmount(el.querySelector('[name=a]').value);
+  sheet(`<div class="mid">Αναμενόμενος · ${esc(s.src)} · ${MONTHS[Number(s.m.slice(5)) - 1]} ${s.m.slice(0, 4)}</div>
+    <label class="f" style="margin-top:10px"><span>Ποσό</span><input name="a" inputmode="decimal" value="${esc(String(s.a).replace('.', ','))}"></label>
+    <button class="btn primary" data-save>Αποθήκευση</button><button class="btn" data-del style="color:var(--red)">Διαγραφή</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-no]').onclick = close;
-    el.querySelector('[data-save]')?.addEventListener('click', async () => { await store.put(L.LSP, s.id, { a: a() }); close(); ui.toast('Αποθηκεύτηκε ✓'); });
-    el.querySelector('[data-paid]').onclick = async () => {
-      const paid = el.querySelector('[name=paid]').value || t; const amt = a(); if (!amt) { ui.toast('Γράψε ποσό'); return; }
-      const md = paid < eom(s.m) ? paid : eom(s.m);
-      const txid = s.tx || `saltx:${s.id}`;
-      await store.putMany(L.LSP, [
-        { id: txid, set: { type: 'tx', kind: 'Έσοδο', cat: 'Μισθός', payer: 'Άλκης', for: '', d: paid, md: md === paid ? null : md, a: amt,
-          desc: `Μισθός ${s.src} ${MONTHS_GEN[Number(s.m.slice(5)) - 1]}`, sal: s.id } },
-        { id: s.id, set: { a: amt, paid, tx: txid } }]);
-      close(); ui.toast('Μπήκε στα έσοδα ✓');
-    };
-    el.querySelector('[data-unpaid]')?.addEventListener('click', async () => {
-      await store.putMany(L.LSP, [...(s.tx ? [{ id: s.tx, del: true }] : []), { id: s.id, set: { paid: null, tx: null } }]);
-      close(); ui.toast('Αποθηκεύτηκε ✓');
-    });
-    el.querySelector('[data-del]').onclick = async () => {
-      if (!(await ui.confirm(s.paid ? 'Θα σβηστεί και από τα έσοδα. Διαγραφή;' : 'Διαγραφή;', 'Διαγραφή'))) return;
-      await store.putMany(L.LSP, [...(s.tx ? [{ id: s.tx, del: true }] : []), { id: s.id, del: true }]); close();
-    };
+    el.querySelector('[data-save]').onclick = async () => { await store.put(L.LSP, s.id, { a: parseAmount(el.querySelector('[name=a]').value) }); close(); ui.toast('Αποθηκεύτηκε ✓'); };
+    el.querySelector('[data-del]').onclick = async () => { await store.del(L.LSP, s.id); close(); };
   });
 }
 function salAddSheet(ui, Y) {
@@ -173,7 +154,7 @@ function salAddSheet(ui, Y) {
   const srcs = [...new Set(store.records('sal', [L.LSP]).map((s) => s.src))];
   const cur = t.slice(0, 7); const def = months.includes(cur) ? cur : months[0];
   const opt = (sel) => months.map((m) => `<option value="${m}" ${m === sel ? 'selected' : ''}>${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</option>`).join('');
-  sheet(`<div class="mid">Νέος μισθός</div>
+  sheet(`<div class="mid">Αναμενόμενος μισθός</div>
     <label class="f" style="margin-top:10px"><span>Από πού (π.χ. Σχολείο, ΔΥΠΑ)</span><input name="src" list="srcs" value="${esc(srcs[srcs.length - 1] || '')}"><datalist id="srcs">${srcs.map((s) => `<option value="${esc(s)}">`).join('')}</datalist></label>
     <label class="f"><span>Ποσό κάθε μήνα</span><input name="a" inputmode="decimal"></label>
     <div class="grid2"><label class="f"><span>Από μήνα</span><select name="m1">${opt(def)}</select></label><label class="f"><span>Έως μήνα</span><select name="m2">${opt(months[11])}</select></label></div>
@@ -204,22 +185,22 @@ export const statsView = {
       const cur = t.startsWith(r.m) && L.monthIdx(statY, t) === i;
       const py = prev?.m[i];
       return `<tr class="${cur ? 'cur' : ''}" style="${fut ? 'opacity:.6;font-style:italic' : ''}"><td>${MSHORT[Number(r.m.slice(5)) - 1]} ${r.m.slice(2, 4)}</td>
-        <td class="r">${r.les ? n0(r.les) : ''}</td><td class="r">${r.sal ? n0(r.sal) : ''}</td>${anyExtra ? `<td class="r">${r.extra ? n0(r.extra) : ''}</td>` : ''}
+        <td class="r">${r.les ? n0(r.les) : ''}</td><td class="r" style="${r.salEst ? 'font-style:italic;opacity:.7' : ''}">${r.sal ? n0(r.sal) : ''}</td>${anyExtra ? `<td class="r">${r.extra ? n0(r.extra) : ''}</td>` : ''}
         <td class="r"><b>${r.total ? n0(r.total) : ''}</b></td><td class="r muted">${py ? n0(py) : ''}</td><td class="r">${r.recv ? n0(r.recv) : ''}</td></tr>`;
     }).join('');
     const maxY = Math.max(...hist.map((h) => h.total), 1);
     return `<div class="top">${back()}<h1>Στατιστικά μαθημάτων</h1></div>
     <div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-y="-1">◀</button><div class="grow center mid">Χρονιά ${L.yLabel(statY)}</div><button class="btn sm ghost" data-y="1">▶</button></div>
     <div class="grid3">
-      <div class="card kpi"><div class="label">Σύνολο χρονιάς</div><div class="mid">${n0(s.total)}</div></div>
-      <div class="card kpi"><div class="label">Διαθέσιμα / μήνα (÷12)</div><div class="mid">${n0(s.total / 12)}</div></div>
-      <div class="card kpi"><div class="label">Πέρσι ÷12</div><div class="mid muted">${prev ? n0(prev.total / 12) : '–'}</div></div>
+      <div class="card kpi"><div class="label">Σύνολο χρονιάς</div><div class="mid">${eur0(s.total)}</div></div>
+      <div class="card kpi"><div class="label">Διαθέσιμα / μήνα (÷12)</div><div class="mid">${eur0(s.total / 12)}</div></div>
+      <div class="card kpi"><div class="label">Πέρσι ÷12</div><div class="mid muted">${prev ? eur0(prev.total / 12) : '–'}</div></div>
     </div>
     <div class="card" style="overflow-x:auto"><div class="small muted" style="margin-bottom:4px">σε €</div><table class="t st"><tr><th>Μήνας</th><th class="r">Μαθήμ.</th><th class="r">Μισθοί</th>${anyExtra ? '<th class="r">Έκτακτα</th>' : ''}<th class="r">Σύνολο</th><th class="r">Πέρσι</th><th class="r">Εισπρ.</th></tr>
       ${rows}<tr class="tot"><td>Σύνολο</td><td class="r">${n0(s.les)}</td><td class="r">${n0(s.sal)}</td>${anyExtra ? `<td class="r">${n0(s.extra)}</td>` : ''}<td class="r">${n0(s.total)}</td><td class="r muted">${prev ? n0(prev.total) : ''}</td><td class="r">${n0(s.recv)}</td></tr>
       <tr><td>÷12</td><td class="r">${n0(s.les / 12)}</td><td class="r">${n0(s.sal / 12)}</td>${anyExtra ? `<td class="r">${n0(s.extra / 12)}</td>` : ''}<td class="r"><b>${n0(s.total / 12)}</b></td><td class="r muted">${prev ? n0(prev.total / 12) : ''}</td><td></td></tr></table>
       <div class="small muted" style="margin-top:8px">Μαθήματα = όλος ο μήνας μαζί με τα προγραμματισμένα (πλάγια = μελλοντικοί μήνες). Εισπρ. = πληρωμές που πήρες μέσα στον μήνα.
-      Μ.Ο. μήνα δουλειάς: <b>${n0(s.avgWork)}</b> (${s.weeks} εβδομάδες με μαθήματα ≈ ${s.workMonths.toFixed(1).replace('.', ',')} μήνες).</div></div>
+      Μ.Ο. μήνα δουλειάς: <b>${eur0(s.avgWork)}</b> (${s.weeks} εβδομάδες με μαθήματα ≈ ${s.workMonths.toFixed(1).replace('.', ',')} μήνες).</div></div>
     <h2>Όλες οι χρονιές</h2>
     <div class="card">${hist.slice().reverse().map((h) => `<div class="row" style="margin:6px 0" data-gy="${h.Y}"><span style="width:58px" class="small"><b>${String(h.Y).slice(2)}-${String(h.Y + 1).slice(2)}</b></span>
       <div class="grow bar"><i style="width:${Math.round((h.total / maxY) * 100)}%;${h.Y === statY ? 'background:var(--brand)' : ''}"></i></div>
@@ -301,3 +282,23 @@ export const allView = {
   mount(root, p, ui) { bindBack(root, ui); root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go))); },
 };
 export { lessonSheet, addDays, DSHORT };
+
+// ---------------- instructions ----------------
+export const helpView = {
+  html() {
+    const Q = (q, a) => `<details class="card help"><summary><b>${q}</b></summary><div style="margin-top:8px">${a}</div></details>`;
+    return `<div class="top">${back()}<h1>Οδηγίες</h1></div>
+    ${Q('Έγινε το μάθημα όπως κάθε εβδομάδα', 'Δεν κάνεις τίποτα. Τα μαθήματα του προγράμματος μετράνε μόνα τους (εκτός από τις αργίες).')}
+    ${Q('Δεν έγινε / έγινε με άλλες ώρες (μόνο αυτή τη φορά)', 'Πάτα το μάθημα (στην αρχική των μαθημάτων ή στο ημερολόγιο της καρτέλας) → «Δεν έγινε» ή άλλες ώρες → Αποθήκευση. Αλλάζει μόνο εκείνη τη μέρα. «Όπως το πρόγραμμα» το επαναφέρει.')}
+    ${Q('Έκτακτο μάθημα / αναπλήρωση', '«+ Μάθημα» → μαθητής, ημερομηνία, ώρες. Ή πάτα μια κενή μέρα στο ημερολόγιο του μαθητή.')}
+    ${Q('Αλλαγή ημέρας ή ώρας για πάντα', 'Καρτέλα μαθητή → «Πρόγραμμα κάθε εβδομάδα» → πάτα τη γραμμή → άλλαξε ημέρα/ώρες → «Η αλλαγή ισχύει από» (π.χ. 1/12) → Αποθήκευση. Τα μαθήματα πριν από αυτή την ημερομηνία μένουν όπως ήταν. Δεύτερη μέρα την εβδομάδα: «Προσθήκη ημέρας».')}
+    ${Q('Πληρωμή', '«+ Πληρωμή» → μαθητής → ποσό (προτείνει όσα χρωστάει) → Καταχώρηση. Μπαίνει μία φορά: ξεχρεώνει τον μαθητή και φαίνεται στα έσοδα (Ιδιαίτερα). Ή από «Νέα → Έσοδο → Ιδιαίτερα» διαλέγοντας μαθητή.')}
+    ${Q('Αλλαγή τιμής', 'Καρτέλα μαθητή → Επεξεργασία → νέα τιμή ή διάρκεια → «Από αυτή την ημερομηνία» (τα παλιά μαθήματα κρατούν την παλιά τιμή) ή «Για όλα» (αν ήταν λάθος).')}
+    ${Q('Νέος μαθητής', '«+ Μαθητής» → όνομα, τιμή, διάρκεια → μετά βάζεις την ημέρα του στο πρόγραμμα.')}
+    ${Q('Σταμάτησε ένας μαθητής', 'Δεν χρειάζεται τίποτα: όταν δεν έχει πρόγραμμα ούτε μαθήματα για ενάμιση μήνα, πάει μόνος του στους «Παλιούς» (εκτός αν χρωστάει). Αν θες, σταμάτα το πρόγραμμά του ή βάλε «Σταμάτησε» στην Επεξεργασία.')}
+    ${Q('Μισθός', '«Νέα → Έσοδο → Μισθός» (ή Μισθοί → «Πληρώθηκα μισθό») με την ημερομηνία που μπήκαν τα χρήματα. Στο «Αφορά μήνα» διάλεξε τον μήνα — αν γράψεις «Μισθός Οκτωβρίου» στην περιγραφή, διαλέγεται μόνος του. Μετράει στον μήνα που αφορά, και στα οικονομικά και στα στατιστικά.')}
+    ${Q('Νέα χρονιά (Ιούνιος)', 'Δεν υπάρχει αλλαγή αρχείων ούτε πάγωμα: η χρονιά (16/6 → 15/6) και οι αργίες βγαίνουν από τις ημερομηνίες. Βάζεις μόνο το νέο πρόγραμμα (το παλιό λήγει μόνο του στο τέλος της χρονιάς) και τους νέους μαθητές. Χρωστούμενα μεταφέρονται μόνα τους.')}
+    ${Q('Αργίες', 'Υπολογίζονται μόνες τους κάθε χρονιά (μαζί με το Πάσχα). Αργίες → «+ Δική μου αργία» για δικές σου διακοπές· πάτα μια αυτόματη για να μην ισχύει.')}`;
+  },
+  mount(root, p, ui) { bindBack(root, ui); },
+};

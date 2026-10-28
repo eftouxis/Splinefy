@@ -74,11 +74,13 @@ export default {
 };
 function lessonsCard(recv) {
   const t = today(); const has = LS.students().length;
-  const owed = LS.students().reduce((a, s) => { const b = LS.balance(s.id); return a + (b > 0.005 ? b : 0); }, 0);
+  const debt = LS.students().map((s) => ({ s, b: LS.balance(s.id) })).filter((x) => x.b > 0.005).sort((a, b) => b.b - a.b);
+  const owed = debt.reduce((a, x) => a + x.b, 0);
   const tl = LS.lessons({ from: t, to: t });
   return `<div class="card row" data-go="#/lessons" style="cursor:pointer"><div class="dot">📚</div><div class="grow">
     <div class="small muted">Ιδιαίτερα ${MONTHS_GEN[new Date().getMonth()]}: εισπράξεις ${eur(recv)}</div>
     <div class="mid">${has ? `Μου χρωστάνε ${eur(owed)}` : 'Μαθήματα'}</div>
+    ${debt.length ? `<div class="small">${debt.map((x) => `${esc(x.s.name)} <b class="neg">${eur(x.b)}</b>`).join(' · ')}</div>` : ''}
     ${has ? `<div class="small muted">${tl.length ? `Σήμερα: ${tl.map((l) => esc(LS.student(l.stu).name)).join(', ')}` : 'Σήμερα κανένα μάθημα'}</div>` : ''}</div><div class="muted">›</div></div>`;
 }
 const INC = new Set(['Μισθός', 'Ιδιαίτερα', 'Πωλήσεις', 'Επιδόματα', 'Δώρο', 'Από οικογένεια', 'Ενοίκιο', 'Άλλο']);

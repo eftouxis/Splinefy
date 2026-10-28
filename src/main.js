@@ -12,7 +12,7 @@ import { hasLessons } from './lessons.js';
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
 const ROUTES = [
-  [/^#?\/?$/, home, 'home'], [/^#\/add\/(exp|inc|trf)$/, form, 'add'], [/^#\/edit\/([\w-]+)\/(.+)$/, form, 'add'],
+  [/^#?\/?$/, home, 'home'], [/^#\/add\/(exp|inc|trf)(?:\?.*)?$/, form, 'add'], [/^#\/edit\/([\w-]+)\/(.+)$/, form, 'add'],
   [/^#\/list(?:\/(.*))?$/, list, 'list'], [/^#\/settings$/, settings, 'settings'],
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
 ];

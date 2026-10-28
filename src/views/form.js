@@ -1,4 +1,4 @@
-import { esc, eur, today, parseAmount, norm } from '../util.js';
+import { esc, eur, today, parseAmount, norm, MONTHS, MONTHS_GEN, addMonths } from '../util.js';
 import { categories, memory, billType, recurringMovements } from '../ledger.js';
 import * as store from '../store.js';
 import * as LS from '../lessons.js';
@@ -7,10 +7,20 @@ const KIND = { exp: 'Έξοδο', inc: 'Έσοδο', trf: 'Μεταφορά' };
 const KEY = { 'Έξοδο': 'exp', 'Έσοδο': 'inc', 'Μεταφορά': 'trf' };
 let f = null;          // form state
 
+const STEMS = ['ιανουαρ', 'φεβρουαρ', 'μαρτ', 'απριλ', 'μαι', 'ιουν', 'ιουλ', 'αυγουστ', 'σεπτεμβρ', 'οκτωβρ', 'νοεμβρ', 'δεκεμβρ'];
+/** «μισθός οκτωβρίου» → the month it concerns (nearest one not after the next month) */
+function monthFromText(desc, d) {
+  const t = norm(desc); const i = STEMS.findIndex((st) => new RegExp(`(^|[^a-zα-ω])${st}`).test(t));
+  if (i < 0) return null;
+  let y = Number(d.slice(0, 4)); const m = `${y}-${String(i + 1).padStart(2, '0')}`;
+  return m > addMonths(d, 1).slice(0, 7) ? `${y - 1}${m.slice(4)}` : m;
+}
+const eomOf = (m) => { const [y, mo] = m.split('-').map(Number); return `${m}-${String(new Date(y, mo, 0).getDate()).padStart(2, '0')}`; };
 function blank(kindKey) {
   const me = store.state.user;
-  return { kind: KIND[kindKey], d: today(), a: '', desc: '', cat: '', payer: me, for: kindKey === 'exp' ? 'Κοινό' : kindKey === 'trf' ? (me === 'Άλκης' ? 'Χαρά' : 'Άλκης') : '',
-    both: '', share: '', trip: '', note: '', bill: '', period: '', cons: '', toShared: false, id: null, sp: null, touched: {} };
+  const pre = new URLSearchParams(location.hash.split('?')[1] || '');
+  return { mm: '', kind: KIND[kindKey], d: today(), a: '', desc: '', cat: '', payer: me, for: kindKey === 'exp' ? 'Κοινό' : kindKey === 'trf' ? (me === 'Άλκης' ? 'Χαρά' : 'Άλκης') : '',
+    both: '', share: '', trip: '', note: '', bill: '', period: '', cons: '', toShared: false, id: null, sp: null, touched: {}, ...(pre.get('cat') ? { cat: pre.get('cat') } : {}) };
 }
 /** where a movement is stored: personal space only when it concerns the user alone */
 function targetSpace(x) {
@@ -36,9 +46,9 @@ export default {
         let r = store.state.data[sp]?.recs.get(id);
         if (!r && id.includes('@')) { occ = recurringMovements('2100-01-01').find((x) => x.id === id); r = occ; }
         if (!r) return `<h1>Δεν βρέθηκε</h1><a class="btn" href="#/">Αρχική</a>`;
-        f = { ...blank(KEY[r.kind] || 'exp'), ...Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith('_'))), a: r.a ?? '', both: r.both ?? '', share: r.share ?? '', cons: r.cons ?? '', id, sp, occ: id.includes('@'), touched: { cat: 1, for: 1, payer: 1 } };
+        f = { ...blank(KEY[r.kind] || 'exp'), ...Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith('_'))), a: r.a ?? '', both: r.both ?? '', share: r.share ?? '', cons: r.cons ?? '', id, sp, occ: id.includes('@'), touched: { cat: 1, for: 1, payer: 1 }, mm: r.md ? r.md.slice(0, 7) : '' };
       }
-    } else if (!f || f.id || f.kindKey !== a) { f = blank(a); f.kindKey = a; }
+    } else if (!f || f.id || f.kindKey !== a || location.hash.includes('?')) { f = blank(a); f.kindKey = a; if (location.hash.includes('?')) history.replaceState(null, '', `#/add/${a}`); }
     const k = f.kind, kk = KEY[k];
     const people = ['Άλκης', 'Χαρά'];
     const cats = categories(k);
@@ -66,6 +76,12 @@ export default {
       ${k === 'Έσοδο' && f.cat === 'Ιδιαίτερα' && LS.hasLessons() && LS.students().length ? `<label class="f"><span>Μαθητής (για να ξεχρεώνει στην καρτέλα του)</span>
         <div class="chips" data-stu>${LS.students().filter((s) => LS.isActive(s) || s.id === f.stu || LS.balance(s.id) > 0.005).map((s) => `<button type="button" class="chip ${s.id === f.stu ? 'on' : ''}" data-id="${esc(s.id)}">${esc(s.name)}</button>`).join('')}
         <button type="button" class="chip ${f.stu ? '' : 'on'}" data-id="">Κανένας</button></div></label>` : ''}
+      ${k === 'Έσοδο' && f.cat === 'Μισθός' ? (() => {
+        const base = f.d || today(); const auto = monthFromText(f.desc, base); const sel = f.mm || auto || base.slice(0, 7);
+        const opts = [-3, -2, -1, 0, 1].map((n) => addMonths(`${base.slice(0, 7)}-01`, n).slice(0, 7));
+        if (!opts.includes(sel)) opts.unshift(sel);
+        return `<label class="f"><span>Αφορά μήνα (μετράει σε αυτόν, όποια μέρα κι αν πληρώθηκες)</span><select name="mm">${opts.map((m) => `<option value="${m}" ${m === sel ? 'selected' : ''}>${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</option>`).join('')}</select></label>`;
+      })() : ''}
       <label class="f"><span>Περιγραφή</span><input name="desc" list="descs" value="${esc(f.desc)}" autocomplete="off" placeholder="${k === 'Μεταφορά' ? 'π.χ. revolut' : 'π.χ. Σκλαβενίτης'}"></label>
       <datalist id="descs">${descs.map((d) => `<option value="${esc(d)}">`).join('')}</datalist>
       ${k === 'Μεταφορά' ? `
@@ -121,6 +137,8 @@ export default {
       ui.render();
     });
     root.querySelector('[name=toShared]')?.addEventListener('change', () => { read(); ui.render(); });
+    root.querySelector('[name=mm]')?.addEventListener('change', () => { read(); f.mmTouched = 1; });
+    root.querySelector('[name=desc]')?.addEventListener('blur', () => { if (f.cat !== 'Μισθός' || f.mmTouched) return; read(); const m = monthFromText(f.desc, f.d); if (m && m !== f.mm) { f.mm = m; ui.render(); } });
     if (!f.id && !f.a) setTimeout(() => root.querySelector('[name=a]')?.focus(), 50);
 
     const save = async (again) => {
@@ -137,7 +155,12 @@ export default {
       const rec = { type: 'tx', d: f.d, a: amt, desc: f.desc.trim(), cat: f.kind === 'Μεταφορά' ? 'Μεταφορά μεταξύ μας' : f.cat, kind: f.kind,
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,
         bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons),
-        stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null };
+        stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null, md: null };
+      if (f.kind === 'Έσοδο' && f.cat === 'Μισθός') {
+        const mm = f.mm || monthFromText(f.desc, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);
+        rec.md = mm < dm ? eomOf(mm) : mm > dm ? `${mm}-01` : null;
+        if (!rec.desc) rec.desc = `Μισθός ${MONTHS_GEN[Number(mm.slice(5)) - 1]}`;
+      }
       if (f.id) {
         const want = targetSpace({ ...f, toShared: f.sp === 'shared' });
         const cur = store.state.data[f.sp].recs.get(f.id);
