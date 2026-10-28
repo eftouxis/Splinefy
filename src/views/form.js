@@ -2,6 +2,7 @@ import { esc, eur, today, parseAmount, norm, MONTHS, MONTHS_GEN, addMonths } fro
 import { categories, memory, billType, recurringMovements } from '../ledger.js';
 import * as store from '../store.js';
 import * as LS from '../lessons.js';
+import { label as stuLabel } from './lessons/ui.js';
 
 const KIND = { exp: 'Έξοδο', inc: 'Έσοδο', trf: 'Μεταφορά' };
 const KEY = { 'Έξοδο': 'exp', 'Έσοδο': 'inc', 'Μεταφορά': 'trf' };
@@ -47,6 +48,7 @@ export default {
         if (!r && id.includes('@')) { occ = recurringMovements('2100-01-01').find((x) => x.id === id); r = occ; }
         if (!r) return `<h1>Δεν βρέθηκε</h1><a class="btn" href="#/">Αρχική</a>`;
         f = { ...blank(KEY[r.kind] || 'exp'), ...Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith('_'))), a: r.a ?? '', both: r.both ?? '', share: r.share ?? '', cons: r.cons ?? '', id, sp, occ: id.includes('@'), touched: { cat: 1, for: 1, payer: 1 }, mm: r.md ? r.md.slice(0, 7) : '' };
+        if (r.kind === 'Έξοδο' && r.both != null) { f.payer = 'Και οι 2'; f.bothX = String(Math.round(((r.a || 0) - r.both) * 100) / 100).replace('.', ','); }
       }
     } else if (!f || f.id || f.kindKey !== a || location.hash.includes('?')) { f = blank(a); f.kindKey = a; if (location.hash.includes('?')) history.replaceState(null, '', `#/add/${a}`); }
     const k = f.kind, kk = KEY[k];
@@ -74,7 +76,8 @@ export default {
         ${k === 'Μεταφορά' ? '<div></div>' : `<label class="f"><span>Κατηγορία</span><select name="cat"><option value=""></option>${cats.map((c) => `<option ${c === f.cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>`}
       </div>
       ${k === 'Έσοδο' && f.cat === 'Ιδιαίτερα' && LS.hasLessons() && LS.students().length ? `<label class="f"><span>Μαθητής (για να ξεχρεώνει στην καρτέλα του)</span>
-        <div class="chips" data-stu>${LS.students().filter((s) => LS.isActive(s) || s.id === f.stu || LS.balance(s.id) > 0.005).map((s) => `<button type="button" class="chip ${s.id === f.stu ? 'on' : ''}" data-id="${esc(s.id)}">${esc(s.name)}</button>`).join('')}
+        <div class="chips" data-stu>${LS.students().filter((s) => f.allStu || LS.isActive(s) || s.id === f.stu).map((s) => `<button type="button" class="chip ${s.id === f.stu ? 'on' : ''}" data-id="${esc(s.id)}">${esc(stuLabel(s))}</button>`).join('')}
+        ${f.allStu ? '' : '<button type="button" class="chip" data-allstu>Παλιοί…</button>'}
         <button type="button" class="chip ${f.stu ? '' : 'on'}" data-id="">Κανένας</button></div></label>` : ''}
       ${k === 'Έσοδο' && f.cat === 'Μισθός' ? (() => {
         const base = f.d || today(); const auto = monthFromText(f.desc, base); const sel = f.mm || auto || base.slice(0, 7);
@@ -88,15 +91,16 @@ export default {
         <label class="f"><span>Έδωσε</span>${seg('payer', [...people, 'Φίλιππος'].map((p) => [p, p]), f.payer)}</label>
         <label class="f"><span>Πήρε</span>${seg('for', [...people, 'Φίλιππος'].map((p) => [p, p]), f.for)}</label>
         <div class="note small">Φίλιππος = ο λογαριασμός του (κατάθεση ή ανάληψη).</div>`
-      : `<label class="f"><span>${k === 'Έσοδο' ? 'Πήρε' : 'Πλήρωσε'}</span>${seg('payer', people.map((p) => [p, p]), f.payer)}</label>
+      : `<label class="f"><span>${k === 'Έσοδο' ? 'Πήρε' : 'Πλήρωσε'}</span>${seg('payer', (k === 'Έξοδο' ? [...people, 'Και οι 2'] : people).map((p) => [p, p]), f.payer)}</label>
+        ${k === 'Έξοδο' && f.payer === 'Και οι 2' ? `<div class="grid2"><label class="f"><span>Έδωσε ο Άλκης (€)</span><input name="both" inputmode="decimal" value="${esc(f.both)}"></label>
+          <label class="f"><span>Έδωσε η Χαρά (€)</span><input name="bothX" inputmode="decimal" value="${esc(f.bothX ?? '')}"></label></div>` : ''}
         <label class="f"><span>Για ποιον</span>${k === 'Έσοδο'
           ? seg('for', [['', 'Μόνο γι’ αυτόν'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for)
           : seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>`}
-      <details class="more" ${f.trip || f.note || f.both || f.share || f.bill ? 'open' : ''}><summary>Περισσότερα ▾</summary>
+      <details class="more" ${f.trip || f.note || f.share || f.bill ? 'open' : ''}><summary>Περισσότερα ▾</summary>
         ${k === 'Έξοδο' ? `<label class="f"><span>Ταξίδι</span><input name="trip" list="trips" value="${esc(f.trip)}" autocomplete="off"></label>
           <datalist id="trips">${trips.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>
-          <div class="grid2"><label class="f"><span>Πλήρωσαν και οι 2: έδωσε ο Άλκης (€)</span><input name="both" inputmode="decimal" value="${esc(f.both)}"></label>
-          <label class="f"><span>Άλλο μοίρασμα: μερίδιο Άλκη (€)</span><input name="share" inputmode="decimal" value="${esc(f.share)}"></label></div>
+          <label class="f"><span>Άλλο μοίρασμα (όχι μισά-μισά): μερίδιο Άλκη (€)</span><input name="share" inputmode="decimal" value="${esc(f.share)}"></label>
           <div class="grid3"><label class="f"><span>Είδος λογαρ.</span><input name="bill" value="${esc(f.bill || billType(f.desc))}"></label>
           <label class="f"><span>Περίοδος</span><input name="period" value="${esc(f.period)}"></label>
           <label class="f"><span>Κατανάλωση</span><input name="cons" inputmode="decimal" value="${esc(f.cons)}"></label></div>` : ''}
@@ -123,7 +127,13 @@ export default {
     }));
     const desc = root.querySelector('[name=desc]');
     desc?.addEventListener('change', () => {
-      read(); const m = memory().get(norm(f.desc)); if (!m) return;
+      read();
+      if (f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' && !f.stu && LS.hasLessons()) {
+        const n = norm(f.desc).trim(); const hit = LS.students().filter((s) => n && (norm(s.full) === n || norm(s.name) === n || (norm(s.full || '').startsWith(n) && n.length > 3)));
+        const act = hit.filter((s) => LS.isActive(s)); const one = act.length === 1 ? act[0] : hit.length === 1 ? hit[0] : null;
+        if (one) { f.stu = one.id; f.desc = one.full || one.name; if (!parseAmount(f.a)) { const b = LS.balance(one.id); f.a = String(b > 0.005 ? b : LS.priceAt(one).price || '').replace('.', ','); } ui.render(); return; }
+      }
+      const m = memory().get(norm(f.desc)); if (!m) return;
       if (!f.touched.cat && m.kind === f.kind && m.cat) f.cat = m.cat;
       if (!f.touched.for && m.kind === f.kind) f.for = m.for ?? f.for;
       if (!f.bill) f.bill = billType(f.desc);
@@ -131,12 +141,16 @@ export default {
     });
     root.querySelector('[name=cat]')?.addEventListener('change', () => { f.touched.cat = 1; if (f.kind === 'Έσοδο') { read(); ui.render(); } });
     root.querySelector('[data-stu]')?.addEventListener('click', (e) => {
+      if (e.target.dataset.allstu !== undefined) { read(); f.allStu = 1; ui.render(); return; }
       if (e.target.dataset.id === undefined) return; read();
       f.stu = e.target.dataset.id || null;
       if (f.stu) { const st = LS.student(f.stu); f.desc = st.full || st.name; if (!parseAmount(f.a)) { const b = LS.balance(f.stu); f.a = String(b > 0.005 ? b : LS.priceAt(st).price || '').replace('.', ','); } }
       ui.render();
     });
     root.querySelector('[name=toShared]')?.addEventListener('change', () => { read(); ui.render(); });
+    const bA = root.querySelector('[name=both]'), bX = root.querySelector('[name=bothX]'), aI = root.querySelector('[name=a]');
+    const fill = (src, dst) => { const t = parseAmount(aI.value), v = parseAmount(src.value); if (t != null && v != null) dst.value = String(Math.round((t - v) * 100) / 100).replace('.', ','); };
+    bA?.addEventListener('input', () => fill(bA, bX)); bX?.addEventListener('input', () => fill(bX, bA));
     root.querySelector('[name=mm]')?.addEventListener('change', () => { read(); f.mmTouched = 1; });
     root.querySelector('[name=desc]')?.addEventListener('blur', () => { if (f.cat !== 'Μισθός' || f.mmTouched) return; read(); const m = monthFromText(f.desc, f.d); if (m && m !== f.mm) { f.mm = m; ui.render(); } });
     if (!f.id && !f.a) setTimeout(() => root.querySelector('[name=a]')?.focus(), 50);
@@ -151,6 +165,12 @@ export default {
         f = null; ui.toast('Αποθηκεύτηκε ✓'); ui.back(); return;
       }
       if (f.kind !== 'Μεταφορά' && !f.cat) { ui.toast('Διάλεξε κατηγορία'); return; }
+      if (f.payer === 'Και οι 2') {
+        const al = parseAmount(f.both), ch = parseAmount(f.bothX);
+        if (al == null && ch == null) { ui.toast('Γράψε πόσα έδωσε ο καθένας'); return; }
+        f.both = String(al ?? Math.round((amt - ch) * 100) / 100);
+        if (Number(f.both) < 0 || Number(f.both) > amt + 0.005) { ui.toast('Τα ποσά δεν ταιριάζουν με το σύνολο'); return; }
+      } else if (f.kind === 'Έξοδο') f.both = '';
       if (f.kind === 'Μεταφορά' && f.payer === f.for) { ui.toast('«Έδωσε» και «Πήρε» δεν μπορεί να είναι ίδιοι'); return; }
       const rec = { type: 'tx', d: f.d, a: amt, desc: f.desc.trim(), cat: f.kind === 'Μεταφορά' ? 'Μεταφορά μεταξύ μας' : f.cat, kind: f.kind,
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,

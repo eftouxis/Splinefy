@@ -32,18 +32,20 @@ const home = {
       days += `<div class="day ${d === t ? 'today' : ''}">${dShort(d)}${d === t ? ' · σήμερα' : ''}${hol ? ` · <span class="hol-${hol.kind === 'αργία' ? 'a' : 'g'}">${esc(hol.name)}</span>` : ''}</div>`;
       days += ls.map((l) => {
         const st = L.student(l.stu); const past = l.d <= t;
-        const status = !l.h ? '<span class="neg">δεν έγινε</span>' : past ? '<span class="pos">✓</span>' : '';
+        const status = !l.h ? '<span class="neg">δεν έγινε</span>' : past ? '<span class="pos">✓ έγινε</span>' : '';
+        const b = L.balance(l.stu);
         return `<div class="item" data-lesson="${esc(l.stu)}|${l.d}" style="${l.h ? '' : 'opacity:.6'}">
           <div class="dot" style="font-size:12px;font-weight:700">${esc((l.time || '').split(/[–-]/)[0] || '•')}</div>
           <div class="grow"><div class="t" style="${l.h ? '' : 'text-decoration:line-through'}">${esc(st.name)}</div>
-          <div class="s">${l.h ? hoursTxt(l.h) : hoursTxt(l.sched)}${l.ov && l.sched && l.h ? ' · αλλαγή' : !l.sched ? ' · έκτακτο' : ''}</div></div>
+          <div class="s">${l.h ? hoursTxt(l.h) : hoursTxt(l.sched)}${l.ov && l.sched && l.h ? ' · αλλαγή' : !l.sched ? ' · έκτακτο' : ''}${b > 0.005 ? ` · <b class="neg">χρωστάει ${eur(b)}</b>` : b < -0.005 ? ` · <span class="pos">προπλήρωσε ${eur(-b)}</span>` : ''}</div></div>
           <div class="right"><div class="amt">${l.h ? eur(l.v) : ''}</div><div class="small">${status}</div></div></div>`;
       }).join('') || '';
     }
     const order = sums.sort((a, b) => (Math.abs(b.bal) > 0.005) - (Math.abs(a.bal) > 0.005) || b.bal - a.bal || a.s.name.localeCompare(b.s.name, 'el'));
     return `<div class="top"><h1>Μαθήματα</h1>${syncBadge()}</div>
     <div class="grid2">
-      <div class="card kpi"><div class="label">Μου χρωστάνε</div><div class="big ${owed > 0.005 ? 'neg' : ''}">${eur(owed)}</div></div>
+      <div class="card kpi"><div class="label">Μου χρωστάνε</div><div class="big ${owed > 0.005 ? 'neg' : ''}">${eur(owed)}</div>
+        <div class="small">${sums.filter((x) => x.bal > 0.005).sort((a, b) => b.bal - a.bal).map((x) => `${esc(x.s.name)} <b>${eur(x.bal)}</b>`).join('<br>')}</div></div>
       <div class="card kpi" data-go="#/lessons/stats"><div class="label">${MONTHS[Number(m.slice(5)) - 1]}: μαθήματα ως σήμερα</div><div class="big">${eur(done)}</div>
         <div class="small muted">όλος ο μήνας: ${eur(plan)}</div></div>
     </div>
@@ -53,7 +55,7 @@ const home = {
     <div class="row" style="margin:14px 2px 6px"><h2 class="grow" style="margin:0">${weekOff === 0 ? 'Αυτή την εβδομάδα' : weekOff === 1 ? 'Επόμενη εβδομάδα' : weekOff === -1 ? 'Προηγούμενη εβδομάδα' : `${dShort(ws)} – ${dShort(we)}`}</h2>
       <button class="btn sm ghost" data-w="-1">◀</button>${weekOff ? '<button class="btn sm ghost" data-w="0">σήμερα</button>' : ''}<button class="btn sm ghost" data-w="1">▶</button></div>
     <div class="list">${days || '<div class="item muted">Κανένα μάθημα</div>'}</div>
-    <div class="small muted" style="margin:6px 4px 0">Πάτα ένα μάθημα για «δεν έγινε» ή άλλες ώρες. Τα μαθήματα του προγράμματος μετράνε μόνα τους.</div>
+    <div class="small muted" style="margin:6px 4px 0">«✓ έγινε» = το μάθημα έγινε (όχι ότι πληρώθηκε). Πάτα ένα μάθημα για «δεν έγινε» ή άλλες ώρες.</div>
     <h2>Μαθητές</h2>
     <div class="list">${order.map(({ s, bal, unpaidH, next }) => `<div class="item" data-go="#/lessons/s/${esc(s.id)}">
       <div class="dot">${esc(s.name.slice(0, 1))}</div>

@@ -29,8 +29,12 @@ function bindSeg(el, onPick) {
     onPick(sg.dataset.seg, v);
   }));
 }
+/** label of a student: the short name, or the full name when two have the same short name */
+export function label(s, list = L.students()) {
+  return list.filter((x) => x.name === s.name).length > 1 ? s.full || s.name : s.name;
+}
 export function studentChips(list, sel, name = 'stu') {
-  return `<div class="chips" data-chips="${name}">${list.map((s) => `<button type="button" class="chip ${s.id === sel ? 'on' : ''}" data-id="${esc(s.id)}">${esc(s.name)}</button>`).join('')}</div>`;
+  return `<div class="chips" data-chips="${name}">${list.map((s) => `<button type="button" class="chip ${s.id === sel ? 'on' : ''}" data-id="${esc(s.id)}">${esc(label(s))}</button>`).join('')}</div>`;
 }
 function bindChips(el, name, onPick) {
   const box = el.querySelector(`[data-chips="${name}"]`); if (!box) return;
@@ -98,7 +102,7 @@ export function addLessonSheet(ui, stu0 = null, d0 = today()) {
 
 /** payment of a student = income «Ιδιαίτερα» in the personal ledger */
 export function paySheet(ui, stu0 = null, tx = null) {
-  const list = L.students().filter((s) => L.isActive(s) || s.id === stu0 || L.balance(s.id) > 0.005);
+  const list = L.students().filter((s) => L.isActive(s) || s.id === stu0 || s.id === tx?.stu);
   let stu = stu0 || tx?.stu || list[0]?.id;
   if (!stu) { ui.toast('Πρόσθεσε πρώτα μαθητή'); return; }
   const suggest = (id) => { const b = L.balance(id); return b > 0.005 ? b : L.priceAt(L.student(id)).price || ''; };
