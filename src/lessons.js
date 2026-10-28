@@ -172,7 +172,7 @@ export function yearStats(Y) {
   for (const tx of records('tx', [LSP])) {
     if (tx.kind !== 'Έσοδο') continue;
     if (tx.cat === 'Ιδιαίτερα') { const i = monthIdx(Y, tx.d); if (i >= 0) out[i].recv += tx.a || 0; }
-    else if (tx.cat === 'Μισθός') { const i = sIdx(tx.md || tx.d); if (i >= 0) out[i].salGot += tx.a || 0; }
+    else if (tx.cat === 'Μισθός') { const i = sIdx(tx.md || tx.d); if (i >= 0) { if (tx.extra) out[i].extra += tx.a || 0; else out[i].salGot += tx.a || 0; } }
   }
   // expected salaries (for the months that have not ended yet)
   for (const s of records('sal', [LSP])) { const i = sIdx(`${s.m}-01`); if (i >= 0) out[i].salExp += s.a || 0; }

@@ -87,7 +87,8 @@ export default {
         const base = f.d || today(); const auto = monthFromText(f.desc, base); const sel = f.mm || auto || base.slice(0, 7);
         const opts = [-3, -2, -1, 0, 1].map((n) => addMonths(`${base.slice(0, 7)}-01`, n).slice(0, 7));
         if (!opts.includes(sel)) opts.unshift(sel);
-        return `<label class="f"><span>Αφορά μήνα (μετράει σε αυτόν, όποια μέρα κι αν πληρώθηκες)</span><select name="mm">${opts.map((m) => `<option value="${m}" ${m === sel ? 'selected' : ''}>${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</option>`).join('')}</select></label>`;
+        return `<label class="f"><span>Αφορά μήνα (μετράει σε αυτόν, όποια μέρα κι αν πληρώθηκες)</span><select name="mm">${opts.map((m) => `<option value="${m}" ${m === sel ? 'selected' : ''}>${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</option>`).join('')}</select></label>
+          <label class="row small" style="margin:-2px 2px 10px"><input type="checkbox" name="extra" style="width:auto" ${f.extra ? 'checked' : ''}> Έκτακτο (αναδρομικά, δώρο κ.λπ.) — μετράει επιπλέον του μισθού</label>`;
       })() : ''}
       <label class="f"><span>Περιγραφή</span><input name="desc" list="descs" value="${esc(f.desc)}" autocomplete="off" placeholder="${k === 'Μεταφορά' ? 'π.χ. revolut' : 'π.χ. Σκλαβενίτης'}"></label>
       <datalist id="descs">${descs.map((d) => `<option value="${esc(d)}">`).join('')}</datalist>
@@ -216,6 +217,7 @@ export default {
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,
         bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons),
         stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null, md: null,
+        extra: f.kind === 'Έσοδο' && f.cat === 'Μισθός' && (f.extra === true || f.extra === 'on') ? true : null,
         car: f.kind === 'Έξοδο' && f.car && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο') ? f.car : null,
         km: f.car && K.isFuelText(f.desc) ? parseAmount(String(f.km ?? '').replace(/\./g, '')) : null, q: f.car && K.isFuelText(f.desc) ? parseAmount(f.q) : null,
         ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? K.fuelFromText(f.desc, f.car) : null,

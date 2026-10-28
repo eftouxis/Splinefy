@@ -119,6 +119,6 @@ async function start() {
   syncNow(false);
   setInterval(() => { if (document.visibilityState === 'visible') syncNow(false); else refreshSyncBadge(); }, 120000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(false); });
-  if ('serviceWorker' in navigator && !CONFIG.devServer && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js');
+  if ('serviceWorker' in navigator && !CONFIG.devServer && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
 }
 start();
