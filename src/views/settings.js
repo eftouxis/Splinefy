@@ -65,7 +65,8 @@ export default {
           if (j.mode === 'changes') {                    // corrections over several spaces
             const by = {};
             for (const c of j.changes) {
-              const d = store.state.data[c.sp]; if (!d || !d.recs.has(c.id)) continue;
+              const d = store.state.data[c.sp]; if (!d) continue;
+              if (!d.recs.has(c.id) && (c.delete || !c.set?.type)) continue;      // new records need their type
               (by[c.sp] = by[c.sp] || []).push(c.delete ? { id: c.id, del: true } : { id: c.id, set: c.set });
             }
             let n = 0; for (const [sp, ch] of Object.entries(by)) { await store.putMany(sp, ch); n += ch.length; }

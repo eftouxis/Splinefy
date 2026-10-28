@@ -33,10 +33,10 @@ const listView = {
       const nx = nextDate(r);
       return `<div class="item" data-go="#/rec/${esc(r._sp)}/${esc(r.id)}"><div class="dot">${ICON[r.cat] || '📄'}</div>
         <div class="grow"><div class="t">${esc(r.name)}</div>
-        <div class="s">${freqLabel(r)} · ${r.start ? (nx ? 'επόμενο ' + dShort(nx) : 'τελείωσε') : '<span class="neg">⚠ χωρίς ημερομηνία έναρξης</span>'}${r.for === 'Κοινό' ? ' · κοινό ½' : ''}${r.oth ? ' · μοιράζεται' : ''}${r.end && r.end >= t ? ' · έως ' + dFull(r.end) : ''}</div></div>
+        <div class="s">${r.start && r.start > t ? 'ξεκινά ' + dFull(r.start) + ' · ' : ''}${freqLabel(r)} · ${r.start ? (nx ? 'επόμενο ' + dShort(nx) : 'τελείωσε') : '<span class="neg">⚠ χωρίς ημερομηνία έναρξης</span>'}${r.for === 'Κοινό' ? ' · κοινό ½' : ''}${r.oth ? ' · μοιράζεται' : ''}${r.end && r.end >= t ? ' · έως ' + dFull(r.end) : ''}</div></div>
         <div class="amt ${r.kind === 'Έσοδο' ? 'pos' : ''}">${eur(r.a)}</div></div>`;
     };
-    const sum = (l) => l.reduce((s, r) => s + monthly(r) * (r.for === 'Κοινό' ? 0.5 : 1), 0);
+    const sum = (l) => l.filter((r) => !r.start || r.start <= addMonths(t, 1)).reduce((s, r) => s + monthly(r) * (r.for === 'Κοινό' ? 0.5 : 1), 0);
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Πάγια</h1><a class="btn sm primary" href="#/rec/new">+ Νέο</a></div>
     <div class="card small muted">Μπαίνουν μόνα τους την ημέρα τους (σαν να τα γράφεις εσύ). Για μία φορά διαφορετικό ποσό ή «δεν έγινε»: πάτα την κίνηση στην αρχική. Εδώ αλλάζεις μόνιμα.
       <div style="margin-top:6px">Περίπου <b>${eur(sum(act))}</b> τον μήνα (το δικό σου μερίδιο).</div></div>
