@@ -65,7 +65,7 @@ const detail = {
     <h2>Υπενθυμίσεις</h2><div class="list">${K.reminders(id).map((r) => remRow(r, false)).join('') || '<div class="item muted">Καμία</div>'}</div>
     <h2>Συνεργεία, ΚΤΕΟ κ.λπ.</h2>
     <div class="list">${ev.slice(0, 40).map((e) => `<div class="item" ${e.tx ? `data-edit="${esc(e._sp)}/${esc(e.id)}"` : `data-ev="${esc(e.id)}"`}><div class="dot">🔧</div><div class="grow"><div class="t">${esc(e.title || e.typ || '')}</div>
-      <div class="s">${dFull(e.d)}${e.km ? ' · ' + km(e.km) + ' km' : ''}${e.typ ? ' · ' + esc(e.typ) : ''}</div></div><div class="amt">${e.a ? eur(e.a) : ''}</div></div>`).join('') || '<div class="item muted">—</div>'}</div>
+      <div class="s">${dFull(e.d)}${e.km ? ' · ' + km(e.km) + ' km' : ''}${e.typ ? ' · ' + esc(e.typ) : ''}${e.tx && e.note ? ' · ' + esc(e.note) : ''}</div></div><div class="amt">${e.a ? eur(e.a) : ''}</div></div>`).join('') || '<div class="item muted">—</div>'}</div>
     <h2>Γεμίσματα</h2>
     <div class="list">${fl.map((f) => `<div class="item" ${f.tx ? `data-edit="${esc(f._sp)}/${esc(f.id)}"` : ''}><div class="dot">⛽</div><div class="grow"><div class="t">${esc(f.ft)}${f.q ? ' · ' + n1(f.q, 2) + (f.ft === 'Αέριο' ? ' kg' : ' l') : ''}</div>
       <div class="s">${dFull(f.d)}${f.km ? ' · ' + km(f.km) + ' km' : ''}${f.note ? ' · ' + esc(f.note) : ''}</div></div><div class="amt">${eur(f.a)}</div></div>`).join('') || '<div class="item muted">—</div>'}</div>`;

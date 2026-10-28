@@ -98,22 +98,25 @@ export default {
         <label class="f"><span>Για ποιον</span>${k === 'Έσοδο'
           ? seg('for', [['', 'Μόνο γι’ αυτόν'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for)
           : seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>`}
-      ${k === 'Έξοδο' && (f.cat === 'Μεταφορικά' || f.cat === 'Αυτοκίνητο' || f.car) && K.cars().length ? (() => {
-        if (!f.carTouched && !f.id) f.car = K.carFromText(f.desc, f.cat) || f.car || null;
-        const fuel = f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc);
-        return `<label class="f"><span>Αυτοκίνητο</span><div class="chips" data-car>${K.cars().filter((c) => !c.sold || c.id === f.car).map((c) => `<button type="button" class="chip ${c.id === f.car ? 'on' : ''}" data-id="${esc(c.id)}">🚗 ${esc(c.name)}</button>`).join('')}
-          <button type="button" class="chip ${f.car ? '' : 'on'}" data-id="">Κανένα</button></div></label>
-          ${f.car ? `<div class="grid2"><label class="f"><span>Χιλιόμετρα κοντέρ (προαιρετικά)</span><input name="km" inputmode="numeric" value="${esc(f.km ?? '')}"></label>
-          ${fuel ? `<label class="f"><span>${K.fuelFromText(f.desc, f.car) === 'Αέριο' ? 'Κιλά' : 'Λίτρα'} (προαιρετικά)</span><input name="q" inputmode="decimal" value="${esc(f.q ?? '')}"></label>` : '<div></div>'}</div>` : ''}`;
+      ${k === 'Έξοδο' && K.cars().length && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο' || f.car) ? (() => {
+        const fuel = K.isFuelText(f.desc) && f.cat !== 'Αυτοκίνητο', service = !fuel && f.cat === 'Αυτοκίνητο';
+        if (!f.carTouched && !f.id) f.car = K.carFromText(f.desc, f.cat) || null;
+        return `<div class="note" style="margin-bottom:10px"><label class="f"><span>${fuel ? '⛽ Καύσιμα για' : '🔧 Ποιο αυτοκίνητο'}</span><div class="chips" data-car>${K.cars().filter((c) => !c.sold || c.id === f.car).map((c) => `<button type="button" class="chip ${c.id === f.car ? 'on' : ''}" data-id="${esc(c.id)}">🚗 ${esc(c.name)}</button>`).join('')}
+          ${service ? '' : `<button type="button" class="chip ${f.car ? '' : 'on'}" data-id="">Κανένα</button>`}</div></label>
+          ${fuel && f.car ? `<div class="grid2"><label class="f"><span>Χιλιόμετρα κοντέρ (προαιρετικά)</span><input name="km" inputmode="numeric" value="${esc(f.km ?? '')}"></label>
+            <label class="f"><span>${K.fuelFromText(f.desc, f.car) === 'Αέριο' ? 'Κιλά' : 'Λίτρα'} (προαιρετικά)</span><input name="q" inputmode="decimal" value="${esc(f.q ?? '')}"></label></div>` : ''}
+          ${service ? `<label class="f" style="margin:0"><span>Τι έκαναν (προαιρετικά)</span><textarea name="note" rows="2" placeholder="π.χ. λάδια, φίλτρα, τακάκια">${esc(f.note || '')}</textarea></label>` : ''}</div>`;
       })() : ''}
-      <details class="more" ${f.trip || f.note || f.share || f.bill ? 'open' : ''}><summary>Περισσότερα ▾</summary>
+      ${k === 'Έξοδο' && (f.bill || billType(f.desc)) ? `<div class="note" style="margin-bottom:10px"><div class="small" style="font-weight:600;margin-bottom:6px">📄 Λογαριασμός (προαιρετικά)</div>
+        <div class="grid3"><label class="f"><span>Είδος</span><input name="bill" value="${esc(f.bill || billType(f.desc))}"></label>
+        <label class="f"><span>Περίοδος</span><input name="period" value="${esc(f.period || '')}" placeholder="π.χ. 8/8–2/10"></label>
+        <label class="f"><span>${({ 'Ρεύμα': 'kWh', 'Νερό': 'm³', 'Θέρμανση': 'Μονάδες' })[f.bill || billType(f.desc)] || 'Κατανάλωση'}</span><input name="cons" inputmode="decimal" value="${esc(f.cons ?? '')}"></label></div></div>` : ''}
+      <details class="more" ${f.trip || f.share || (f.note && f.cat !== 'Αυτοκίνητο') ? 'open' : ''}><summary>Περισσότερα ▾</summary>
         ${k === 'Έξοδο' ? `<label class="f"><span>Ταξίδι</span><input name="trip" list="trips" value="${esc(f.trip)}" autocomplete="off"></label>
           <datalist id="trips">${trips.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>
           <label class="f"><span>Άλλο μοίρασμα (όχι μισά-μισά): μερίδιο Άλκη (€)</span><input name="share" inputmode="decimal" value="${esc(f.share)}"></label>
-          <div class="grid3"><label class="f"><span>Είδος λογαρ.</span><input name="bill" value="${esc(f.bill || billType(f.desc))}"></label>
-          <label class="f"><span>Περίοδος</span><input name="period" value="${esc(f.period)}"></label>
-          <label class="f"><span>Κατανάλωση</span><input name="cons" inputmode="decimal" value="${esc(f.cons)}"></label></div>` : ''}
-        <label class="f"><span>Σημείωση</span><textarea name="note" rows="2">${esc(f.note)}</textarea></label>
+` : ''}
+        ${k === 'Έξοδο' && f.cat === 'Αυτοκίνητο' && K.cars().length && !K.isFuelText(f.desc) ? '' : `<label class="f"><span>Σημείωση</span><textarea name="note" rows="2">${esc(f.note || '')}</textarea></label>`}
         ${!f.id && target !== 'shared' ? `<label class="row small"><input type="checkbox" name="toShared" style="width:auto" ${f.toShared ? 'checked' : ''}> Να μπει στο Κοινό (να το βλέπει και η Χαρά)</label>` : ''}
       </details>
       <div class="small muted" style="margin-top:8px">Αποθηκεύεται στο: <b>${tgtName}</b></div>
@@ -143,13 +146,13 @@ export default {
         if (one) { f.stu = one.id; f.desc = one.full || one.name; if (!parseAmount(f.a)) { const b = LS.balance(one.id); f.a = String(b > 0.005 ? b : LS.priceAt(one).price || '').replace('.', ','); } ui.render(); return; }
       }
       const m = memory().get(norm(f.desc));
-      if (!m) { if (f.kind === 'Έξοδο' && K.cars().length && K.carFromText(f.desc, f.cat)) ui.render(); return; }
+      if (!m) { if (!f.id) f.bill = billType(f.desc) || ''; ui.render(); return; }
       if (!f.touched.cat && m.kind === f.kind && m.cat) f.cat = m.cat;
       if (!f.touched.for && m.kind === f.kind) f.for = m.for ?? f.for;
       if (!f.bill) f.bill = billType(f.desc);
       ui.render(); root.querySelector('[name=a]')?.focus();
     });
-    root.querySelector('[name=cat]')?.addEventListener('change', () => { f.touched.cat = 1; if (f.kind === 'Έσοδο') { read(); ui.render(); } });
+    root.querySelector('[name=cat]')?.addEventListener('change', () => { f.touched.cat = 1; read(); ui.render(); });
     root.querySelector('[data-car]')?.addEventListener('click', (e) => {
       if (e.target.dataset.id === undefined) return; read(); f.car = e.target.dataset.id || null; f.carTouched = 1; ui.render();
     });
@@ -178,6 +181,7 @@ export default {
         f = null; ui.toast('Αποθηκεύτηκε ✓'); ui.back(); return;
       }
       if (f.kind !== 'Μεταφορά' && !f.cat) { ui.toast('Διάλεξε κατηγορία'); return; }
+      if (f.kind === 'Έξοδο' && f.cat === 'Αυτοκίνητο' && K.cars().length && !K.isFuelText(f.desc) && !f.car) { ui.toast('Διάλεξε αυτοκίνητο'); return; }
       if (f.payer === 'Και οι 2') {
         const al = parseAmount(f.both), ch = parseAmount(f.bothX);
         if (al == null && ch == null) { ui.toast('Γράψε πόσα έδωσε ο καθένας'); return; }
@@ -189,7 +193,8 @@ export default {
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,
         bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons),
         stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null, md: null,
-        car: f.kind === 'Έξοδο' && f.car ? f.car : null, km: f.car ? parseAmount(String(f.km ?? '').replace(/\./g, '')) : null, q: f.car ? parseAmount(f.q) : null,
+        car: f.kind === 'Έξοδο' && f.car && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο') ? f.car : null,
+        km: f.car && K.isFuelText(f.desc) ? parseAmount(String(f.km ?? '').replace(/\./g, '')) : null, q: f.car && K.isFuelText(f.desc) ? parseAmount(f.q) : null,
         ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? K.fuelFromText(f.desc, f.car) : null };
       if (f.kind === 'Έσοδο' && f.cat === 'Μισθός') {
         const mm = f.mm || monthFromText(f.desc, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);
