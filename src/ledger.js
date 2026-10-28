@@ -24,7 +24,7 @@ export function fx(r, t = today()) {
   const T = p === 'Φίλιππος' ? N : (O === 'Φίλιππος' ? -N : 0);
   const U = k === 'Μεταφορά' || O === 'Φίλιππος' ? 0 : Q;
   const V = k === 'Μεταφορά' || O === 'Φίλιππος' ? 0 : S;
-  const W = O === 'Κοινό' && k === 'Έξοδο' ? N : 0;
+  const W = O === 'Κοινό' && k !== 'Μεταφορά' ? N : 0;          // shared expenses and shared income (e.g. rent)
   const X = O === 'Φίλιππος' && k !== 'Μεταφορά' ? N : 0;
   return { N, O, P, Q, R, S, T, U, V, W, X };
 }

@@ -71,7 +71,8 @@ const formView = {
       <label class="f"><span>Κατηγορία</span><select name="cat">${categories(f.kind).map((c) => `<option ${c === f.cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label></div>
       <label class="f"><span>Κάθε πότε</span><select name="fq">${FREQ.map(([k, l]) => `<option value="${k}" ${k === f.fq ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label class="f"><span>${f.kind === 'Έσοδο' ? 'Τα παίρνει' : 'Πληρώνει'}</span>${seg('payer', [['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά']], f.payer)}</label>
-      ${f.kind === 'Έξοδο' ? `<label class="f"><span>Για ποιον</span>${seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>` : ''}
+      ${f.kind === 'Έξοδο' ? `<label class="f"><span>Για ποιον</span>${seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>`
+        : `<label class="f"><span>Για ποιον</span>${seg('for', [['', 'Μόνο γι’ αυτόν/ή'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for || '')}</label>`}
       ${f.kind === 'Έξοδο' ? othHtml(f.oth) : ''}
       <div class="grid2"><label class="f"><span>${past ? 'Πρώτη φορά (μην το αλλάζεις)' : 'Πρώτη φορά'}</span><input type="date" name="start" value="${esc(f.start || '')}"></label>
       <label class="f"><span>Τελευταία φορά (κενό = συνεχίζει)</span><input type="date" name="end" value="${esc(f.end || '')}"></label></div>
@@ -101,7 +102,7 @@ const formView = {
       read();
       const a = parseAmount(f.a); if (!f.name.trim() || a == null) { ui.toast('Όνομα και ποσό'); return; }
       const [, , unit, every] = FREQ.find((x) => x[0] === f.fq);
-      const rec = { type: 'rec', name: f.name.trim(), a, cat: f.cat, kind: f.kind, payer: f.payer, for: f.kind === 'Έσοδο' ? '' : f.for, unit, every, start: f.start || null, end: f.end || null, oth: f.kind === 'Έξοδο' && f.oth && f.oth.length ? f.oth : null };
+      const rec = { type: 'rec', name: f.name.trim(), a, cat: f.cat, kind: f.kind, payer: f.payer, for: f.kind === 'Έσοδο' ? f.for || '' : f.for, unit, every, start: f.start || null, end: f.end || null, oth: f.kind === 'Έξοδο' && f.oth && f.oth.length ? f.oth : null };
       const personal = personalSpace();
       const target = personal && f.payer === store.state.user && (rec.for === store.state.user || (f.kind === 'Έσοδο' && !rec.for)) ? personal.id : 'shared';
       if (!cur) { await store.put(target, null, rec); f = null; ui.toast('Προστέθηκε ✓'); ui.go('#/rec'); return; }

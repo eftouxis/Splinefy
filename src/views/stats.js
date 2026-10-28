@@ -48,7 +48,7 @@ const pages = {
     const ms = Array.from({ length: 12 }, (_, i) => `${selY}-${String(i + 1).padStart(2, '0')}`).filter((m) => m <= t.slice(0, 7));
     const rows = ms.map((m) => ({ m, ...ST.month(view, m) }));
     const tot = ST.year(view, selY), ly = ST.year(view, selY - 1);
-    const noInc = view === 'Κοινά' || view === 'Φίλιππος';
+    const noInc = view === 'Φίλιππος' || (view === 'Κοινά' && !ST.year(view, selY ?? Number(today().slice(0, 4))).inc);
     return `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-y="-1">◀</button><div class="grow center mid">${selY}</div><button class="btn sm ghost" data-y="1" ${selY >= Number(t.slice(0, 4)) ? 'disabled' : ''}>▶</button></div>
     <div class="card">${bars(ms.map((m) => MSHORT[Number(m.slice(5)) - 1]), [...(noInc ? [] : [{ name: 'Έσοδα', cls: 's-inc', values: rows.map((r) => r.inc) }]), { name: 'Έξοδα', cls: 's-exp', values: rows.map((r) => r.exp) }], ms.map((m) => 'm:' + m))}</div>
     <div class="card"><table class="t st"><tr><th>Μήνας</th>${noInc ? '' : '<th class="r">Έσοδα</th>'}<th class="r">Έξοδα</th>${noInc ? '' : '<th class="r">Διαφορά</th>'}<th></th></tr>
@@ -78,7 +78,7 @@ const pages = {
     const t = today(); const Y = Number(t.slice(0, 4)); const f = Number(ST.firstMonth(view).slice(0, 4));
     const ys = []; for (let y = f; y <= Y; y++) ys.push(y);
     const rows = ys.map((y) => ({ y, ...ST.year(view, y) }));
-    const noInc = view === 'Κοινά' || view === 'Φίλιππος';
+    const noInc = view === 'Φίλιππος' || (view === 'Κοινά' && !ST.year(view, selY ?? Number(today().slice(0, 4))).inc);
     return `<div class="card">${bars(ys.map((y) => String(y).slice(2)), [...(noInc ? [] : [{ name: 'Έσοδα', cls: 's-inc', values: rows.map((r) => r.inc) }]), { name: 'Έξοδα', cls: 's-exp', values: rows.map((r) => r.exp) }], ys.map((y) => 'y:' + y))}</div>
     <div class="card"><table class="t st"><tr><th>Έτος</th>${noInc ? '' : '<th class="r">Έσοδα</th>'}<th class="r">Έξοδα</th>${noInc ? '' : '<th class="r">Διαφορά</th>'}<th class="r">Έξοδα/μήνα</th><th></th></tr>
       ${rows.slice().reverse().map((r) => { const nm = r.y === Y ? Number(t.slice(5, 7)) : 12; return `<tr data-k="y:${r.y}" class="click"><td><b>${r.y}</b></td>${noInc ? '' : `<td class="r pos">${k0(r.inc)}</td>`}<td class="r">${k0(r.exp)}</td>${noInc ? '' : `<td class="r ${r.inc - r.exp < 0 ? 'neg' : 'pos'}">${k0(r.inc - r.exp)}</td>`}<td class="r muted">${k0(r.exp / nm)}</td><td class="muted">›</td></tr>`; }).join('')}</table>
