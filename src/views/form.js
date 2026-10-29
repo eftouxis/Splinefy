@@ -148,7 +148,7 @@ export default {
       ${k === 'Μεταφορά' ? `
         <label class="f"><span>Έδωσε</span>${seg('payer', [...people, 'Φίλιππος'].map((p) => [p, p]), f.payer)}</label>
         <label class="f"><span>Πήρε</span>${seg('for', [...people, 'Φίλιππος'].map((p) => [p, p]), f.for)}</label>
-        <div class="note small">Φίλιππος = ο λογαριασμός του (κατάθεση ή ανάληψη).</div>`
+        <div class="note small">Φίλιππος = ο λογαριασμός του (κατάθεση ή ανάληψη).<br>Με άλλους (μαμά, αδερφή, φίλοι): <a href="#/debts">Οφειλές</a> → το άτομο → «Μου έδωσε» / «Της έδωσα».</div>`
       : `<label class="f"><span>${k === 'Έσοδο' ? 'Πήρε' : 'Πλήρωσε'}</span>${seg('payer', (k === 'Έξοδο' ? [...people, 'Και οι 2'] : people).map((p) => [p, p]), f.payer)}</label>
         ${k === 'Έξοδο' && f.payer === 'Και οι 2' ? `<div class="grid2"><label class="f"><span>Έδωσε ο Άλκης (€)</span><input name="both" inputmode="decimal" value="${esc(f.both)}"></label>
           <label class="f"><span>Έδωσε η Χαρά (€)</span><input name="bothX" inputmode="decimal" value="${esc(f.bothX ?? '')}"></label></div>` : ''}
