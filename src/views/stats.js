@@ -8,7 +8,7 @@ import * as T from '../trips.js';
 import { balancesHtml, balancesMount } from './balances.js';
 
 let view = null, tab = 'months', selY = null, selCat = null;
-const TABS = [['bal', 'Ισολογισμός'], ['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί']];
+const TABS = [['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί'], ['inv', 'Επενδύσεις'], ['bal', 'Ισολογισμός']];
 const short = (m) => `${MSHORT[Number(m.slice(5)) - 1]} ${m.slice(2, 4)}`;
 const k0 = (x) => eur(x).replace(' €', '');
 
@@ -45,13 +45,27 @@ function catBars(entries, cmp = null, cmpLabel = '') {
 
 const pages = {
   bal() { return balancesHtml(); },
+  inv() {
+    const t = today(); const Y = Number(t.slice(0, 4)); const col = state.user === 'Χαρά' ? 'V' : 'U';
+    const l = movements().filter((r) => r.kind === 'Έξοδο' && (r.cat === 'Επενδύσεις' || r.cat === 'Αποταμίευση') && r.d <= t && !r.skipped).map((r) => ({ r, v: Math.abs(fx(r)[col] || 0) })).filter((x) => x.v > 0.004);
+    const sum = (f) => l.filter(f).reduce((s, x) => s + x.v, 0);
+    const I = (x) => x.r.cat === 'Επενδύσεις', S = (x) => x.r.cat === 'Αποταμίευση';
+    const hasS = l.some(S); const yrs = [...new Set(l.map((x) => Number(x.r.d.slice(0, 4))))].sort((a, b) => b - a);
+    const ms = Array.from({ length: 12 }, (_, i) => `${Y}-${String(i + 1).padStart(2, '0')}`).filter((m) => m <= t.slice(0, 7));
+    return `<div class="${hasS ? 'grid2' : ''}"><div class="card kpi"><div class="label">📈 Επενδύσεις συνολικά</div><div class="mid">${eur(sum(I))}</div><div class="small muted">φέτος ${eur(sum((x) => I(x) && x.r.d.startsWith(String(Y))))}</div></div>
+      ${hasS ? `<div class="card kpi"><div class="label">🐷 Αποταμίευση συνολικά</div><div class="mid">${eur(sum(S))}</div><div class="small muted">φέτος ${eur(sum((x) => S(x) && x.r.d.startsWith(String(Y))))}</div></div>` : ''}</div>
+    <div class="card"><table class="t st"><tr><th>${Y}</th><th class="r">📈 Επενδύσεις</th>${hasS ? '<th class="r">🐷 Αποταμίευση</th>' : ''}</tr>
+      ${ms.slice().reverse().map((m) => `<tr><td>${MONTHS[Number(m.slice(5)) - 1]}</td><td class="r">${k0(sum((x) => I(x) && x.r.d.startsWith(m)))}</td>${hasS ? `<td class="r">${k0(sum((x) => S(x) && x.r.d.startsWith(m)))}</td>` : ''}</tr>`).join('')}
+      ${yrs.filter((y) => y !== Y).map((y) => `<tr class="muted"><td>${y}</td><td class="r">${k0(sum((x) => I(x) && x.r.d.startsWith(String(y))))}</td>${hasS ? `<td class="r">${k0(sum((x) => S(x) && x.r.d.startsWith(String(y))))}</td>` : ''}</tr>`).join('')}</table>
+      <div class="small muted" style="margin-top:6px">σε € · κατηγορίες «Επενδύσεις» και «Αποταμίευση» (δεν μετράνε στα έξοδα)</div></div>`;
+  },
   months() {
     const t = today(); selY = selY ?? Number(t.slice(0, 4));
     const ms = Array.from({ length: 12 }, (_, i) => `${selY}-${String(i + 1).padStart(2, '0')}`).filter((m) => m <= t.slice(0, 7));
     const rows = ms.map((m) => ({ m, ...ST.month(view, m) }));
     const tot = ST.year(view, selY), ly = ST.year(view, selY - 1);
     const noInc = view === 'Φίλιππος' || (view === 'Κοινά' && !ST.year(view, selY ?? Number(today().slice(0, 4))).inc);
-    const inv = (tot.inv || 0) > 0.004, sav = (tot.sav || 0) > 0.004;
+    const inv = false, sav = false;
     return `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-y="-1">◀</button><div class="grow center mid">${selY}</div><button class="btn sm ghost" data-y="1" ${selY >= Number(t.slice(0, 4)) ? 'disabled' : ''}>▶</button></div>
     <div class="card">${bars(ms.map((m) => MSHORT[Number(m.slice(5)) - 1]), [...(noInc ? [] : [{ name: 'Έσοδα', cls: 's-inc', values: rows.map((r) => r.inc) }]), { name: 'Έξοδα', cls: 's-exp', values: rows.map((r) => r.exp) }], ms.map((m) => 'm:' + m))}</div>
     <div class="card"><table class="t st"><tr><th>Μήνας</th>${noInc ? '' : '<th class="r">Έσοδα</th>'}<th class="r">Έξοδα</th>${noInc ? '' : '<th class="r">Διαφορά</th>'}${inv ? '<th class="r">📈 Επενδ.</th>' : ''}${sav ? '<th class="r">🐷 Αποτ.</th>' : ''}<th></th></tr>
@@ -165,7 +179,7 @@ export default {
     if (sub && TABS.some(([k]) => k === sub)) tab = sub;
     const body = sub === 'm' ? pages.month([arg]) : sub === 'y' ? pages.year([arg]) : pages[tab]();
     return `<div class="top"><h1>Στατιστικά</h1></div>
-    ${tab === 'bal' && sub !== 'm' && sub !== 'y' ? '' : `<div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>`}
+    ${(tab === 'bal' || tab === 'inv') && sub !== 'm' && sub !== 'y' ? '' : `<div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>`}
     <div class="tabs">${TABS.map(([k, l]) => `<button class="${k === tab && sub !== 'm' && sub !== 'y' ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}<button data-cars>Αυτοκίνητα ›</button></div>
     ${body}`;
   },

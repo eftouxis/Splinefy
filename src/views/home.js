@@ -71,7 +71,6 @@ export default {
         <div><div class="small muted">Διαφορά</div><div class="mid ${cur.diff < 0 ? 'neg' : 'pos'}">${eur(cur.diff)}</div></div>
       </div>
       <div class="small muted center" style="margin-top:6px">${nDays > 1 ? `${nDays} μέρες · έξοδα ${eur(cur.exp / nDays)} τη μέρα<br>` : ''}Ίδια περίοδος πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</div>
-      ${cur.inv > 0.004 || cur.sav > 0.004 ? `<div class="small center" style="margin-top:6px">${cur.inv > 0.004 ? `📈 Επενδύσεις: <b>${eur(cur.inv)}</b>` : ''}${cur.inv > 0.004 && cur.sav > 0.004 ? ' · ' : ''}${cur.sav > 0.004 ? `🐷 Αποταμίευση: <b>${eur(cur.sav)}</b>` : ''}</div>` : ''}
       <div class="center" style="margin-top:8px"><button class="btn sm" data-plist="${from}|${to}">Κινήσεις περιόδου ›</button></div>
       ${cats.length ? `<h2 style="margin-top:14px">Πού πήγαν</h2>` + cats.map(([c, v]) => {
         const pv = ly.byCat.get(c) || 0; const dlt = v - pv;

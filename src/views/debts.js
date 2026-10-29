@@ -19,7 +19,7 @@ export default {
     return `<div class="top"><h1>Οφειλές</h1>${syncBadge()}</div>
     <div class="row" style="margin:0 2px 6px"><div class="grow small muted">Ποιος χρωστάει σε ποιον</div><button class="btn sm" data-new>+ Άτομο</button></div>
     <div class="list">
-      ${row('#/couple', '💑', 'Χαρά & Άλκης', 'κοινά, όπως στο Splid', Math.abs(owe) < 0.005 ? '✓' : eur(Math.abs(owe)), Math.abs(owe) < 0.005 ? 'muted' : me === 'Άλκης' ? (owe > 0 ? 'pos' : 'neg') : (owe > 0 ? 'neg' : 'pos'), Math.abs(owe) < 0.005 ? 'εντάξει' : owe > 0 ? 'χρωστάει η Χαρά' : 'χρωστάει ο Άλκης')}
+      ${row('#/couple', '💑', me === 'Χαρά' ? 'Άλκης' : 'Χαρά', 'κοινά, όπως στο Splid', Math.abs(owe) < 0.005 ? '✓' : eur(Math.abs(owe)), Math.abs(owe) < 0.005 ? 'muted' : me === 'Άλκης' ? (owe > 0 ? 'pos' : 'neg') : (owe > 0 ? 'neg' : 'pos'), Math.abs(owe) < 0.005 ? 'εντάξει' : owe > 0 ? 'χρωστάει η Χαρά' : 'χρωστάει ο Άλκης')}
       ${me === 'Άλκης' || Math.abs(d.philippos) > 0.005 ? row('#/philippos', '👶', 'Φίλιππος', 'τα λεφτά του που κρατάς', eur(Math.abs(d.philippos)), Math.abs(d.philippos) < 0.005 ? 'muted' : 'neg', 'του χρωστάει ο Άλκης') : ''}
       ${ps.map(({ p, b }) => row(`#/people/${esc(p.id)}`, esc(p.name.slice(0, 1)), p.name, p.plan ? `🎯 ${eur(p.plan.m)}/μήνα` : esc(p.note || ''), Math.abs(b) < 0.005 ? '✓' : eur(Math.abs(b)), b > 0.005 ? 'pos' : b < -0.005 ? 'neg' : 'muted', b > 0.005 ? 'μου χρωστάει' : b < -0.005 ? 'χρωστάω' : 'εντάξει')).join('')}
     </div>

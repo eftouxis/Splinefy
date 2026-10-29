@@ -22,7 +22,7 @@ export default {
         <div class="grow"><div class="t">${esc(r.desc || r.cat || '')}</div><div class="s">${dShort(r.d)} · ${eur(r.a)} · ${esc(what)}</div></div>
         <div class="right"><div class="amt ${x.e > 0 ? 'neg' : 'pos'}">${x.e > 0 ? '+' : '−'}${eur(Math.abs(x.e))}</div><div class="small muted">υπόλ. ${eur(x.bal)}</div></div></div>`;
     }
-    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Χαρά & Άλκης</h1></div>
+    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${me === 'Χαρά' ? 'Άλκης' : 'Χαρά'}</h1></div>
     <div class="card kpi"><div class="label">${head}</div><div class="big ${run < -0.005 ? 'neg' : ''}">${eur(Math.abs(run))}</div></div>
     <div class="small muted" style="margin:0 4px 8px">+ = ${other === 'Χαρά' ? 'η Χαρά σου χρωστάει' : 'ο Άλκης σου χρωστάει'} περισσότερα · − = λιγότερα (ή χρωστάς εσύ). Μετράνε τα κοινά που πλήρωσε ο ένας, τα «για Χαρά / για Άλκη» και οι μεταφορές μεταξύ σας.</div>
     <div class="list">${html || '<div class="item muted">Καμία κίνηση</div>'}</div>
