@@ -9,9 +9,9 @@ export function othHtml(list) {
   const rows = (list && list.length ? list : []).map((o, i) => `<div class="grid2" data-othrow="${i}" style="margin-bottom:6px">
       <select name="othp">${ps.map((p) => `<option value="${esc(p.id)}" ${p.id === o.p ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}<option value="">— κανείς —</option></select>
       <input name="otha" inputmode="decimal" value="${esc(shareTxt(o))}" placeholder="½ ή ποσό ή %"></div>`).join('');
-  return `<label class="f"><span>Μέρος το χρωστάει κάποιος τρίτος (αδερφή, φίλοι…)</span>${rows}
+  return `<label class="f"><span>Ποιος και πόσο</span>${rows}
     <button type="button" class="btn sm" data-othadd>+ Άτομο</button>
-    <div class="small muted" style="margin:6px 2px 0">Γράψε ½, 30% ή ποσό. Αυτό το κομμάτι δεν μετράει στα έξοδά σας — μπαίνει στα Χρωστούμενα ως «μου χρωστάει». Το υπόλοιπο μοιράζεται κανονικά με το «Για ποιον» (π.χ. Χαρά + Σοφία & Μάνος ½).</div></label>`;
+    <div class="small muted" style="margin:6px 2px 0">Γράψε ½, 30% ή ποσό. Το κομμάτι τους δεν μετράει στα έξοδά σας — μπαίνει στα Χρωστούμενα ως «μου χρωστάει».</div></label>`;
 }
 export function readOth(root) {
   const out = [];

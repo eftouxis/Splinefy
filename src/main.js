@@ -14,6 +14,7 @@ import carsView from './views/cars.js';
 import peopleView from './views/people.js';
 import tripsView from './views/trips.js';
 import philView from './views/philippos.js';
+import namesView from './views/names.js';
 import { hasLessons } from './lessons.js';
 
 const app = document.getElementById('app');
@@ -24,7 +25,7 @@ const ROUTES = [
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
   [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'], [/^#\/cars(?:\/([\w-]+))?$/, carsView, 'stats'], [/^#\/people(?:\/([\w-]+))?$/, peopleView, 'home'],
-  [/^#\/trips(?:\/(.+))?$/, tripsView, 'stats'], [/^#\/philippos$/, philView, 'home'],
+  [/^#\/trips(?:\/(.+))?$/, tripsView, 'stats'], [/^#\/philippos$/, philView, 'home'], [/^#\/names$/, namesView, 'settings'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0 };
 
@@ -62,7 +63,7 @@ function navHtml(active) {
   const a = (h, i, t, k, cls = '') => `<a href="${h}" class="${cls} ${active === k ? 'on' : ''}"><span class="i">${svg(i)}</span>${t}</a>`;
   const les = hasLessons();
   return `<div class="in" style="grid-template-columns:repeat(${les ? 6 : 5},1fr)">${a('#/', 'home', 'Αρχική', 'home')}${a('#/list', 'list', 'Κινήσεις', 'list')}${a('#/add/exp', 'plus', 'Νέα', 'add', 'plus')}
-    ${les ? a('#/lessons', 'book', 'Μαθήματα', 'lessons') : ''}${a('#/stats', 'stats', 'Στατιστικά', 'stats')}${a('#/settings', 'gear', 'Ρυθμίσεις', 'settings')}</div>`;
+    ${a('#/stats', 'stats', 'Στατιστικά', 'stats')}${les ? a('#/lessons', 'book', 'Μαθήματα', 'lessons') : ''}${a('#/settings', 'gear', 'Ρυθμίσεις', 'settings')}</div>`;
 }
 
 export function render() {
@@ -84,7 +85,13 @@ async function syncNow(manual = false) {
   syncState.busy = true; syncState.err = ''; refreshSyncBadge();
   try {
     const r = await sync.syncAll((m) => { syncState.msg = m; refreshSyncBadge(); });
-    syncState.last = Date.now(); syncState.err = r.errors.join(' · ');
+    syncState.last = Date.now(); syncState.err = r.errors.join(' · '); syncState.signin = !!r.signin;
+    if (r.signin) {
+      // Microsoft lets a web app keep a sign-in for 24 hours only; renew it by itself (the Microsoft account is remembered, so usually no password)
+      if (manual) { sync.signIn(false); return; }
+      const last = Number((await store.kv.get('silentAt')) || 0); const busy = /#\/(add|edit)/.test(location.hash) || document.querySelector('.sheet-bg');
+      if (!busy && Date.now() - last > 30 * 60000) { await store.kv.set('silentAt', Date.now()); sync.signIn(true); return; }
+    }
     if (manual) ui.toast(r.errors.length ? 'Πρόβλημα στον συγχρονισμό' : `Συγχρονίστηκε ✓ (${r.up}↑ ${r.down}↓)`);
   } catch (e) { syncState.err = e.message; }
   syncState.busy = false; syncState.msg = ''; refreshSyncBadge();
@@ -96,6 +103,7 @@ export function refreshSyncBadge() {
 export function syncBadge() {
   const s = syncState;
   if (s.busy) return `<button class="sync" data-syncbadge onclick="window.__sync()">⟳ συγχρονισμός…</button>`;
+  if (s.signin) return `<button class="sync err" data-syncbadge onclick="window.__sync()">🔑 πάτα για σύνδεση</button>`;
   if (s.err) return `<button class="sync err" data-syncbadge onclick="window.__sync()" title="${s.err.replace(/"/g, '')}">⚠ όχι συγχρονισμένο</button>`;
   if (!s.last) return `<button class="sync" data-syncbadge onclick="window.__sync()">☁ συγχρονισμός</button>`;
   const min = Math.round((Date.now() - s.last) / 60000);

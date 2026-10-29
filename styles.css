@@ -107,3 +107,9 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--chip); } .cb
 .seg.per button { font-size: 12.5px; padding: 8px 2px; }
 input[type=date] { min-width: 0; max-width: 100%; }
 .grid2 > *, .grid3 > * { min-width: 0; }
+.ac { position: relative; display: block; }
+.ac-list { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 25; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.ac-list[hidden] { display: none; }
+.ac-list button { display: flex; width: 100%; justify-content: space-between; gap: 8px; align-items: baseline; border: 0; background: transparent; color: var(--ink); padding: 10px 12px; text-align: left; font: 15px system-ui; cursor: pointer; border-bottom: 1px solid var(--line); }
+.ac-list button:last-child { border-bottom: 0; }
+.ac-list button:hover { background: var(--chip); }

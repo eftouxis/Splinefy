@@ -151,7 +151,7 @@ export async function syncAll(onStatus = () => {}) {
           seen.add(fl.name);
         }
         await store.kv.set(`seen:${sp.id}`, [...seen]);
-      } catch (e) { res.errors.push(`${sp.name}: ${e.message}`); if (e.code === 'signin') break; }
+      } catch (e) { res.errors.push(`${sp.name}: ${e.message}`); if (e.code === 'signin') { res.signin = true; break; } }
     }
     await store.kv.set('lastSync', Date.now());
     onStatus(''); return res;

@@ -3,12 +3,13 @@ import { esc, eur, today, addDays, addMonths, dFull, dShort, parseAmount } from 
 import * as store from '../store.js';
 import { categories, recurringMovements } from '../ledger.js';
 import { ICON } from './common.js';
+import * as FQ from './freq.js';
 import { othHtml, readOth } from './othui.js';
 
 const FREQ = [['m1', 'Κάθε μήνα', 'm', 1], ['m2', 'Κάθε 2 μήνες', 'm', 2], ['m3', 'Κάθε 3 μήνες', 'm', 3], ['m6', 'Κάθε 6 μήνες', 'm', 6],
   ['m12', 'Κάθε χρόνο', 'm', 12], ['d7', 'Κάθε εβδομάδα', 'd', 7], ['d14', 'Κάθε 2 εβδομάδες', 'd', 14]];
 const freqKey = (r) => `${r.unit || 'm'}${r.every || 1}`;
-const freqLabel = (r) => (FREQ.find((f) => f[0] === freqKey(r)) || [0, `Κάθε ${r.every} ${r.unit === 'd' ? 'μέρες' : 'μήνες'}`])[1];
+const freqLabel = (r) => { const l = FQ.label(r.unit || 'm', r.every || 1); return l[0].toUpperCase() + l.slice(1); };
 const seg = (name, opts, val) => `<div class="seg" data-seg="${name}">${opts.map(([v, l]) => `<button type="button" data-val="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
 const personalSpace = () => store.state.spaces.find((s) => s.owner === store.state.user && s.members.length === 1 && s.members.includes(store.state.user));
 function nextDate(r, from = today()) {
@@ -57,7 +58,7 @@ const formView = {
     const cur = id ? store.state.data[sp]?.recs.get(id) : null;
     const key = id ? `${sp}/${id}` : 'new';
     if (!f || f.key !== key) {
-      f = cur ? { ...cur, key, sp, a: String(cur.a ?? '').replace('.', ','), fq: freqKey(cur), from: t }
+      f = cur ? { ...cur, key, sp, a: String(cur.a ?? '').replace('.', ','), ...FQ.fromRec(cur.unit, cur.every), from: t }
         : { key, kind: 'Έξοδο', name: '', a: '', cat: 'Πάγια έξοδα', payer: me, for: 'Κοινό', fq: 'm1', start: t, end: '' };
     }
     if (id && !cur) return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Δεν βρέθηκε</h1></div>`;
@@ -69,11 +70,11 @@ const formView = {
       <label class="f"><span>Όνομα</span><input name="name" value="${esc(f.name)}" placeholder="π.χ. Netflix, Ενοίκιο"></label>
       <div class="grid2"><label class="f"><span>Ποσό</span><input name="a" inputmode="decimal" value="${esc(f.a)}"></label>
       <label class="f"><span>Κατηγορία</span><select name="cat">${categories(f.kind).map((c) => `<option ${c === f.cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label></div>
-      <label class="f"><span>Κάθε πότε</span><select name="fq">${FREQ.map(([k, l]) => `<option value="${k}" ${k === f.fq ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label class="f"><span>Κάθε πότε</span>${FQ.freqHtml('fq', f)}</label>
       <label class="f"><span>${f.kind === 'Έσοδο' ? 'Τα παίρνει' : 'Πληρώνει'}</span>${seg('payer', [['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά']], f.payer)}</label>
       ${f.kind === 'Έξοδο' ? `<label class="f"><span>Για ποιον</span>${seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>`
         : `<label class="f"><span>Για ποιον</span>${seg('for', [['', 'Μόνο γι’ αυτόν/ή'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for || '')}</label>`}
-      ${f.kind === 'Έξοδο' ? othHtml(f.oth) : ''}
+      ${f.kind === 'Έξοδο' ? `<div class="small" style="font-weight:700;margin:4px 2px 6px">Μέρος το πληρώνουν άλλοι (αδερφή, φίλοι…) — προαιρετικά</div>${othHtml(f.oth)}` : ''}
       <div class="grid2"><label class="f"><span>${past ? 'Πρώτη φορά (μην το αλλάζεις)' : 'Πρώτη φορά'}</span><input type="date" name="start" value="${esc(f.start || '')}"></label>
       <label class="f"><span>Τελευταία φορά (κενό = συνεχίζει)</span><input type="date" name="end" value="${esc(f.end || '')}"></label></div>
       ${past ? `<label class="f"><span>Οι αλλαγές σε ποσό / συχνότητα / ποιος πληρώνει ισχύουν από</span><input type="date" name="from" value="${esc(f.from)}"></label>
@@ -96,12 +97,16 @@ const formView = {
       if (sg.dataset.seg === 'kind') { f.cat = categories(v)[0] || ''; f.for = v === 'Έσοδο' ? '' : 'Κοινό'; }
       ui.render();
     }));
+    root.querySelector('[data-freq]')?.addEventListener('change', () => { read(); f.cn = f.fqn; f.cu = f.fqu; ui.render(); });
+    root.querySelector('[name=fqn]')?.addEventListener('input', (e) => { f.cn = e.target.value; });
+    root.querySelector('[name=fqu]')?.addEventListener('change', (e) => { f.cu = e.target.value; });
     if (!id) setTimeout(() => root.querySelector('[name=name]')?.focus(), 50);
     const cur = id ? store.state.data[sp].recs.get(id) : null;
     root.querySelector('[data-save]')?.addEventListener('click', async () => {
       read();
       const a = parseAmount(f.a); if (!f.name.trim() || a == null) { ui.toast('Όνομα και ποσό'); return; }
-      const [, , unit, every] = FREQ.find((x) => x[0] === f.fq);
+      const fr = FQ.toRec({ fq: f.fq, cn: f.fqn, cu: f.fqu }); if (!fr) { ui.toast('Γράψε κάθε πόσο'); return; }
+      const { unit, every } = fr;
       const rec = { type: 'rec', name: f.name.trim(), a, cat: f.cat, kind: f.kind, payer: f.payer, for: f.kind === 'Έσοδο' ? f.for || '' : f.for, unit, every, start: f.start || null, end: f.end || null, oth: f.kind === 'Έξοδο' && f.oth && f.oth.length ? f.oth : null };
       const personal = personalSpace();
       const target = personal && f.payer === store.state.user && (rec.for === store.state.user || (f.kind === 'Έσοδο' && !rec.for)) ? personal.id : 'shared';
