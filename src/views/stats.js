@@ -5,9 +5,10 @@ import { movements, fx, VIEWS } from '../ledger.js';
 import * as ST from '../stats.js';
 import { ICON } from './common.js';
 import * as T from '../trips.js';
+import { balancesHtml, balancesMount } from './balances.js';
 
-let view = null, tab = 'months', selY = null, selCat = null;
-const TABS = [['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί']];
+let view = null, tab = 'bal', selY = null, selCat = null;
+const TABS = [['bal', 'Υπόλοιπα'], ['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί']];
 const short = (m) => `${MSHORT[Number(m.slice(5)) - 1]} ${m.slice(2, 4)}`;
 const k0 = (x) => eur(x).replace(' €', '');
 
@@ -43,6 +44,7 @@ function catBars(entries, cmp = null, cmpLabel = '') {
 }
 
 const pages = {
+  bal() { return balancesHtml(); },
   months() {
     const t = today(); selY = selY ?? Number(t.slice(0, 4));
     const ms = Array.from({ length: 12 }, (_, i) => `${selY}-${String(i + 1).padStart(2, '0')}`).filter((m) => m <= t.slice(0, 7));
@@ -162,11 +164,12 @@ export default {
     if (sub && TABS.some(([k]) => k === sub)) tab = sub;
     const body = sub === 'm' ? pages.month([arg]) : sub === 'y' ? pages.year([arg]) : pages[tab]();
     return `<div class="top"><h1>Στατιστικά</h1></div>
-    <div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>
+    ${tab === 'bal' && sub !== 'm' && sub !== 'y' ? '' : `<div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>`}
     <div class="tabs">${TABS.map(([k, l]) => `<button class="${k === tab && sub !== 'm' && sub !== 'y' ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}<button data-cars>Αυτοκίνητα ›</button></div>
     ${body}`;
   },
   mount(root, [sub], ui) {
+    if (tab === 'bal' && sub !== 'm' && sub !== 'y') balancesMount(root, ui);
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { view = b.dataset.v; ui.render(); }));
     root.querySelector('[data-cars]')?.addEventListener('click', () => ui.go('#/cars'));
     root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; ui.go(`#/stats/${tab}`); }));
