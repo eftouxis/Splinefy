@@ -5,6 +5,7 @@ import { itemHtml, bindEdit, ICON } from './common.js';
 import { syncBadge } from '../main.js';
 import * as LS from '../lessons.js';
 import * as PP from '../people.js';
+import * as PL from '../plan.js';
 
 let viewSel = null, monthOff = 0, allCats = false;
 const LS_KEY = 'homePer';
@@ -58,6 +59,7 @@ export default {
     <div class="grid3 quick" style="margin-bottom:12px">
       <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="#/add/inc">+ Έσοδο</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
     </div>
+    ${newsCard(t)}${roomCard()}
     <div class="card">
       <div class="seg per" style="margin-bottom:10px">${PERS.map(([k, l]) => `<button class="${k === per ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
       ${per === 'r' ? `<div class="grid2"><label class="f"><span>Από</span><input type="date" name="rf" value="${from}"></label><label class="f"><span>Έως</span><input type="date" name="rt" value="${P.to}"></label></div>`
@@ -70,6 +72,7 @@ export default {
         <div><div class="small muted">Διαφορά</div><div class="mid ${cur.diff < 0 ? 'neg' : 'pos'}">${eur(cur.diff)}</div></div>
       </div>
       <div class="small muted center" style="margin-top:6px">${nDays > 1 ? `${nDays} μέρες · έξοδα ${eur(cur.exp / nDays)} τη μέρα<br>` : ''}Ίδια περίοδος πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</div>
+      ${cur.save > 0.004 ? `<div class="small center" style="margin-top:6px">📈 Επενδύσεις / αποταμίευση: <b>${eur(cur.save)}</b> <span class="muted">(δεν μετράνε στα έξοδα)</span> · μένουν <b class="${cur.diff - cur.save < 0 ? 'neg' : 'pos'}">${eur(cur.diff - cur.save)}</b></div>` : ''}
       <div class="center" style="margin-top:8px"><button class="btn sm" data-plist="${from}|${to}">Κινήσεις περιόδου ›</button></div>
       ${cats.length ? `<h2 style="margin-top:14px">Πού πήγαν</h2>` + cats.map(([c, v]) => {
         const pv = ly.byCat.get(c) || 0; const dlt = v - pv;
@@ -99,10 +102,32 @@ export default {
     root.querySelector('[data-plist]')?.addEventListener('click', (e) => { const [a, b] = e.target.dataset.plist.split('|'); window.__listSet?.({ from: a, to: b, q: '', view: lview() }); ui.go('#/list'); });
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { monthOff = Math.min(0, monthOff + Number(b.dataset.m)); ui.render(); }));
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { viewSel = b.dataset.v; ui.render(); }));
+    root.querySelector('[data-seen]')?.addEventListener('click', (e) => { e.stopPropagation(); try { localStorage.setItem(SEEN, today()); } catch (_) { /* */ } ui.render(); });
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
     bindEdit(root, ui);
   },
 };
+const SEEN = 'seenUntil';
+/** recurring items that went in by themselves since the last visit (on this device) */
+function newsCard(t) {
+  let seen = null; try { seen = localStorage.getItem(SEEN); if (!seen) localStorage.setItem(SEEN, t); } catch (_) { return ''; }
+  if (!seen || seen >= t) return '';
+  const l = movements().filter((r) => r.rec && !r.skipped && r.d > seen && r.d <= t).sort((a, b) => (a.d < b.d ? -1 : 1));
+  if (!l.length) { try { localStorage.setItem(SEEN, t); } catch (_) { /* */ } return ''; }
+  return `<div class="card" style="border-left:4px solid var(--teal)"><div class="row"><b class="grow">🔔 Καταχωρήθηκαν μόνα τους (${l.length})</b><button class="btn sm" data-seen>OK</button></div>
+    <div class="small" style="margin-top:6px">${l.slice(0, 8).map((r) => `${dShort(r.d)} · ${esc(r.desc || r.cat)} <b>${eur(r.a)}</b>`).join('<br>')}${l.length > 8 ? `<br>… και ${l.length - 8} ακόμα` : ''}</div></div>`;
+}
+function roomCard() {
+  const R = PL.room(); if (!R) return '';
+  const col = R.level === 'over' ? 'var(--red)' : R.level === 'warn' ? '#e0a030' : 'var(--teal)';
+  const x = R.ps[0];
+  return `<div class="card" data-go="#/people/${esc(x.p.id)}" style="cursor:pointer;border-left:4px solid ${col}">
+    <div class="row"><b class="grow">🎯 Ξεχρέωμα ${esc(R.ps.map((s) => s.p.name).join(', '))}</b><span class="muted">›</span></div>
+    <div class="small" style="margin-top:4px">Μένουν <b>${eur(R.ps.reduce((s, y) => s + y.debt, 0))}</b> · ${R.ps.map((s) => `${eur(s.m)}/μήνα → τέλος <b>${PL.mLabel(s.end)}</b>`).join(' · ')}</div>
+    <div class="small" style="margin-top:4px">Αυτόν τον μήνα: δόση ${R.due > 0.004 ? `<b>${eur(R.due)}</b> ακόμα` : '<b class="pos">✓ δόθηκε</b>'}</div>
+    <div style="margin-top:6px;color:${col};font-weight:700">${R.level === 'over' ? `⚠ Ξεπέρασες κατά ${eur(-R.free)} — η δόση δεν βγαίνει αν δεν κόψεις έξοδα` : R.level === 'warn' ? `⚠ Πρόσεχε: μπορείς να ξοδέψεις ακόμα μόνο ${eur(R.free)} αυτόν τον μήνα` : `Μπορείς να ξοδέψεις ακόμα ${eur(R.free)} αυτόν τον μήνα`}</div>
+    <div class="small muted" style="margin-top:2px">= έσοδα ${eur(R.basis)}${R.basis > R.inc + 0.004 ? ' (μ.ο. 3 μηνών)' : ''} − έξοδα ${eur(R.exp)}${R.save ? ` − επενδύσεις ${eur(R.save)}` : ''} − δόση ${eur(R.due)}</div></div>`;
+}
 function peopleCard() {
   const ps = PP.people().map((p) => ({ p, b: PP.balance(p.id) })).filter((x) => Math.abs(x.b) > 0.005);
   return `<div class="card row" data-go="#/people" style="cursor:pointer"><div class="dot">🤝</div><div class="grow">

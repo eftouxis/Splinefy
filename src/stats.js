@@ -1,6 +1,6 @@
 // Statistics engine: one pass over all movements → totals per view / month / category (cached per data version)
 import { state } from './store.js';
-import { movements, fx, VIEWS, billType } from './ledger.js';
+import { movements, fx, VIEWS, billType, SAVE } from './ledger.js';
 import { today } from './util.js';
 
 let C = { v: -1 };
@@ -22,6 +22,7 @@ export function cube() {
       const k = `${view}|${m}`; let s = M.get(k); if (!s) M.set(k, (s = blank()));
       s.n++;
       if (r.kind === 'Έσοδο') { s.inc += -v; s.icats.set(r.cat, (s.icats.get(r.cat) || 0) - v); }
+      else if (SAVE.has(r.cat)) s.save = (s.save || 0) + v;
       else { s.exp += v; s.cats.set(cat, (s.cats.get(cat) || 0) + v); }
       if (r.kind === 'Έξοδο' && r.desc) {
         const dk = `${view}|${cat}`; let dm = descs.get(dk); if (!dm) descs.set(dk, (dm = new Map()));
@@ -34,7 +35,7 @@ export function cube() {
       tr.N += f.N || 0; tr.P += f.P || 0; tr.Q += f.Q || 0; tr.R += f.R || 0; tr.S += f.S || 0; tr.n++;
       if (r.d < tr.from) tr.from = r.d; if (r.d > tr.to) tr.to = r.d; trips.set(r.trip, tr);
     }
-    if (r.kind === 'Έξοδο') {
+    if (r.kind === 'Έξοδο' && !r.trip) {          // bills at home, never on a trip
       const b = r.bill || billType(r.desc);
       if (b) bills.push({ d: r.d, a: r.a || 0, mine: f.U || 0, kind: b, cons: r.cons ?? null, period: r.period || '', desc: r.desc, id: r.id, sp: r._sp });
     }
@@ -47,7 +48,7 @@ export function range(view, from, to) {        // months inclusive 'YYYY-MM'
   const out = blank();
   for (const [k, s] of cube().M) {
     const [v, m] = k.split('|'); if (v !== view || m < from || m > to) continue;
-    out.inc += s.inc; out.exp += s.exp; out.n += s.n;
+    out.inc += s.inc; out.exp += s.exp; out.n += s.n; out.save = (out.save || 0) + (s.save || 0);
     for (const [c, x] of s.cats) out.cats.set(c, (out.cats.get(c) || 0) + x);
     for (const [c, x] of s.icats) out.icats.set(c, (out.icats.get(c) || 0) + x);
   }

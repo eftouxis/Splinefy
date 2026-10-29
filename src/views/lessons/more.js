@@ -17,7 +17,7 @@ export const editView = {
     <div class="card">
       <label class="f"><span>Ονοματεπώνυμο</span><input name="full" value="${esc(st?.full || st?.name || '')}" placeholder="π.χ. Πάνος Κανούρης"></label>
       <div class="small muted" style="margin:-4px 2px 10px">Φαίνεται με το μικρό όνομα· με το επώνυμο μόνο αν δύο ενεργοί μαθητές έχουν το ίδιο όνομα.</div>
-      <div class="grid2"><label class="f"><span>Τιμή μαθήματος (€)</span><input name="price" inputmode="decimal" value="${esc(pr.price ?? '')}"></label>
+      <div class="grid2"><label class="f"><span>Τιμή μαθήματος (€)</span><input name="price" inputmode="decimal" value="${esc(String(pr.price ?? '').replace('.', ','))}"></label>
       <label class="f"><span>Διάρκεια (ώρες:λεπτά, π.χ. 1:20)</span><input name="dur" inputmode="decimal" value="${pr.dur ? fmtH(pr.dur) : '1:00'}"></label></div>
       <div class="small muted" data-rate style="margin:-4px 2px 10px"></div>
       <div class="grid2"><label class="f"><span>Ξεκίνησε</span><input type="date" name="start" value="${esc(st?.start || t)}"></label>

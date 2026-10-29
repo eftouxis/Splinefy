@@ -4,6 +4,42 @@ import * as store from '../store.js';
 import * as P from '../people.js';
 import { sheet } from './lessons/ui.js';
 
+import * as PL from '../plan.js';
+import { addMonths } from '../util.js';
+/** «Ο Γιώργος» / «Η Ευανθία»; with dative: «Του» / «Της» */
+const g = (p, dat) => { const m = /ς$/.test(p.name.trim()) && !/&/.test(p.name); return dat ? (/&/.test(p.name) ? 'Τους' : m ? 'Του' : 'Της') : (/&/.test(p.name) ? 'Οι ' + p.name : (m ? 'Ο ' : 'Η ') + p.name); };
+function planHtml(p) {
+  const b = P.balance(p.id); if (b > -0.005 && !p.plan) return '';
+  const s = PL.status(p);
+  if (!s) return `<button class="btn" style="width:100%;margin-bottom:12px" data-plan>🎯 Πλάνο ξεχρεώματος (πόσα τον μήνα, πότε τελειώνω)</button>`;
+  return `<div class="card" data-plan style="cursor:pointer;border-left:4px solid var(--teal)"><div class="row"><b class="grow">🎯 Πλάνο: ${eur(s.m)} τον μήνα</b><span class="small" style="color:var(--teal)">Αλλαγή ›</span></div>
+    <div class="small" style="margin-top:4px">${s.debt < 0.005 ? '✓ Ξεχρεώθηκε!' : `Τελειώνεις <b>${PL.mLabel(s.end)}</b> (${s.months} ${s.months === 1 ? 'δόση' : 'δόσεις'})${s.later ? ` · ξεκινά ${PL.mLabel(s.later)}` : ` · αυτόν τον μήνα: ${s.due > 0.004 ? `μένει ${eur(s.due)}` : 'δόθηκε ✓'}`}`}</div>
+    ${s.buffer ? `<div class="small muted">Να μένουν πάντα τουλάχιστον ${eur(s.buffer)} για απρόβλεπτα</div>` : ''}</div>`;
+}
+function planSheet(ui, p) {
+  const debt = Math.max(0, -P.balance(p.id)); const cur = today().slice(0, 7); const pl = p.plan || {};
+  sheet(`<div class="mid">🎯 Πλάνο ξεχρεώματος · ${esc(p.name)}</div><div class="small muted">Χρωστάς ${eur(debt)}. Γράψε ή πόσα τον μήνα ή μέχρι πότε — το άλλο βγαίνει μόνο του.</div>
+    <div class="grid2" style="margin-top:10px"><label class="f"><span>Πόσα τον μήνα (€)</span><input name="m" inputmode="decimal" value="${esc(pl.m ? String(pl.m).replace('.', ',') : '')}"></label>
+      <label class="f"><span>Να τελειώσω (μήνας)</span><input type="month" name="end" value=""></label></div>
+    <label class="f"><span>Ξεκινάω από</span><input type="month" name="from" value="${esc(pl.from || cur)}"></label>
+    <label class="f"><span>Να μένουν πάντα για απρόβλεπτα (€, προαιρετικά)</span><input name="buf" inputmode="decimal" value="${esc(pl.buffer ? String(pl.buffer).replace('.', ',') : '')}" placeholder="π.χ. 200"></label>
+    <div class="note small" data-prev style="margin-bottom:10px"></div>
+    <button class="btn primary" data-ok>Αποθήκευση</button>${p.plan ? '<button class="btn" data-del style="color:var(--red)">Χωρίς πλάνο</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    const M = el.querySelector('[name=m]'), E = el.querySelector('[name=end]'), F = el.querySelector('[name=from]'), prev = el.querySelector('[data-prev]');
+    const months = (a, b) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5)) - Number(a.slice(5)) + 1;
+    const show = () => { const m = parseAmount(M.value); const from = F.value || cur;
+      if (m > 0) { const n = Math.ceil(debt / m - 1e-9); prev.innerHTML = `Με <b>${eur(m)}</b> τον μήνα τελειώνεις <b>${PL.mLabel(addMonths(from + '-01', n - 1).slice(0, 7))}</b> (${n} δόσεις). Η δόση «δεσμεύεται» κάθε μήνα και η αρχική σού λέει πόσα μπορείς να ξοδέψεις ακόμα.`; }
+      else prev.textContent = 'Γράψε ποσό ή μήνα που θέλεις να τελειώσεις.'; };
+    E.addEventListener('change', () => { if (!E.value) return; const n = Math.max(1, months(F.value || cur, E.value)); M.value = String(Math.ceil((debt / n) * 100) / 100).replace('.', ','); show(); });
+    M.addEventListener('input', show); F.addEventListener('change', show); show();
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelector('[data-del]')?.addEventListener('click', async () => { await store.put(p._sp, p.id, { plan: null }); close(); });
+    el.querySelector('[data-ok]').onclick = async () => {
+      const m = parseAmount(M.value); if (!(m > 0)) { ui.toast('Γράψε πόσα τον μήνα'); return; }
+      await store.put(p._sp, p.id, { plan: { m, from: F.value || cur, buffer: parseAmount(el.querySelector('[name=buf]').value) || 0 } }); close(); ui.toast('Το πλάνο μπήκε ✓');
+    };
+  });
+}
 const balTxt = (b) => (Math.abs(b) < 0.005 ? 'εντάξει' : b > 0 ? `μου χρωστάει ${eur(b)}` : `του/της χρωστάω ${eur(-b)}`);
 const listView = {
   html() {
@@ -29,17 +65,21 @@ const detail = {
     const p = P.person(id); if (!p) return '<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Δεν βρέθηκε</h1></div>';
     const es = P.entries(id); const b = es.reduce((s, e) => s + e.a, 0);
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(p.name)}</h1><button class="btn sm" data-edit>Επεξεργασία</button></div>
-    <div class="card kpi"><div class="label">${Math.abs(b) < 0.005 ? 'Είστε εντάξει' : b > 0 ? 'Σου χρωστάει' : 'Του/της χρωστάς (ή σου έχει δώσει από πριν)'}</div><div class="big ${b > 0.005 ? 'pos' : b < -0.005 ? 'neg' : ''}">${eur(Math.abs(b))}</div></div>
-    <div class="grid2 quick" style="margin-bottom:8px"><button class="btn green" data-k="got">Μου έδωσε</button><button class="btn" data-k="gave">Του/της έδωσα</button></div>
-    <div class="grid2" style="margin-bottom:12px"><button class="btn sm" data-k="owesme">+ Μου χρωστάει</button><button class="btn sm" data-k="iowe">+ Του/της χρωστάω</button></div>
+    <div class="card kpi"><div class="label">${Math.abs(b) < 0.005 ? 'Είστε εντάξει' : b > 0 ? 'Σου χρωστάει' : `${g(p, 1)} χρωστάς`}</div><div class="big ${b > 0.005 ? 'pos' : b < -0.005 ? 'neg' : ''}">${eur(Math.abs(b))}</div></div>
+    ${planHtml(p)}
+    <div class="small muted" style="margin:2px 4px 6px">💶 Δόθηκαν λεφτά (ξεχρεώνει):</div>
+    <div class="grid2 quick" style="margin-bottom:10px"><button class="btn green" data-k="got">${g(p)} μου έδωσε</button><button class="btn" data-k="gave">${g(p, 1)} έδωσα</button></div>
+    <div class="small muted" style="margin:2px 4px 6px">📝 Νέο χρέος (χωρίς να δοθούν λεφτά):</div>
+    <div class="grid2" style="margin-bottom:12px"><button class="btn sm" data-k="owesme">+ Μου χρωστάει</button><button class="btn sm" data-k="iowe">+ ${g(p, 1)} χρωστάω</button></div>
     <div class="list">${es.map((e) => `<div class="item" ${e.m ? `data-m="${esc(e.m.id)}"` : `data-tx="${esc(e.tx._sp)}/${esc(e.tx.id)}"`}><div class="dot">${e.m ? (e.m.k === 'got' || e.m.k === 'gave' ? '💶' : '📝') : e.tx.rec ? '↻' : '🧾'}</div>
-      <div class="grow"><div class="t">${esc(e.what)}</div><div class="s">${dFull(e.d)}${e.m ? ' · ' + esc(P.KINDS[e.m.k]?.label || '') : ''}</div></div>
+      <div class="grow"><div class="t">${esc(e.what)}</div><div class="s">${dFull(e.d)}${e.m ? ' · ' + esc((P.KINDS[e.m.k]?.label || '').replace('Του/της', g(p, 1).toLowerCase())) : ''}</div></div>
       <div class="amt ${e.a > 0 ? 'pos' : 'neg'}">${e.a > 0 ? '+' : '−'}${eur(Math.abs(e.a))}</div></div>`).join('') || '<div class="item muted">Τίποτα ακόμα</div>'}</div>
     <div class="small muted" style="margin-top:6px">+ = σου χρωστάει περισσότερα · − = λιγότερα (ή χρωστάς εσύ)</div>`;
   },
   mount(root, [id], ui) {
     root.querySelector('[data-back]').addEventListener('click', () => ui.go('#/people'));
     root.querySelector('[data-edit]')?.addEventListener('click', () => personSheet(ui, P.person(id)));
+    root.querySelector('[data-plan]')?.addEventListener('click', () => planSheet(ui, P.person(id)));
     root.querySelectorAll('[data-k]').forEach((b) => b.addEventListener('click', () => movSheet(ui, id, b.dataset.k, null)));
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { const m = store.records('pmov').find((x) => x.id === b.dataset.m); movSheet(ui, id, m.k, m); }));
     root.querySelectorAll('[data-tx]').forEach((b) => b.addEventListener('click', () => ui.go(`#/edit/${b.dataset.tx}`)));
@@ -47,7 +87,8 @@ const detail = {
 };
 function movSheet(ui, pid, k, m) {
   const K = P.KINDS[k]; const p = P.person(pid); const b = P.balance(pid);
-  const sugg = !m && ((k === 'got' && b > 0.005) || (k === 'gave' && b < -0.005)) ? String(Math.round(Math.abs(b) * 100) / 100).replace('.', ',') : '';
+  const ps = k === 'gave' && !m ? PL.status(p) : null;
+  const sugg = ps && ps.due > 0.004 ? String(Math.round(ps.due * 100) / 100).replace('.', ',') : !m && ((k === 'got' && b > 0.005) || (k === 'gave' && b < -0.005)) ? String(Math.round(Math.abs(b) * 100) / 100).replace('.', ',') : '';
   sheet(`<div class="mid">${esc(K.label.replace('Του/της', p.name.endsWith('ς') ? 'Του' : 'Της'))} · ${esc(p.name)}</div><div class="small muted">${esc(K.hint)}</div>
     <input class="amount" name="a" inputmode="decimal" style="margin-top:10px" value="${esc(m ? String(m.a).replace('.', ',') : sugg)}" placeholder="0,00 €">
     <div class="grid2" style="margin-top:10px"><label class="f"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(m?.d || today())}"></label>

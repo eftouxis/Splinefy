@@ -5,10 +5,10 @@ import { movements, othSum } from './ledger.js';
 import { today } from './util.js';
 
 export const KINDS = {                      // sign: + they owe me · − I owe them
-  owesme: { s: +1, label: 'Μου χρωστάει', hint: 'π.χ. πλήρωσα εισιτήρια για αυτόν/ή' },
-  iowe: { s: -1, label: 'Του/της χρωστάω', hint: 'π.χ. πλήρωσε κάτι για μένα' },
-  got: { s: -1, label: 'Μου έδωσε', hint: 'μου επέστρεψε χρήματα' },
-  gave: { s: +1, label: 'Του/της έδωσα', hint: 'του/της επέστρεψα χρήματα' },
+  owesme: { s: +1, label: 'Μου χρωστάει', hint: 'νέο χρέος: π.χ. πλήρωσα κάτι για αυτόν/ή' },
+  iowe: { s: -1, label: 'Του/της χρωστάω', hint: 'νέο χρέος: π.χ. πλήρωσε κάτι για μένα' },
+  got: { s: -1, label: 'Μου έδωσε', hint: 'μου έδωσε χρήματα — ξεχρεώνει ό,τι μου χρωστούσε (ή του/της χρωστάω εγώ)' },
+  gave: { s: +1, label: 'Του/της έδωσα', hint: 'έδωσα χρήματα — ξεχρεώνω ό,τι του/της χρωστούσα' },
 };
 const mySpace = () => state.spaces.find((s) => s.owner === state.user && s.members.length === 1 && s.members.includes(state.user));
 export const peopleSpace = () => mySpace()?.id || 'shared';

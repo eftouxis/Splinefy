@@ -63,23 +63,28 @@ export function debt(list = movements()) {
 /** totals for one view over a date range */
 export function totals(list, view, from, to) {
   const col = Object.fromEntries(VIEWS)[view];
-  let inc = 0, exp = 0; const byCat = new Map(), byInc = new Map();
+  let inc = 0, exp = 0, save = 0; const byCat = new Map(), byInc = new Map();
   for (const r of list) {
     const d = r.md || r.d;                       // salaries: the month they concern (md), not the payment day
     if (d < from || d > to) continue;
     const f = fx(r); const v = f[col] || 0; if (!v) continue;
     if (r.kind === 'Έσοδο') inc += -v;
+    else if (r.kind === 'Έξοδο' && SAVE.has(r.cat)) { save += v; continue; }   // money put aside, not spent
     else if (r.kind === 'Έξοδο') exp += v;
     const cat = r.trip && r.kind === 'Έξοδο' ? 'Ταξίδι' : r.cat;
     if (r.kind === 'Έξοδο') byCat.set(cat, (byCat.get(cat) || 0) + v);
     else if (r.kind === 'Έσοδο') byInc.set(cat, (byInc.get(cat) || 0) - v);
   }
-  return { inc, exp, diff: inc - exp, byCat, byInc };
+  return { inc, exp, save, diff: inc - exp, byCat, byInc };
 }
 
+/** categories that are savings / investments: they leave the account but are not spending */
+export const SAVE = new Set(['Επενδύσεις', 'Αποταμίευση']);
 export function categories(kind) {
   const cats = setting().cats || [];
-  return cats.filter((c) => (!kind || c.kind === kind) && !c.hidden).map((c) => c.name);
+  const out = cats.filter((c) => (!kind || c.kind === kind) && !c.hidden).map((c) => c.name);
+  if ((!kind || kind === 'Έξοδο') && !cats.some((c) => c.name === 'Επενδύσεις')) out.push('Επενδύσεις');
+  return out;
 }
 
 /** bill type («Είδος») from description keywords */
