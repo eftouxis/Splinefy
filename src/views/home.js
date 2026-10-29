@@ -82,12 +82,11 @@ export default {
       ${incs.length ? `<h2 style="margin-top:14px">Από πού ήρθαν</h2>` + incs.map(([c, v]) => `<div class="row" style="margin:6px 0;cursor:pointer" data-hcat="Έσοδο|${esc(c)}"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b class="pos">${eur(v)}</b><span class="muted">›</span></div>`).join('') : ''}
     </div>
     ${LS.hasLessons() ? lessonsCard(lessonSum) : ''}
-    ${peopleCard()}
-    <h2>Έρχονται τις επόμενες 14 μέρες</h2>
-    <div class="list">${up.length ? up.map((r) => itemHtml(r, { showDate: true, today: t })).join('') : '<div class="item muted">Τίποτα</div>'}</div>
     <h2>Τελευταίες κινήσεις</h2>
     <div class="list">${recent.map((r) => itemHtml(r, { showDate: true, today: t })).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>
-    <div class="center" style="margin-top:10px"><a class="btn sm" href="#/list">Όλες οι κινήσεις ›</a></div>`;
+    <div class="center" style="margin-top:10px"><a class="btn sm" href="#/list">Όλες οι κινήσεις ›</a></div>
+    <h2>Έρχονται τις επόμενες 14 μέρες</h2>
+    <div class="list">${up.length ? up.map((r) => itemHtml(r, { showDate: true, today: t })).join('') : '<div class="item muted">Τίποτα</div>'}</div>`;
   },
   mount(root, p, ui) {
     root.querySelectorAll('[data-per]').forEach((b) => b.addEventListener('click', () => { per = b.dataset.per; monthOff = 0; try { localStorage.setItem(LS_KEY, per); } catch (_) { /* private mode */ } ui.render(); }));
@@ -117,9 +116,9 @@ function newsCard(t) {
     <div class="small" style="margin-top:6px">${l.slice(0, 8).map((r) => `${dShort(r.d)} · ${esc(r.desc || r.cat)} <b>${eur(r.a)}</b>`).join('<br>')}${l.length > 8 ? `<br>… και ${l.length - 8} ακόμα` : ''}</div></div>`;
 }
 function roomCard() {
-  const R = PL.room(); if (!R) return '';
+  const R = PL.room(); if (!R || R.level === 'ok') return '';           // on the home page only as a warning; the rest is in «Οφειλές»
   const col = R.level === 'over' ? 'var(--red)' : R.level === 'warn' ? '#e0a030' : 'var(--teal)';
-  return `<div class="card" data-go="#/goals" style="cursor:pointer;border-left:4px solid ${col}">
+  return `<div class="card" data-go="#/debts" style="cursor:pointer;border-left:4px solid ${col}">
     <div class="row"><b class="grow">🎯 Ξεχρέωμα & στόχοι</b><span class="muted">›</span></div>
     ${R.ps.map((s) => `<div class="small" style="margin-top:4px">${esc(s.p.name)}: μένουν <b>${eur(s.debt)}</b> → τέλος ${PL.mLabel(s.end)} · ${s.due > 0.004 ? `δόση μήνα <b>${eur(s.due)}</b> ακόμα` : '<span class="pos">δόση ✓</span>'}</div>`).join('')}
     ${R.gs.map((x) => `<div class="small" style="margin-top:4px">${esc(x.g.name)}: <b>${eur(x.saved)}</b> / ${eur(x.g.target)}${x.end ? ` → ${PL.mLabel(x.end)}` : ''} · ${x.due > 0.004 ? `μήνα <b>${eur(x.due)}</b> ακόμα` : '<span class="pos">μήνας ✓</span>'}</div>`).join('')}

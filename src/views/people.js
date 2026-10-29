@@ -51,11 +51,11 @@ const listView = {
     <div class="list">${ps.map(({ p, b }) => `<div class="item" data-go="#/people/${esc(p.id)}"><div class="dot">${esc(p.name.slice(0, 1))}</div>
       <div class="grow"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.note || '')}</div></div>
       <div class="right"><div class="amt ${b > 0.005 ? 'pos' : b < -0.005 ? 'neg' : 'muted'}">${Math.abs(b) < 0.005 ? '✓' : eur(Math.abs(b))}</div><div class="small muted">${b > 0.005 ? 'μου χρωστάει' : b < -0.005 ? 'χρωστάω' : 'εντάξει'}</div></div></div>`).join('') || '<div class="item muted">Κανένα άτομο ακόμα</div>'}</div>
-    <div class="note small" style="margin-top:12px">Για λογαριασμούς που μοιράζεσαι με άλλους (π.χ. Spotify με την οικογένεια της αδερφής σου): στο έξοδο ή στο πάγιο → «Περισσότερα» → «Μέρος το χρωστάει άλλος». Στα δικά σου έξοδα μετράει μόνο το δικό σου μέρος και εδώ μαζεύεται τι σου χρωστάνε. Όταν σου δώσουν χρήματα: «Μου έδωσε».
+    <div class="note small" style="margin-top:12px">Για λογαριασμούς που μοιράζεσαι με άλλους (π.χ. Spotify με την οικογένεια της αδερφής σου): στο έξοδο ή στο επαναλαμβανόμενο → «Περισσότερα» → «Μέρος το χρωστάει άλλος». Στα δικά σου έξοδα μετράει μόνο το δικό σου μέρος και εδώ μαζεύεται τι σου χρωστάνε. Όταν σου δώσουν χρήματα: «Μου έδωσε».
     <br>Τα βλέπεις μόνο εσύ.</div>`;
   },
   mount(root, p, ui) {
-    root.querySelector('[data-back]').addEventListener('click', () => ui.go('#/'));
+    root.querySelector('[data-back]').addEventListener('click', () => ui.go('#/debts'));
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
     root.querySelector('[data-new]').addEventListener('click', () => personSheet(ui, null));
   },
@@ -77,7 +77,7 @@ const detail = {
     <div class="small muted" style="margin-top:6px">+ = σου χρωστάει περισσότερα · − = λιγότερα (ή χρωστάς εσύ)</div>`;
   },
   mount(root, [id], ui) {
-    root.querySelector('[data-back]').addEventListener('click', () => ui.go('#/people'));
+    root.querySelector('[data-back]').addEventListener('click', () => ui.back());
     root.querySelector('[data-edit]')?.addEventListener('click', () => personSheet(ui, P.person(id)));
     root.querySelector('[data-plan]')?.addEventListener('click', () => planSheet(ui, P.person(id)));
     root.querySelectorAll('[data-k]').forEach((b) => b.addEventListener('click', () => movSheet(ui, id, b.dataset.k, null)));
@@ -104,7 +104,7 @@ function movSheet(ui, pid, k, m) {
   });
   setTimeout(() => document.querySelector('.sheet [name=a]')?.focus(), 50);
 }
-function personSheet(ui, p) {
+export function personSheet(ui, p) {
   sheet(`<div class="mid">${p ? 'Επεξεργασία' : 'Νέο άτομο'}</div>
     <label class="f" style="margin-top:10px"><span>Όνομα</span><input name="name" value="${esc(p?.name || '')}" placeholder="π.χ. Μαμά, Αδερφή, Σοφία (νονά)"></label>
     <label class="f"><span>Σημείωση</span><input name="note" value="${esc(p?.note || '')}"></label>

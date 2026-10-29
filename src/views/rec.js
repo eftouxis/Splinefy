@@ -10,6 +10,14 @@ const FREQ = [['m1', 'Κάθε μήνα', 'm', 1], ['m2', 'Κάθε 2 μήνες
   ['m12', 'Κάθε χρόνο', 'm', 12], ['d7', 'Κάθε εβδομάδα', 'd', 7], ['d14', 'Κάθε 2 εβδομάδες', 'd', 14]];
 const freqKey = (r) => `${r.unit || 'm'}${r.every || 1}`;
 const freqLabel = (r) => { const l = FQ.label(r.unit || 'm', r.every || 1); return l[0].toUpperCase() + l.slice(1); };
+/** parts of one recurring item: same kind, one ends the day before the next one starts */
+function chain(d) {
+  const all = store.records('rec').filter((x) => x.kind === d.kind && x.start);
+  const out = [d]; let a = d, b = d;
+  for (let i = 0; i < 50; i++) { const p = all.find((x) => x.end && x.end < a.start && x.end >= addDays(a.start, -45) && !out.includes(x) && (x.name === a.name || x.a === a.a) && x.unit === a.unit && x.every === a.every); if (!p) break; out.push(p); a = p; }
+  for (let i = 0; i < 50; i++) { if (!b.end) break; const n = all.find((x) => x.start > b.end && x.start <= addDays(b.end, 45) && !out.includes(x) && (x.name === b.name || x.a === b.a) && x.unit === b.unit && x.every === b.every); if (!n) break; out.push(n); b = n; }
+  return out;
+}
 const seg = (name, opts, val) => `<div class="seg" data-seg="${name}">${opts.map(([v, l]) => `<button type="button" data-val="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
 const personalSpace = () => store.state.spaces.find((s) => s.owner === store.state.user && s.members.length === 1 && s.members.includes(store.state.user));
 function nextDate(r, from = today()) {
@@ -38,7 +46,7 @@ const listView = {
         <div class="amt ${r.kind === 'Έσοδο' ? 'pos' : ''}">${eur(r.a)}</div></div>`;
     };
     const sum = (l) => l.filter((r) => !r.start || r.start <= addMonths(t, 1)).reduce((s, r) => s + monthly(r) * (r.for === 'Κοινό' ? 0.5 : 1), 0);
-    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Πάγια</h1><a class="btn sm primary" href="#/rec/new">+ Νέο</a></div>
+    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Επαναλαμβανόμενα</h1><a class="btn sm primary" href="#/rec/new">+ Νέο</a></div>
     <div class="card small muted">Μπαίνουν μόνα τους την ημέρα τους (σαν να τα γράφεις εσύ). Για μία φορά διαφορετικό ποσό ή «δεν έγινε»: πάτα την κίνηση στην αρχική. Εδώ αλλάζεις μόνιμα.
       <div style="margin-top:6px">Περίπου <b>${eur(sum(act))}</b> τον μήνα (το δικό σου μερίδιο).</div></div>
     ${shared.length ? `<h2>Κοινά (τα βλέπει και η Χαρά)</h2><div class="list">${shared.map(row).join('')}</div>` : ''}
@@ -64,7 +72,7 @@ const formView = {
     if (id && !cur) return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Δεν βρέθηκε</h1></div>`;
     const past = cur && cur.start && cur.start < t;
     const upcoming = cur ? recurringMovements(addMonths(t, 13)).filter((m) => m.rec === cur.id && m.d >= t).slice(0, 4) : [];
-    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${cur ? esc(cur.name) : 'Νέο πάγιο'}</h1></div>
+    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${cur ? esc(cur.name) : 'Νέο επαναλαμβανόμενο'}</h1></div>
     ${seg('kind', [['Έξοδο', 'Έξοδο'], ['Έσοδο', 'Έσοδο']], f.kind)}
     <div class="card" style="margin-top:10px">
       <label class="f"><span>Όνομα</span><input name="name" value="${esc(f.name)}" placeholder="π.χ. Netflix, Ενοίκιο"></label>
@@ -111,7 +119,7 @@ const formView = {
       const personal = personalSpace();
       const target = personal && f.payer === store.state.user && (rec.for === store.state.user || (f.kind === 'Έσοδο' && !rec.for)) ? personal.id : 'shared';
       if (!cur) { await store.put(target, null, rec); f = null; ui.toast('Προστέθηκε ✓'); ui.go('#/rec'); return; }
-      const money = ['a', 'payer', 'for', 'unit', 'every', 'cat', 'kind'].some((k) => String(cur[k] ?? '') !== String(rec[k] ?? '')) || JSON.stringify(cur.oth || null) !== JSON.stringify(rec.oth || null);
+      const money = ['a', 'payer', 'for', 'unit', 'every', 'kind'].some((k) => String(cur[k] ?? '') !== String(rec[k] ?? '')) || JSON.stringify(cur.oth || null) !== JSON.stringify(rec.oth || null);
       const from = f.from || today();
       if (cur.start && cur.start < from && money) {
         // keep the past: old one ends the day before, the new one starts at the next occurrence on/after «from»
@@ -121,6 +129,10 @@ const formView = {
       } else if (target !== sp) {
         await store.move(sp, target, { ...cur, ...rec });
       } else await store.put(sp, cur.id, rec);
+      // name / category are labels: give them to the earlier and later parts of the same item too (parts made by «from a date» changes)
+      if (cur.cat !== rec.cat || cur.name !== rec.name) {
+        for (const p of chain(cur)) if (p.id !== cur.id && (p.cat !== rec.cat || p.name !== rec.name)) await store.put(p._sp, p.id, { cat: rec.cat, name: rec.name });
+      }
       f = null; ui.toast('Αποθηκεύτηκε ✓'); ui.go('#/rec');
     });
     root.querySelector('[data-stop]')?.addEventListener('click', async () => {

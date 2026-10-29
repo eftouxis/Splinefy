@@ -19,7 +19,7 @@ export async function excel() {
   }
   const sheets = [{ name: 'Κινήσεις', rows, widths: [12, 11, 30, 16, 10, 12, 12, 16, 24, 14, 12, 11, 11, 8] }];
   const recs = store.records('rec');
-  sheets.push({ name: 'Πάγια', widths: [26, 11, 14, 14, 10, 10, 12, 12], rows: [['Όνομα', 'Ποσό', 'Συχνότητα', 'Κατηγορία', 'Πληρώνει', 'Για ποιον', 'Από', 'Έως'],
+  sheets.push({ name: 'Επαναλαμβανόμενα', widths: [26, 11, 14, 14, 10, 10, 12, 12], rows: [['Όνομα', 'Ποσό', 'Συχνότητα', 'Κατηγορία', 'Πληρώνει', 'Για ποιον', 'Από', 'Έως'],
     ...recs.map((r) => [r.name, { m: r.a || 0 }, FREQ(r), r.cat, r.payer, r.for || '', r.start ? { d: r.start } : '', r.end ? { d: r.end } : ''])] });
   if (L.hasLessons() && L.students().length) {
     const st = L.students();

@@ -19,7 +19,7 @@ export default {
     <h2>Αποταμίευση</h2>
     <div class="list">${gs.map((x) => `<div class="item" data-goal="${esc(x.g.id)}" style="display:block"><div class="row"><b class="grow">${esc(x.g.name)}</b><span>${eur(x.saved)} / ${eur(x.g.target)}</span></div>${bar(x.pct)}
       <div class="small muted" style="margin-top:4px">${x.left < 0.005 ? '✓ Πέτυχε!' : `${eur(x.g.m)}/μήνα${x.end ? ` → φτάνεις ${PL.mLabel(x.end)}` : ''} · αυτόν τον μήνα ${x.due > 0.004 ? `μένουν ${eur(x.due)}` : 'εντάξει ✓'}`}</div></div>`).join('') || '<div class="item muted">Κανένας ακόμα</div>'}</div>
-    <div class="note small" style="margin-top:12px">Τα λεφτά που βάζεις στην άκρη γράψ' τα ως έξοδο με κατηγορία <b>«Αποταμίευση»</b> (ή φτιάξε πάγιο «Αποταμίευση» κάθε μήνα). Δεν μετράνε στα έξοδα, μετράνε στον στόχο. Η δόση κάθε στόχου «δεσμεύεται» και η αρχική σού λέει πόσα μπορείς να ξοδέψεις ακόμα.</div>`;
+    <div class="note small" style="margin-top:12px">Τα λεφτά που βάζεις στην άκρη γράψ' τα ως έξοδο με κατηγορία <b>«Αποταμίευση»</b> (ή φτιάξε επαναλαμβανόμενο «Αποταμίευση» κάθε μήνα). Δεν μετράνε στα έξοδα, μετράνε στον στόχο. Η δόση κάθε στόχου «δεσμεύεται» και η αρχική σού λέει πόσα μπορείς να ξοδέψεις ακόμα.</div>`;
   },
   mount(root, p, ui) {
     root.querySelector('[data-back]').addEventListener('click', () => ui.back());

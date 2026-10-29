@@ -113,3 +113,4 @@ input[type=date] { min-width: 0; max-width: 100%; }
 .ac-list button { display: flex; width: 100%; justify-content: space-between; gap: 8px; align-items: baseline; border: 0; background: transparent; color: var(--ink); padding: 10px 12px; text-align: left; font: 15px system-ui; cursor: pointer; border-bottom: 1px solid var(--line); }
 .ac-list button:last-child { border-bottom: 0; }
 .ac-list button:hover { background: var(--chip); }
+@media (max-width: 760px) { nav.bottom .in.n7 a { font-size: 9.6px; letter-spacing: -0.2px; } nav.bottom .in a { white-space: nowrap; overflow: hidden; } }

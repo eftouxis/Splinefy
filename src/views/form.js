@@ -47,7 +47,7 @@ function blank(kindKey) {
   const me = store.state.user;
   const pre = new URLSearchParams(location.hash.split('?')[1] || '');
   return { mm: '', kind: KIND[kindKey], d: today(), a: '', desc: '', cat: '', payer: me, for: kindKey === 'exp' ? 'Κοινό' : kindKey === 'trf' ? (me === 'Άλκης' ? 'Χαρά' : 'Άλκης') : '',
-    both: '', share: '', trip: '', note: '', bill: '', period: '', cons: '', toShared: false, id: null, sp: null, touched: {}, ...(pre.get('cat') ? { cat: pre.get('cat') } : {}), ...(pre.get('trip') ? { trip: pre.get('trip'), tripTouched: 1 } : {}), ...(pre.get('for') ? { for: pre.get('for'), touched: { for: 1 } } : {}) };
+    both: '', share: '', trip: '', note: '', bill: '', period: '', cons: '', toShared: false, id: null, sp: null, touched: {}, ...(pre.get('cat') ? { cat: pre.get('cat') } : {}), ...(pre.get('trip') ? { trip: pre.get('trip'), tripTouched: 1 } : {}), ...(pre.get('for') ? { for: pre.get('for'), touched: { for: 1 } } : {}), ...(pre.get('payer') ? { payer: pre.get('payer') } : {}), ...(pre.get('a') ? { a: pre.get('a') } : {}) };
 }
 /** where a movement is stored: personal space only when it concerns the user alone */
 function targetSpace(x) {
@@ -115,7 +115,7 @@ export default {
     const tripPicks = k === 'Έξοδο' ? [...new Set([...(f.trip ? [f.trip] : []), ...T.recentTrips(f.d || today())])] : [];
     const tgtName = target === 'shared' ? 'Κοινό — το βλέπει και η Χαρά' : 'Προσωπικό — μόνο εσύ';
     if (f.occ) {
-      return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(f.desc)} <span class="small muted">↻ πάγιο</span></h1></div>
+      return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(f.desc)} <span class="small muted">↻ επαναλαμβανόμενο</span></h1></div>
       <div class="card"><div class="muted small">Αυτή η φορά: ${esc(f.d)}</div>
         <label class="f"><span>Ποσό αυτή τη φορά</span><input class="amount" name="a" inputmode="decimal" value="${esc(f.a)}">${calcHtml()}</label>
         <label class="f"><span>Πλήρωσε</span>${seg('payer', people.map((p) => [p, p]), f.payer)}</label>
@@ -179,7 +179,7 @@ export default {
         const defs = n ? store.records('rec').filter((r) => norm(r.name).trim() === n) : [];
         const occ = defs.length ? recurringMovements(addMonths(t0, 2)).find((m) => defs.some((x) => x.id === m.rec) && Math.abs((new Date(m.d) - new Date(t0)) / 864e5) <= 20) : null;
         const def = occ ? defs.find((x) => x.id === occ.rec) : null;
-        if (occ) return `<div class="note" style="margin-bottom:10px">↻ Το «${esc(def.name)}» είναι πάγιο και μπαίνει μόνο του (${esc(occ.d.split('-').reverse().join('/'))}, ${eur(occ.a)}). Για νέο ποσό <a href="#/edit/${esc(def._sp)}/${esc(occ.id)}">πάτα εδώ</a> και διάλεξε «Από εδώ και πέρα» — αλλιώς θα μετρηθεί δύο φορές.</div>`;
+        if (occ) return `<div class="note" style="margin-bottom:10px">↻ Το «${esc(def.name)}» είναι επαναλαμβανόμενο και μπαίνει μόνο του (${esc(occ.d.split('-').reverse().join('/'))}, ${eur(occ.a)}). Για νέο ποσό <a href="#/edit/${esc(def._sp)}/${esc(occ.id)}">πάτα εδώ</a> και διάλεξε «Από εδώ και πέρα» — αλλιώς θα μετρηθεί δύο φορές.</div>`;
         return `<label class="row small" style="margin:0 2px 10px;flex-wrap:wrap"><input type="checkbox" name="rep" style="width:auto" ${f.rep ? 'checked' : ''}> ↻ Επαναλαμβάνεται
           ${FQ.freqHtml('repf', { fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }, 'width:auto;padding:6px 8px;font-size:14px;margin-left:6px')}</label>`;
       })() : ''}
@@ -317,7 +317,7 @@ export default {
           const fr = FQ.toRec({ fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }) || { unit: 'm', every: 1 }; const [u, e] = [fr.unit, fr.every];
           const next = u === 'd' ? addDays(f.d, e) : addMonths(f.d, e);
           await store.put(tsp, null, { type: 'rec', name: rec.desc || rec.cat, a: rec.a, cat: rec.cat, kind: rec.kind, payer: rec.payer, for: rec.for, unit: u, every: e, start: next, oth: rec.oth || null, both: null });
-          ui.toast('Καταχωρήθηκε ✓ και μπήκε στα πάγια');
+          ui.toast('Καταχωρήθηκε ✓ και μπήκε στα επαναλαμβανόμενα');
         } else ui.toast('Καταχωρήθηκε ✓');
       }
       if (f.id) ui.toast('Καταχωρήθηκε ✓');

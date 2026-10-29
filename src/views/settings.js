@@ -18,7 +18,7 @@ export default {
     <h2>Ποιος είσαι σε αυτή τη συσκευή</h2>
     <div class="card"><div class="chips">${['Άλκης', 'Χαρά'].map((u) => `<button class="chip ${S.user === u ? 'on' : ''}" data-user="${u}">${u}</button>`).join('')}</div></div>
     <h2>Οργάνωση</h2>
-    <div class="list"><a class="item" href="#/rec" style="text-decoration:none;color:inherit"><div class="dot">↻</div><div class="grow t">Πάγια</div><div class="muted">›</div></a>
+    <div class="list"><a class="item" href="#/rec" style="text-decoration:none;color:inherit"><div class="dot">↻</div><div class="grow t">Επαναλαμβανόμενα <span class="small muted">(κάθε μήνα, κάθε χρόνο…)</span></div><div class="muted">›</div></a>
       <a class="item" href="#/people" style="text-decoration:none;color:inherit"><div class="dot">🤝</div><div class="grow t">Χρωστούμενα με άλλους</div><div class="muted">›</div></a>
       <a class="item" href="#/trips" style="text-decoration:none;color:inherit"><div class="dot">✈️</div><div class="grow t">Ταξίδια <span class="small muted">(ημερομηνίες, όνομα)</span></div><div class="muted">›</div></a>
       <a class="item" href="#/goals" style="text-decoration:none;color:inherit"><div class="dot">🎯</div><div class="grow t">Στόχοι <span class="small muted">(ξεχρέωμα, αποταμίευση)</span></div><div class="muted">›</div></a>
@@ -49,7 +49,7 @@ export default {
       <input type="file" accept=".json,application/json" multiple data-import></div>
     <h2>Εμφάνιση</h2>
     <div class="card"><div class="chips">${[['auto', 'Αυτόματο'], ['light', 'Φωτεινό'], ['dark', 'Σκούρο']].map(([v, l]) => `<button class="chip ${theme === v ? 'on' : ''}" data-theme="${v}">${l}</button>`).join('')}</div></div>
-    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · έκδοση 1.4 (29/10)</div>`;
+    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · έκδοση 1.5 (29/10)</div>`;
   },
   mount(root, p, ui) {
     if (signed === null) sync.signedIn().then((s) => { signed = s; ui.render(); });

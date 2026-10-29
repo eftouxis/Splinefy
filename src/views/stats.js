@@ -7,8 +7,8 @@ import { ICON } from './common.js';
 import * as T from '../trips.js';
 import { balancesHtml, balancesMount } from './balances.js';
 
-let view = null, tab = 'bal', selY = null, selCat = null;
-const TABS = [['bal', 'Υπόλοιπα'], ['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί']];
+let view = null, tab = 'months', selY = null, selCat = null;
+const TABS = [['bal', 'Ισολογισμός'], ['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί']];
 const short = (m) => `${MSHORT[Number(m.slice(5)) - 1]} ${m.slice(2, 4)}`;
 const k0 = (x) => eur(x).replace(' €', '');
 

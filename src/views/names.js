@@ -2,6 +2,7 @@
 import { esc, norm } from '../util.js';
 import * as store from '../store.js';
 import { sheet } from './lessons/ui.js';
+import { categories } from '../ledger.js';
 
 const key1 = (s) => norm(s).replace(/[.,;:!()«»"'’\-–_/]+/g, ' ').replace(/\s+/g, ' ').trim();
 const key2 = (s) => key1(s).split(' ').sort().join(' ');
@@ -18,9 +19,9 @@ function groups() {
   for (const it of items()) { const k = key2(it.v); if (!k) continue; let x = g.get(k); if (!x) g.set(k, (x = new Map())); const sp = it.v.trim(); x.set(sp, (x.get(sp) || 0) + 1); }
   return [...g.entries()].filter(([, m]) => m.size > 1).map(([k, m]) => ({ k, vars: [...m.entries()].sort((a, b) => b[1] - a[1]) })).sort((a, b) => b.vars.reduce((s, v) => s + v[1], 0) - a.vars.reduce((s, v) => s + v[1], 0));
 }
-async function renameWhere(match, to) {
+async function renameWhere(match, to, cat = null) {
   const by = new Map(); let n = 0;
-  for (const it of items()) if (match(it.v) && it.v !== to) { if (!by.has(it.r._sp)) by.set(it.r._sp, []); by.get(it.r._sp).push({ id: it.r.id, set: { [it.f]: to } }); n++; }
+  for (const it of items()) if (match(it.v) && (it.v !== to || (cat && it.r.cat !== cat))) { if (!by.has(it.r._sp)) by.set(it.r._sp, []); by.get(it.r._sp).push({ id: it.r.id, set: { [it.f]: to, ...(cat && it.r.kind === 'Έξοδο' ? { cat } : {}) } }); n++; }
   for (const [sp, ch] of by) for (let i = 0; i < ch.length; i += 500) await store.putMany(sp, ch.slice(i, i + 500));
   return n;
 }
@@ -52,9 +53,10 @@ export default {
     }));
     const ask = (title, from, match) => sheet(`<div class="mid">${title}</div>
       <label class="f" style="margin-top:10px"><span>Νέο όνομα</span><input name="to" value="${esc(from)}"></label>
+      <label class="f"><span>Και κατηγορία (προαιρετικά, για τα έξοδα)</span><select name="cat"><option value="">— μένει ίδια —</option>${categories('Έξοδο').map((c) => `<option>${esc(c)}</option>`).join('')}</select></label>
       <button class="btn primary" data-ok>Αλλαγή παντού</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
       el.querySelector('[data-no]').onclick = close;
-      el.querySelector('[data-ok]').onclick = async () => { const to = el.querySelector('[name=to]').value.trim(); if (!to) return; const n = await renameWhere(match, to); close(); ui.toast(`${n} αλλαγές ✓`); };
+      el.querySelector('[data-ok]').onclick = async () => { const to = el.querySelector('[name=to]').value.trim(); if (!to) return; const n = await renameWhere(match, to, el.querySelector('[name=cat]').value || null); close(); ui.toast(`${n} αλλαγές ✓`); };
       setTimeout(() => el.querySelector('[name=to]').select(), 50);
     });
     root.querySelectorAll('[data-ren]').forEach((b) => b.addEventListener('click', () => { const s = b.dataset.ren; ask(`«${esc(s)}» →`, s, (v) => v.trim() === s); }));

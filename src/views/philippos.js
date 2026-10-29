@@ -42,7 +42,7 @@ export default {
     <div class="note small" style="margin-top:12px">Εδώ μετράνε οι κινήσεις με «Για ποιον: Φίλιππος» (έξοδα για εκείνον, δώρα και επιδόματα που πήρε) και οι μεταφορές από/προς τον λογαριασμό του. Δεν μετράνε στα δικά σας έξοδα.</div>`;
   },
   mount(root, p, ui) {
-    root.querySelector('[data-back]').addEventListener('click', () => ui.go('#/'));
+    root.querySelector('[data-back]').addEventListener('click', () => ui.back());
     root.querySelectorAll('[data-sy]').forEach((b) => b.addEventListener('click', () => { selY = b.dataset.sy; ui.render(); }));
     root.querySelectorAll('[data-y]').forEach((b) => b.addEventListener('click', () => { selY = b.dataset.y; ui.render(); }));
     bindEdit(root, ui);

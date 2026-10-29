@@ -15,11 +15,11 @@ export function balancesHtml() {
       <div class="small muted" style="margin-top:4px">όλα τα έσοδα ${eur(z.inc)} − όλα τα έξοδα ${eur(z.exp)}${pr.open ? ` + αρχικό ${eur(pr.open)}` : ''}</div>
       ${z.save > 0.004 ? `<div class="small" style="margin-top:4px">Από αυτά <b>${eur(z.save)}</b> είναι σε επενδύσεις/αποταμίευση (δικά σου, δεν είναι έξοδο) · χωρίς αυτά: ${eur(bal - z.save)}</div>` : ''}
       <div class="small muted" style="margin-top:6px">Όπως το Monefy, αλλά οι επενδύσεις δεν μετράνε ως έξοδο. Τα χρέη που έχεις γράψει ως έξοδα (π.χ. της μαμάς) είναι ήδη μέσα. Πάτα για ημερομηνία/αρχικό ποσό.</div></div>
-    <div class="grid2">
+    <div hidden>
       <div class="card kpi" data-go="#/list/shared" style="cursor:pointer"><div class="label">${owe >= 0 ? 'Η Χαρά χρωστάει στον Άλκη' : 'Ο Άλκης χρωστάει στη Χαρά'}</div><div class="big ${owe >= 0 ? '' : 'neg'}">${eur(Math.abs(owe))}</div></div>
       <div class="card kpi" data-go="#/philippos" style="cursor:pointer"><div class="label">Ο Άλκης χρωστάει στον Φίλιππο</div><div class="big">${eur(d.philippos)}</div></div>
     </div>
-    <div class="grid2"><a class="btn" href="#/people">🤝 Χρωστούμενα</a><a class="btn" href="#/goals">🎯 Στόχοι</a></div>`;
+    <div class="note small">Ποιος χρωστάει σε ποιον (Χαρά, Φίλιππος, άλλοι) είναι στην καρτέλα <a href="#/debts">Οφειλές</a>.</div>`;
 }
 export function balancesMount(root, ui) {
   root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
