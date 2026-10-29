@@ -1,11 +1,12 @@
 import { esc, eur, today, addDays, monthLabel, dShort, MONTHS_GEN } from '../util.js';
 import { movements, debt, totals, fx } from '../ledger.js';
 import { state } from '../store.js';
-import { itemHtml, bindEdit, ICON } from './common.js';
+import { itemHtml, bindEdit, ICON, created } from './common.js';
 import { syncBadge } from '../main.js';
 import * as LS from '../lessons.js';
 import * as PP from '../people.js';
 import * as PL from '../plan.js';
+import * as K from '../cars.js';
 
 let viewSel = null, monthOff = 0, allCats = false;
 const LS_KEY = 'homePer';
@@ -47,7 +48,7 @@ export default {
     const views = [me, 'Κοινά', 'Φίλιππος'];
     // upcoming recurring (14 days)
     const up = list.filter((r) => r.rec && !r.skipped && r.d > t && r.d <= addDays(t, 14)).sort((a, b) => (a.d < b.d ? -1 : 1)).slice(0, 8);
-    const recent = list.filter((r) => !r.rec && r.d <= t).sort((a, b) => (a.d === b.d ? ((b._m || '') > (a._m || '') ? 1 : -1) : a.d < b.d ? 1 : -1)).slice(0, 8);
+    const recent = list.filter((r) => !r.rec && r.d <= t).sort((a, b) => (a.d === b.d ? (created(b) > created(a) ? 1 : -1) : a.d < b.d ? 1 : -1)).slice(0, 8);
     const lessons = list.filter((r) => r.cat === 'Ιδιαίτερα' && r.kind === 'Έσοδο' && r.d >= `${t.slice(0, 7)}-01` && r.d <= t && (me === 'Άλκης'));
     const lessonSum = lessons.reduce((s, r) => s + (r.a || 0), 0);
     return `
@@ -59,7 +60,7 @@ export default {
     <div class="grid3 quick" style="margin-bottom:12px">
       <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="#/add/inc">+ Έσοδο</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
     </div>
-    ${newsCard(t)}${roomCard()}
+    ${newsCard(t)}${carCard()}${roomCard()}
     <div class="card">
       <div class="seg per" style="margin-bottom:10px">${PERS.map(([k, l]) => `<button class="${k === per ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
       ${per === 'r' ? `<div class="grid2"><label class="f"><span>Από</span><input type="date" name="rf" value="${from}"></label><label class="f"><span>Έως</span><input type="date" name="rt" value="${P.to}"></label></div>`
@@ -120,13 +121,19 @@ function newsCard(t) {
 function roomCard() {
   const R = PL.room(); if (!R) return '';
   const col = R.level === 'over' ? 'var(--red)' : R.level === 'warn' ? '#e0a030' : 'var(--teal)';
-  const x = R.ps[0];
-  return `<div class="card" data-go="#/people/${esc(x.p.id)}" style="cursor:pointer;border-left:4px solid ${col}">
-    <div class="row"><b class="grow">🎯 Ξεχρέωμα ${esc(R.ps.map((s) => s.p.name).join(', '))}</b><span class="muted">›</span></div>
-    <div class="small" style="margin-top:4px">Μένουν <b>${eur(R.ps.reduce((s, y) => s + y.debt, 0))}</b> · ${R.ps.map((s) => `${eur(s.m)}/μήνα → τέλος <b>${PL.mLabel(s.end)}</b>`).join(' · ')}</div>
-    <div class="small" style="margin-top:4px">Αυτόν τον μήνα: δόση ${R.due > 0.004 ? `<b>${eur(R.due)}</b> ακόμα` : '<b class="pos">✓ δόθηκε</b>'}</div>
-    <div style="margin-top:6px;color:${col};font-weight:700">${R.level === 'over' ? `⚠ Ξεπέρασες κατά ${eur(-R.free)} — η δόση δεν βγαίνει αν δεν κόψεις έξοδα` : R.level === 'warn' ? `⚠ Πρόσεχε: μπορείς να ξοδέψεις ακόμα μόνο ${eur(R.free)} αυτόν τον μήνα` : `Μπορείς να ξοδέψεις ακόμα ${eur(R.free)} αυτόν τον μήνα`}</div>
-    <div class="small muted" style="margin-top:2px">= έσοδα ${eur(R.basis)}${R.basis > R.inc + 0.004 ? ' (μ.ο. 3 μηνών)' : ''} − έξοδα ${eur(R.exp)}${R.save ? ` − επενδύσεις ${eur(R.save)}` : ''} − δόση ${eur(R.due)}</div></div>`;
+  return `<div class="card" data-go="#/goals" style="cursor:pointer;border-left:4px solid ${col}">
+    <div class="row"><b class="grow">🎯 Ξεχρέωμα & στόχοι</b><span class="muted">›</span></div>
+    ${R.ps.map((s) => `<div class="small" style="margin-top:4px">${esc(s.p.name)}: μένουν <b>${eur(s.debt)}</b> → τέλος ${PL.mLabel(s.end)} · ${s.due > 0.004 ? `δόση μήνα <b>${eur(s.due)}</b> ακόμα` : '<span class="pos">δόση ✓</span>'}</div>`).join('')}
+    ${R.gs.map((x) => `<div class="small" style="margin-top:4px">${esc(x.g.name)}: <b>${eur(x.saved)}</b> / ${eur(x.g.target)}${x.end ? ` → ${PL.mLabel(x.end)}` : ''} · ${x.due > 0.004 ? `μήνα <b>${eur(x.due)}</b> ακόμα` : '<span class="pos">μήνας ✓</span>'}</div>`).join('')}
+    <div style="margin-top:6px;color:${col};font-weight:700">${R.level === 'over' ? `⚠ Ξεπέρασες κατά ${eur(-R.free)} — κόψε έξοδα για να βγουν οι δόσεις` : R.level === 'warn' ? `⚠ Πρόσεχε: μπορείς να ξοδέψεις ακόμα μόνο ${eur(R.free)} αυτόν τον μήνα` : `Μπορείς να ξοδέψεις ακόμα ${eur(R.free)} αυτόν τον μήνα`}</div>
+    <div class="small muted" style="margin-top:2px">= έσοδα ${eur(R.basis)}${R.basis > R.inc + 0.004 ? ' (μ.ο. 3 μηνών)' : ''} − έξοδα ${eur(R.exp)}${R.save ? ` − επενδύσεις/αποταμίευση ${eur(R.save)}` : ''} − δεσμευμένα ${eur(R.due)}</div></div>`;
+}
+/** car reminders that are late or due within 30 days */
+function carCard() {
+  const rs = K.reminders().filter((r) => (r.status === 'late' || r.status === 'soon') && !K.car(r.car)?.sold);
+  if (!rs.length) return '';
+  return `<div class="card" data-go="#/cars" style="cursor:pointer;border-left:4px solid ${rs.some((r) => r.status === 'late') ? 'var(--red)' : '#e0a030'}"><div class="row"><b class="grow">🚗 Υπενθυμίσεις αυτοκινήτου</b><span class="muted">›</span></div>
+    ${rs.map((r) => `<div class="small" style="margin-top:4px">${esc(r.what)} · ${esc(K.car(r.car)?.name || '')} — <b class="${r.status === 'late' ? 'neg' : ''}">${r.days < 0 ? `πέρασε (${r.next.split('-').reverse().join('/')})` : r.days === 0 ? 'σήμερα' : `σε ${r.days} μέρες`}</b>${r.kmLeft != null && r.kmLeft < 1500 ? ` · ${Math.round(r.kmLeft)} km` : ''}</div>`).join('')}</div>`;
 }
 function peopleCard() {
   const ps = PP.people().map((p) => ({ p, b: PP.balance(p.id) })).filter((x) => Math.abs(x.b) > 0.005);
@@ -141,7 +148,6 @@ function lessonsCard(recv) {
   const owed = debt.reduce((a, x) => a + x.b, 0);
   const tl = LS.lessons({ from: t, to: t });
   return `<div class="card row" data-go="#/lessons" style="cursor:pointer"><div class="dot">📚</div><div class="grow">
-    <div class="small muted">Ιδιαίτερα ${MONTHS_GEN[new Date().getMonth()]}: εισπράξεις ${eur(recv)}</div>
     <div class="mid">${has ? `Μου χρωστάνε ${eur(owed)}` : 'Μαθήματα'}</div>
     ${debt.length ? `<div class="small">${debt.map((x) => `${esc(LS.label(x.s))} <b class="neg">${eur(x.b)}</b>`).join(' · ')}</div>` : ''}
     ${has ? `<div class="small muted">${tl.length ? `Σήμερα: ${tl.map((l) => esc(LS.label(LS.student(l.stu)))).join(', ')}` : 'Σήμερα κανένα μάθημα'}</div>` : ''}</div><div class="muted">›</div></div>`;

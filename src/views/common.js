@@ -36,3 +36,6 @@ export function itemHtml(r, opts = {}) {
 export function bindEdit(root, ui) {
   root.querySelectorAll('[data-edit]').forEach((el) => el.addEventListener('click', () => ui.go(`#/edit/${el.dataset.edit}`)));
 }
+
+/** when a record was first written (its «type» field never changes) — editing keeps the place in the list */
+export const created = (r) => (r._t && (r._t.type || r._t.d)) || '';

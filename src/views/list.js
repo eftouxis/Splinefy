@@ -1,7 +1,7 @@
 import { esc, eur, today, monthLabel, dShort, norm } from '../util.js';
 import { movements, fx, othSum } from '../ledger.js';
 import { state } from '../store.js';
-import { itemHtml, bindEdit, ICON } from './common.js';
+import { itemHtml, bindEdit, ICON, created } from './common.js';
 
 let q = '', month = null, shown = 150, rng = null, view = 'mine', catF = null;
 window.__listSet = (o) => { if (o.q !== undefined) q = o.q; if (o.month) { month = o.month; rng = null; } if (o.from) rng = [o.from, o.to]; if (o.view) view = o.view; catF = o.cat ? { cat: o.cat, kind: o.kind } : null; shown = 150; };
@@ -30,7 +30,7 @@ export default {
     const hidden = list.length; list = list.filter(keep);
     const extra = hidden - list.length;
     const val = (r) => (view === 'mine' ? mine(r) : (r.a || 0) - (view === 'all' ? 0 : othSum(r)));
-    list.sort((a, b) => (a.d === b.d ? ((b._m || '') > (a._m || '') ? 1 : -1) : a.d < b.d ? 1 : -1));
+    list.sort((a, b) => (a.d === b.d ? (created(b) > created(a) ? 1 : -1) : a.d < b.d ? 1 : -1));
     const sum = (k) => list.reduce((s, r) => s + (r.kind === k ? val(r) : 0), 0);
     const exp = sum('Έξοδο'), inc = sum('Έσοδο');
     let html = '', lastD = '';

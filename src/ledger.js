@@ -84,6 +84,7 @@ export function categories(kind) {
   const cats = setting().cats || [];
   const out = cats.filter((c) => (!kind || c.kind === kind) && !c.hidden).map((c) => c.name);
   if ((!kind || kind === 'Έξοδο') && !cats.some((c) => c.name === 'Επενδύσεις')) out.push('Επενδύσεις');
+  if ((!kind || kind === 'Έξοδο') && !cats.some((c) => c.name === 'Αποταμίευση')) out.push('Αποταμίευση');
   return out;
 }
 
