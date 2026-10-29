@@ -51,15 +51,15 @@ const pages = {
     const rows = ms.map((m) => ({ m, ...ST.month(view, m) }));
     const tot = ST.year(view, selY), ly = ST.year(view, selY - 1);
     const noInc = view === 'Φίλιππος' || (view === 'Κοινά' && !ST.year(view, selY ?? Number(today().slice(0, 4))).inc);
-    const inv = (tot.save || 0) > 0.004;
+    const inv = (tot.inv || 0) > 0.004, sav = (tot.sav || 0) > 0.004;
     return `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-y="-1">◀</button><div class="grow center mid">${selY}</div><button class="btn sm ghost" data-y="1" ${selY >= Number(t.slice(0, 4)) ? 'disabled' : ''}>▶</button></div>
     <div class="card">${bars(ms.map((m) => MSHORT[Number(m.slice(5)) - 1]), [...(noInc ? [] : [{ name: 'Έσοδα', cls: 's-inc', values: rows.map((r) => r.inc) }]), { name: 'Έξοδα', cls: 's-exp', values: rows.map((r) => r.exp) }], ms.map((m) => 'm:' + m))}</div>
-    <div class="card"><table class="t st"><tr><th>Μήνας</th>${noInc ? '' : '<th class="r">Έσοδα</th>'}<th class="r">Έξοδα</th>${noInc ? '' : '<th class="r">Διαφορά</th>'}${inv ? '<th class="r">📈 Επενδ.</th>' : ''}<th></th></tr>
-      ${rows.slice().reverse().map((r) => `<tr data-k="m:${r.m}" class="click"><td>${MONTHS[Number(r.m.slice(5)) - 1]}</td>${noInc ? '' : `<td class="r pos">${k0(r.inc)}</td>`}<td class="r">${k0(r.exp)}</td>${noInc ? '' : `<td class="r ${r.inc - r.exp < 0 ? 'neg' : 'pos'}">${k0(r.inc - r.exp)}</td>`}${inv ? `<td class="r muted">${r.save ? k0(r.save) : ''}</td>` : ''}<td class="muted">›</td></tr>`).join('')}
-      <tr class="tot"><td>Σύνολο</td>${noInc ? '' : `<td class="r">${k0(tot.inc)}</td>`}<td class="r">${k0(tot.exp)}</td>${noInc ? '' : `<td class="r">${k0(tot.inc - tot.exp)}</td>`}${inv ? `<td class="r">${k0(tot.save)}</td>` : ''}<td></td></tr>
-      <tr><td>Μ.Ο. μήνα</td>${noInc ? '' : `<td class="r">${k0(tot.inc / ms.length)}</td>`}<td class="r">${k0(tot.exp / ms.length)}</td>${noInc ? '' : `<td class="r">${k0((tot.inc - tot.exp) / ms.length)}</td>`}${inv ? '<td></td>' : ''}<td></td></tr>
-      <tr class="muted"><td>Πέρσι (όλο)</td>${noInc ? '' : `<td class="r">${k0(ly.inc)}</td>`}<td class="r">${k0(ly.exp)}</td>${noInc ? '' : `<td class="r">${k0(ly.inc - ly.exp)}</td>`}${inv ? '<td></td>' : ''}<td></td></tr></table>
-      <div class="small muted" style="margin-top:6px">σε € · πάτα έναν μήνα για ανάλυση${inv ? ' · 📈 Επενδ. = επενδύσεις/αποταμίευση: δεν μετράνε στα έξοδα, είναι δικά σου λεφτά' : ''}</div></div>`;
+    <div class="card"><table class="t st"><tr><th>Μήνας</th>${noInc ? '' : '<th class="r">Έσοδα</th>'}<th class="r">Έξοδα</th>${noInc ? '' : '<th class="r">Διαφορά</th>'}${inv ? '<th class="r">📈 Επενδ.</th>' : ''}${sav ? '<th class="r">🐷 Αποτ.</th>' : ''}<th></th></tr>
+      ${rows.slice().reverse().map((r) => `<tr data-k="m:${r.m}" class="click"><td>${MONTHS[Number(r.m.slice(5)) - 1]}</td>${noInc ? '' : `<td class="r pos">${k0(r.inc)}</td>`}<td class="r">${k0(r.exp)}</td>${noInc ? '' : `<td class="r ${r.inc - r.exp < 0 ? 'neg' : 'pos'}">${k0(r.inc - r.exp)}</td>`}${inv ? `<td class="r muted">${r.inv ? k0(r.inv) : ''}</td>` : ''}${sav ? `<td class="r muted">${r.sav ? k0(r.sav) : ''}</td>` : ''}<td class="muted">›</td></tr>`).join('')}
+      <tr class="tot"><td>Σύνολο</td>${noInc ? '' : `<td class="r">${k0(tot.inc)}</td>`}<td class="r">${k0(tot.exp)}</td>${noInc ? '' : `<td class="r">${k0(tot.inc - tot.exp)}</td>`}${inv ? `<td class="r">${k0(tot.inv)}</td>` : ''}${sav ? `<td class="r">${k0(tot.sav)}</td>` : ''}<td></td></tr>
+      <tr><td>Μ.Ο. μήνα</td>${noInc ? '' : `<td class="r">${k0(tot.inc / ms.length)}</td>`}<td class="r">${k0(tot.exp / ms.length)}</td>${noInc ? '' : `<td class="r">${k0((tot.inc - tot.exp) / ms.length)}</td>`}${inv ? '<td></td>' : ''}${sav ? '<td></td>' : ''}<td></td></tr>
+      <tr class="muted"><td>Πέρσι (όλο)</td>${noInc ? '' : `<td class="r">${k0(ly.inc)}</td>`}<td class="r">${k0(ly.exp)}</td>${noInc ? '' : `<td class="r">${k0(ly.inc - ly.exp)}</td>`}${inv ? '<td></td>' : ''}${sav ? '<td></td>' : ''}<td></td></tr></table>
+      <div class="small muted" style="margin-top:6px">σε € · πάτα έναν μήνα για ανάλυση</div></div>`;
   },
   month([m]) {
     const s = ST.month(view, m); const ly = ST.month(view, addMonths(`${m}-01`, -12).slice(0, 7));

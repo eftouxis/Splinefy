@@ -27,7 +27,7 @@ export default {
       <div class="card">${R ? R.ps.map((s) => `<div class="small" style="margin:3px 0">${esc(s.p.name)}: μένουν <b>${eur(s.debt)}</b> → τέλος ${PL.mLabel(s.end)} · ${s.due > 0.004 ? `δόση μήνα <b>${eur(s.due)}</b> ακόμα` : '<span class="pos">δόση ✓</span>'}</div>`).join('') : ''}
       ${gs.map((x) => `<div class="small" style="margin:3px 0">${esc(x.g.name)}: <b>${eur(x.saved)}</b> / ${eur(x.g.target)}</div>`).join('')}
       ${R ? `<div style="margin-top:6px;font-weight:700;color:${R.level === 'over' ? 'var(--red)' : R.level === 'warn' ? '#e0a030' : 'var(--teal)'}">${R.level === 'over' ? `⚠ Ξεπέρασες κατά ${eur(-R.free)}` : `Μπορείς να ξοδέψεις ακόμα ${eur(R.free)} αυτόν τον μήνα`}</div>` : ''}</div>` : ''}
-    <div class="note small" style="margin-top:12px">Χαρά & Άλκης: ό,τι κοινό πληρώνει ο ένας (όπως στο Splid). Με άλλους: αδερφή, μαμά, φίλοι — από τα έξοδα με «+ Άλλοι» ή με τα κουμπιά στη σελίδα του καθενός.</div>`;
+`;
   },
   mount(root, p, ui) {
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));

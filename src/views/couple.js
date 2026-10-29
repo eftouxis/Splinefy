@@ -20,7 +20,7 @@ export default {
       const r = x.r; const what = r.kind === 'Μεταφορά' ? `${r.payer} → ${r.for}` : `${r.payer === 'Και οι 2' ? 'και οι 2' : r.payer}${r.for && r.for !== 'Κοινό' ? ' για ' + r.for : ''}`;
       html += `<div class="item" data-edit="${esc(r._sp)}/${esc(r.id)}"><div class="dot">${r.kind === 'Μεταφορά' ? '⇄' : ICON[r.cat] || '•'}</div>
         <div class="grow"><div class="t">${esc(r.desc || r.cat || '')}</div><div class="s">${dShort(r.d)} · ${eur(r.a)} · ${esc(what)}</div></div>
-        <div class="right"><div class="amt ${x.e > 0 ? 'pos' : 'neg'}">${x.e > 0 ? '+' : '−'}${eur(Math.abs(x.e))}</div><div class="small muted">υπόλ. ${eur(x.bal)}</div></div></div>`;
+        <div class="right"><div class="amt ${x.e > 0 ? 'neg' : 'pos'}">${x.e > 0 ? '+' : '−'}${eur(Math.abs(x.e))}</div><div class="small muted">υπόλ. ${eur(x.bal)}</div></div></div>`;
     }
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Χαρά & Άλκης</h1></div>
     <div class="card kpi"><div class="label">${head}</div><div class="big ${run < -0.005 ? 'neg' : ''}">${eur(Math.abs(run))}</div></div>

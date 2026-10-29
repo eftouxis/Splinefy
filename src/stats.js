@@ -22,7 +22,7 @@ export function cube() {
       const k = `${view}|${m}`; let s = M.get(k); if (!s) M.set(k, (s = blank()));
       s.n++;
       if (r.kind === 'Έσοδο') { s.inc += -v; s.icats.set(r.cat, (s.icats.get(r.cat) || 0) - v); }
-      else if (SAVE.has(r.cat)) s.save = (s.save || 0) + v;
+      else if (SAVE.has(r.cat)) { if (r.cat === 'Επενδύσεις') s.inv = (s.inv || 0) + v; else s.sav = (s.sav || 0) + v; }
       else { s.exp += v; s.cats.set(cat, (s.cats.get(cat) || 0) + v); }
       if (r.kind === 'Έξοδο' && r.desc) {
         const dk = `${view}|${cat}`; let dm = descs.get(dk); if (!dm) descs.set(dk, (dm = new Map()));
@@ -48,7 +48,7 @@ export function range(view, from, to) {        // months inclusive 'YYYY-MM'
   const out = blank();
   for (const [k, s] of cube().M) {
     const [v, m] = k.split('|'); if (v !== view || m < from || m > to) continue;
-    out.inc += s.inc; out.exp += s.exp; out.n += s.n; out.save = (out.save || 0) + (s.save || 0);
+    out.inc += s.inc; out.exp += s.exp; out.n += s.n; out.inv = (out.inv || 0) + (s.inv || 0); out.sav = (out.sav || 0) + (s.sav || 0);
     for (const [c, x] of s.cats) out.cats.set(c, (out.cats.get(c) || 0) + x);
     for (const [c, x] of s.icats) out.icats.set(c, (out.icats.get(c) || 0) + x);
   }
