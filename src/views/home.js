@@ -1,6 +1,8 @@
-import { esc, eur, today, addDays, monthLabel, dShort, MONTHS_GEN } from '../util.js';
+import { esc, eur, today, addDays, monthLabel, dShort, MONTHS_GEN, parseAmount } from '../util.js';
 import { movements, debt, totals, fx } from '../ledger.js';
 import { state } from '../store.js';
+import * as store from '../store.js';
+import { sheet } from './lessons/ui.js';
 import { itemHtml, bindEdit, ICON, created } from './common.js';
 import { syncBadge } from '../main.js';
 import * as LS from '../lessons.js';
@@ -60,7 +62,7 @@ export default {
     <div class="grid3 quick" style="margin-bottom:12px">
       <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="#/add/inc">+ Έσοδο</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
     </div>
-    ${newsCard(t)}${carCard()}${roomCard()}
+    ${newsCard(t)}${carCard()}${roomCard()}${balanceCard(list, t)}
     <div class="card">
       <div class="seg per" style="margin-bottom:10px">${PERS.map(([k, l]) => `<button class="${k === per ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
       ${per === 'r' ? `<div class="grid2"><label class="f"><span>Από</span><input type="date" name="rf" value="${from}"></label><label class="f"><span>Έως</span><input type="date" name="rt" value="${P.to}"></label></div>`
@@ -103,6 +105,7 @@ export default {
     root.querySelector('[data-plist]')?.addEventListener('click', (e) => { const [a, b] = e.target.dataset.plist.split('|'); window.__listSet?.({ from: a, to: b, q: '', view: lview() }); ui.go('#/list'); });
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { monthOff = Math.min(0, monthOff + Number(b.dataset.m)); ui.render(); }));
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { viewSel = b.dataset.v; ui.render(); }));
+    root.querySelector('[data-bal]')?.addEventListener('click', () => balSheet(ui));
     root.querySelector('[data-seen]')?.addEventListener('click', (e) => { e.stopPropagation(); try { localStorage.setItem(SEEN, today()); } catch (_) { /* */ } ui.render(); });
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
     bindEdit(root, ui);
@@ -127,6 +130,26 @@ function roomCard() {
     ${R.gs.map((x) => `<div class="small" style="margin-top:4px">${esc(x.g.name)}: <b>${eur(x.saved)}</b> / ${eur(x.g.target)}${x.end ? ` → ${PL.mLabel(x.end)}` : ''} · ${x.due > 0.004 ? `μήνα <b>${eur(x.due)}</b> ακόμα` : '<span class="pos">μήνας ✓</span>'}</div>`).join('')}
     <div style="margin-top:6px;color:${col};font-weight:700">${R.level === 'over' ? `⚠ Ξεπέρασες κατά ${eur(-R.free)} — κόψε έξοδα για να βγουν οι δόσεις` : R.level === 'warn' ? `⚠ Πρόσεχε: μπορείς να ξοδέψεις ακόμα μόνο ${eur(R.free)} αυτόν τον μήνα` : `Μπορείς να ξοδέψεις ακόμα ${eur(R.free)} αυτόν τον μήνα`}</div>
     <div class="small muted" style="margin-top:2px">= έσοδα ${eur(R.basis)}${R.basis > R.inc + 0.004 ? ' (μ.ο. 3 μηνών)' : ''} − έξοδα ${eur(R.exp)}${R.save ? ` − επενδύσεις/αποταμίευση ${eur(R.save)}` : ''} − δεσμευμένα ${eur(R.due)}</div></div>`;
+}
+/** «Ισολογισμός» like Monefy: all my income − all my expenses since a start date (+ an opening amount) */
+const balPref = () => store.records('pref', [PL.goalSpace()]).find((r) => r.id === 'bal') || { start: '2016-01-01', open: 0 };
+function balanceCard(list, t) {
+  if (viewSel !== state.user) return '';
+  const pr = balPref(); const z = totals(list, state.user, pr.start, t);
+  const bal = (pr.open || 0) + z.inc - z.exp - z.save, net = bal + z.save;
+  return `<div class="card" data-bal style="cursor:pointer"><div class="row"><b class="grow">⚖️ Ισολογισμός <span class="small muted">από ${pr.start.split('-').reverse().join('/')}</span></b><b class="${bal < 0 ? 'neg' : 'pos'}" style="font-size:20px">${eur(bal)}</b></div>
+    <div class="small muted" style="margin-top:4px">όλα τα έσοδα ${eur(z.inc)} − όλα τα έξοδα ${eur(z.exp)}${z.save ? ` − επενδύσεις/αποταμίευση ${eur(z.save)}` : ''}${pr.open ? ` + αρχικό ${eur(pr.open)}` : ''}</div>
+    ${z.save > 0.004 ? `<div class="small" style="margin-top:4px">Μαζί με όσα έχεις βάλει σε επενδύσεις/αποταμίευση: <b class="${net < 0 ? 'neg' : 'pos'}">${eur(net)}</b></div>` : ''}</div>`;
+}
+function balSheet(ui) {
+  const pr = balPref();
+  sheet(`<div class="mid">⚖️ Ισολογισμός</div><div class="small muted">Όπως στο Monefy: όλα σου τα έσοδα μείον όλα σου τα έξοδα (το μερίδιό σου) από μια ημερομηνία. Τα χρέη που έχεις ήδη γράψει ως έξοδα (π.χ. της μαμάς) είναι ήδη μέσα· όταν της δίνεις λεφτά δεν αλλάζει.</div>
+    <div class="grid2" style="margin-top:10px"><label class="f"><span>Από</span><input type="date" name="start" value="${esc(pr.start)}"></label>
+    <label class="f"><span>Αρχικό ποσό (€)</span><input name="open" inputmode="decimal" value="${esc(pr.open ? String(pr.open).replace('.', ',') : '')}" placeholder="0"></label></div>
+    <button class="btn primary" data-ok>Αποθήκευση</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelector('[data-ok]').onclick = async () => { await store.put(PL.goalSpace(), 'bal', { type: 'pref', start: el.querySelector('[name=start]').value || '2016-01-01', open: parseAmount(el.querySelector('[name=open]').value) || 0 }); close(); };
+  });
 }
 /** car reminders that are late or due within 30 days */
 function carCard() {
