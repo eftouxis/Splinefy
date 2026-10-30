@@ -16,16 +16,21 @@ const bindCommon = (root, ui) => {
 const pctS = (x) => (x ? String(Math.round(x * 10000) / 100).replace('.', ',') : '');
 /** commission rates per payment method: % of the amount and/or a fixed € per payment */
 function pfeeSheet() {
-  const F = O.payFees();
-  sheet(`<div class="mid">Προμήθειες κάρτας / IRIS</div><div class="small muted">Ό,τι κρατάει η τράπεζα σε κάθε πληρωμή. Μπαίνει μόνο του στα έξοδα του γραφείου, ένα ποσό τον μήνα για κάθε τρόπο («${O.COMM_CAT}»). Άδειο = καμία προμήθεια. Ισχύει και για τις παλιές πληρωμές.</div>
+  const F = O.payFees(), H = O.payFeeHistory();
+  const desc = (R) => Object.entries(R).map(([k, v]) => `${esc(k)} ${pctS(v.p) || 0}%${v.f ? ` + ${String(v.f).replace('.', ',')} €` : ''}`).join(' · ') || 'καμία προμήθεια';
+  sheet(`<div class="mid">Προμήθειες κάρτας / IRIS</div><div class="small muted">Ό,τι κρατάει η τράπεζα σε κάθε πληρωμή. Μπαίνει μόνο του στα έξοδα του γραφείου, ένα ποσό τον μήνα για κάθε τρόπο («${O.COMM_CAT}»). Άδειο = καμία προμήθεια.</div>
+    <label class="f" style="margin-top:10px"><span>Ισχύει για πληρωμές από</span><input type="date" name="from" value="${today()}"></label>
+    <div class="small muted" style="margin:-4px 2px 4px">Οι πληρωμές πριν από αυτή την ημερομηνία κρατάνε τις χρεώσεις που ίσχυαν τότε.</div>
     <table class="t" style="margin:10px 0"><tr><th></th><th>% στο ποσό</th><th>+ € ανά πληρωμή</th></tr>
     ${O.FEE_PAYS.map((k) => `<tr><td>${esc(k)}</td><td><input data-p="${esc(k)}" inputmode="decimal" value="${pctS(F[k]?.p)}" placeholder="${k === 'POS' ? '1,2' : k === 'IRIS' ? '0,5' : '—'}" style="width:80px;padding:6px 8px"></td><td><input data-f="${esc(k)}" inputmode="decimal" value="${F[k]?.f ? String(F[k].f).replace('.', ',') : ''}" placeholder="0" style="width:70px;padding:6px 8px"></td></tr>`).join('')}</table>
+    ${H.length ? `<div class="small" style="margin:0 2px 12px"><b>Ιστορικό</b>${H.slice().reverse().map((x, i) => `<div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="flex:1">${x.from <= '2000-01-01' ? 'από την αρχή' : 'από ' + dFull(x.from)}: ${desc(x.rates)}</span><button class="btn sm ghost" data-delh="${esc(x.from)}" style="color:var(--red);width:auto;flex:none;margin:0">✕</button></div>`).join('')}</div>` : ''}
     <button class="btn primary" data-ok>Αποθήκευση</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-no]').onclick = close;
+    el.querySelectorAll('[data-delh]').forEach((b) => b.addEventListener('click', async () => { await store.put(O.OSP, 'office', { type: 'opref', pfh: H.filter((x) => x.from !== b.dataset.delh), pfee: null }); close(); }));
     el.querySelector('[data-ok]').onclick = async () => {
-      const out = {};
+      const out = {}; const from = el.querySelector('[name=from]').value || today();
       for (const k of O.FEE_PAYS) { const p = (parseAmount(el.querySelector(`[data-p="${k}"]`).value) || 0) / 100, f = parseAmount(el.querySelector(`[data-f="${k}"]`).value) || 0; if (p || f) out[k] = { p, f }; }
-      await store.put(O.OSP, 'office', { type: 'opref', pfee: out }); close();
+      await store.put(O.OSP, 'office', { type: 'opref', pfh: H.filter((x) => x.from !== from).concat([{ from, rates: out }]), pfee: null }); close();
     };
   });
 }

@@ -1,5 +1,5 @@
 // Offline: app files are cached; network-first so updates arrive when online.
-const CACHE = 'oikonomika-v55';
+const CACHE = 'oikonomika-v56';
 const FILES = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'src/main.js', 'src/util.js', 'src/hlc.js', 'src/idb.js', 'src/store.js', 'src/ledger.js', 'src/sync.js', 'src/config.js',
   'src/views/common.js', 'src/views/home.js', 'src/views/form.js', 'src/views/list.js', 'src/views/settings.js', 'src/views/welcome.js',

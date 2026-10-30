@@ -14,7 +14,11 @@ const SAL_NAME = 'Μισθός από γραφείο';
 export const COMM_CAT = 'Προμήθειες πληρωμών';
 /** methods that may carry a commission */
 export const FEE_PAYS = ['POS', 'IRIS', 'Revolut', 'Εθνική', 'IBAN'];
-export const payFees = () => pref().pfee || {};
+/** commission rates change only from a date on: [{from, rates:{POS:{p,f}}}] oldest first; earlier payments keep the older rates */
+const feeHistory = (p) => (p?.pfh ? [...p.pfh] : p?.pfee ? [{ from: '2000-01-01', rates: p.pfee }] : []).sort((a, b) => (a.from < b.from ? -1 : 1));
+const ratesAt = (h, d) => { let r = {}; for (const x of h) if (x.from <= d) r = x.rates; return r; };
+export const payFeeHistory = () => feeHistory(pref());
+export const payFees = (d = today()) => ratesAt(feeHistory(pref()), d);
 
 /** «μεμονωμένη πληρωμη», «πακέτο για 4 φορές» … → a few groups for the statistics */
 export function svcGroup(s) {
@@ -42,9 +46,9 @@ function build() {
   const viaShared = records('tx').filter((r) => r.ofc && r.kind === 'Έξοδο').map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat === 'Πάγια έξοδα' ? 'Πάγια έξοδα' : r.cat, a: r.a, pay: r.payer !== 'Χαρά' ? `πλήρωσε ${r.payer}` : null, _sp: r._sp, ext: true }))
     .concat(recurringMovements('2100-01-01', false).filter((r) => r.ofc && !r.skipped && r.kind === 'Έξοδο').map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat, a: r.a, pay: r.payer !== 'Χαρά' ? `πλήρωσε ${r.payer}` : null, rec: r.rec, _sp: r._sp, ext: true })));
   // card / IRIS commissions: one computed expense per month and method, from the rates in the office settings
-  const pf = (records('opref', sp).find((r) => r.id === 'office') || {}).pfee || {}; const comm = new Map();
+  const hist = feeHistory(records('opref', sp).find((r) => r.id === 'office')); const comm = new Map();
   for (const r of inc) {
-    const f = pf[r.pay]; if (!f || (!f.p && !f.f) || !r.a) continue; const k = `${ym(r.d)}|${r.pay}`;
+    const f = ratesAt(hist, r.d)[r.pay]; if (!f || (!f.p && !f.f) || !r.a) continue; const k = `${ym(r.d)}|${r.pay}`;
     const x = comm.get(k) || { m: ym(r.d), pay: r.pay, a: 0, base: 0, n: 0 }; x.a += r.a * (f.p || 0) + (f.f || 0); x.base += r.a; x.n++; comm.set(k, x);
   }
   const commEx = [...comm.values()].map((x) => { const end = `${x.m}-${String(new Date(Number(x.m.slice(0, 4)), Number(x.m.slice(5)), 0).getDate()).padStart(2, '0')}`;
