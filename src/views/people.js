@@ -64,8 +64,14 @@ const detail = {
   html([id]) {
     const p = P.person(id); if (!p) return '<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Δεν βρέθηκε</h1></div>';
     const es = P.entries(id); const b = es.reduce((s, e) => s + e.a, 0);
+    // running balance (oldest → newest) and totals of debts / money given back
+    let run = 0; es.slice().reverse().forEach((e) => { run += e.a; e.bal = run; });
+    const isPay = (e) => e.m && (e.m.k === 'got' || e.m.k === 'gave');
+    const debtsSum = es.filter((e) => !isPay(e)).reduce((s, e) => s + Math.abs(e.a), 0), paysSum = es.filter(isPay).reduce((s, e) => s + Math.abs(e.a), 0);
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(p.name)}</h1><button class="btn sm" data-edit>Επεξεργασία</button></div>
     <div class="card kpi"><div class="label">${Math.abs(b) < 0.005 ? 'Είστε εντάξει' : b > 0 ? 'Σου χρωστάει' : `${g(p, 1)} χρωστάς`}</div><div class="big ${b > 0.005 ? 'pos' : b < -0.005 ? 'neg' : ''}">${eur(Math.abs(b))}</div></div>
+    ${es.length > 1 ? `<div class="grid2"><div class="card kpi"><div class="label">📝 Χρέη συνολικά</div><div class="mid">${eur(debtsSum)}</div><div class="small muted">${es.filter((e) => !isPay(e)).length} καταχωρήσεις</div></div>
+      <div class="card kpi"><div class="label">💶 Επιστράφηκαν</div><div class="mid">${eur(paysSum)}</div><div class="small muted">${es.filter(isPay).length} πληρωμές</div></div></div>` : ''}
     ${planHtml(p)}
     <div class="small muted" style="margin:2px 4px 6px">💶 Δόθηκαν λεφτά (ξεχρεώνει):</div>
     <div class="grid2 quick" style="margin-bottom:10px"><button class="btn green" data-k="got">${g(p)} μου έδωσε</button><button class="btn" data-k="gave">${g(p, 1)} έδωσα</button></div>
@@ -73,8 +79,8 @@ const detail = {
     <div class="grid2" style="margin-bottom:12px"><button class="btn sm" data-k="owesme">+ Μου χρωστάει</button><button class="btn sm" data-k="iowe">+ ${g(p, 1)} χρωστάω</button></div>
     <div class="list">${es.map((e) => `<div class="item" ${e.m ? `data-m="${esc(e.m.id)}"` : `data-tx="${esc(e.tx._sp)}/${esc(e.tx.id)}"`}><div class="dot">${e.m ? (e.m.k === 'got' || e.m.k === 'gave' ? '💶' : '📝') : e.tx.rec ? '↻' : '🧾'}</div>
       <div class="grow"><div class="t">${esc(e.what)}</div><div class="s">${dFull(e.d)}${e.m ? ' · ' + esc((P.KINDS[e.m.k]?.label || '').replace('Του/της', g(p, 1).toLowerCase())) : ''}</div></div>
-      <div class="amt ${e.a > 0 ? 'pos' : 'neg'}">${e.a > 0 ? '+' : '−'}${eur(Math.abs(e.a))}</div></div>`).join('') || '<div class="item muted">Τίποτα ακόμα</div>'}</div>
-    <div class="small muted" style="margin-top:6px">+ = σου χρωστάει περισσότερα · − = λιγότερα (ή χρωστάς εσύ)</div>`;
+      <div class="right"><div class="amt ${e.a > 0 ? 'pos' : 'neg'}">${e.a > 0 ? '+' : '−'}${eur(Math.abs(e.a))}</div><div class="small muted">υπόλ. ${eur(Math.abs(e.bal))}</div></div></div>`).join('') || '<div class="item muted">Τίποτα ακόμα</div>'}</div>
+    <div class="small muted" style="margin-top:6px">Όλο το ιστορικό, νεότερα πάνω · 📝 = χρέος · 💶 = πληρωμή · υπόλ. = πόσα έμεναν μετά από αυτή την κίνηση · πάτα μια γραμμή για αλλαγή</div>`;
   },
   mount(root, [id], ui) {
     root.querySelector('[data-back]').addEventListener('click', () => ui.back());
