@@ -61,11 +61,7 @@ const home = {
       <div class="dot">${esc(L.label(s).slice(0, 1))}</div>
       <div class="grow"><div class="t">${esc(L.label(s))}</div><div class="s">${next ? 'επόμενο ' + dShort(next.d) + (next.time ? ' ' + esc(next.time.split(/[–-]/)[0]) : '') : L.isActive(s) ? 'χωρίς πρόγραμμα' : 'σταμάτησε'}</div></div>
       <div class="right"><div class="amt ${bal > 0.005 ? 'neg' : bal < -0.005 ? 'pos' : 'muted'}">${Math.abs(bal) < 0.005 ? '✓' : eur(Math.abs(bal))}</div>
-      <div class="small muted">${bal > 0.005 ? `χρωστάει · ${fmtH(unpaidH)} ώρ.` : bal < -0.005 ? 'προπληρωμένα' : 'εξοφλημένος'}</div></div></div>`).join('')}</div>
-    <div class="grid3" style="margin-top:12px">
-      <a class="btn sm" href="#/lessons/sched">🗓 Πρόγραμμα</a><a class="btn sm" href="#/lessons/sal">💼 Μισθοί</a><a class="btn sm" href="#/lessons/stats">📊 Στατιστικά</a>
-      <a class="btn sm" href="#/lessons/hol">🏖 Αργίες</a><a class="btn sm" href="#/lessons/all">👥 Όλοι οι μαθητές</a><a class="btn sm" href="#/lessons/help">❓ Οδηγίες</a>
-    </div>`;
+      <div class="small muted">${bal > 0.005 ? `χρωστάει · ${fmtH(unpaidH)} ώρ.` : bal < -0.005 ? 'προπληρωμένα' : 'εξοφλημένος'}</div></div></div>`).join('')}</div>`;
   },
   mount(root, p, ui) {
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));

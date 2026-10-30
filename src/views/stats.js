@@ -6,9 +6,10 @@ import * as ST from '../stats.js';
 import { ICON } from './common.js';
 import * as T from '../trips.js';
 import { balancesHtml, balancesMount } from './balances.js';
+import { carsList } from './cars.js';
 
 let view = null, tab = 'months', selY = null, selCat = null;
-const TABS = [['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί'], ['inv', 'Επενδύσεις'], ['bal', 'Ισολογισμός']];
+const TABS = [['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί'], ['inv', 'Επενδύσεις'], ['bal', 'Ισολογισμός'], ['cars', 'Αυτοκίνητα']];
 const short = (m) => `${MSHORT[Number(m.slice(5)) - 1]} ${m.slice(2, 4)}`;
 const k0 = (x) => eur(x).replace(' €', '');
 
@@ -44,6 +45,7 @@ function catBars(entries, cmp = null, cmpLabel = '') {
 }
 
 const pages = {
+  cars() { return carsList.html([], null, true); },
   bal() { return balancesHtml(); },
   inv() {
     const t = today(); const Y = Number(t.slice(0, 4)); const col = state.user === 'Χαρά' ? 'V' : 'U';
@@ -179,14 +181,14 @@ export default {
     if (sub && TABS.some(([k]) => k === sub)) tab = sub;
     const body = sub === 'm' ? pages.month([arg]) : sub === 'y' ? pages.year([arg]) : pages[tab]();
     return `<div class="top"><h1>Στατιστικά</h1></div>
-    ${(tab === 'bal' || tab === 'inv') && sub !== 'm' && sub !== 'y' ? '' : `<div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>`}
-    <div class="tabs">${TABS.map(([k, l]) => `<button class="${k === tab && sub !== 'm' && sub !== 'y' ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}<button data-cars>Αυτοκίνητα ›</button></div>
+    ${(tab === 'bal' || tab === 'inv' || tab === 'cars') && sub !== 'm' && sub !== 'y' ? '' : `<div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>`}
+    <div class="tabs">${TABS.map(([k, l]) => `<button class="${k === tab && sub !== 'm' && sub !== 'y' ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
     ${body}`;
   },
   mount(root, [sub], ui) {
     if (tab === 'bal' && sub !== 'm' && sub !== 'y') balancesMount(root, ui);
+    if (tab === 'cars' && sub !== 'm' && sub !== 'y') carsList.mount(root, [], ui);
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { view = b.dataset.v; ui.render(); }));
-    root.querySelector('[data-cars]')?.addEventListener('click', () => ui.go('#/cars'));
     root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; ui.go(`#/stats/${tab}`); }));
     root.querySelectorAll('[data-y]').forEach((b) => b.addEventListener('click', () => { selY += Number(b.dataset.y); ui.render(); }));
     root.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => { selCat = b.dataset.c; ui.render(); }));

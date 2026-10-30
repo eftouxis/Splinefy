@@ -16,10 +16,10 @@ function remRow(r, withCar) {
     <div class="s ${r.status === 'ok' ? '' : cls}">${when}${r.kmLeft != null ? ` · μένουν ${km(r.kmLeft)} km` : ''}</div></div><div class="muted">›</div></div>`;
 }
 const listView = {
-  html() {
+  html(p, ui, embed = false) {
     const cs = K.cars(); const rems = K.reminders().filter((r) => !K.car(r.car)?.sold);
     const urgent = rems.filter((r) => r.status === 'late' || r.status === 'soon');
-    return `<div class="top">${back('#/stats')}<h1>Αυτοκίνητα</h1><button class="btn sm" data-addcar>+ Αυτοκίνητο</button></div>
+    return `${embed ? `<div class="row" style="margin-bottom:8px"><div class="grow"></div><button class="btn sm" data-addcar>+ Αυτοκίνητο</button></div>` : `<div class="top">${back('#/stats/cars')}<h1>Αυτοκίνητα</h1><button class="btn sm" data-addcar>+ Αυτοκίνητο</button></div>`}
     ${urgent.length ? `<div class="list" style="margin-bottom:12px">${urgent.map((r) => remRow(r, true)).join('')}</div>` : ''}
     ${cs.map((c) => { const s = K.summary(c.id); return `<div class="card" data-go="#/cars/${esc(c.id)}" style="cursor:pointer;${c.sold ? 'opacity:.6' : ''}">
       <div class="row"><div class="grow"><div class="mid">🚗 ${esc(c.name)}</div><div class="small muted">${esc(c.model || '')} ${c.plate ? '· ' + esc(c.plate) : ''} · συνήθως ${esc(c.fuel || '')}${c.sold ? ' · πουλήθηκε' : ''}</div></div><div class="muted">›</div></div>
@@ -46,7 +46,7 @@ const listView = {
 };
 const detail = {
   html([id]) {
-    const c = K.car(id); if (!c) return `<div class="top">${back('#/cars')}<h1>Δεν βρέθηκε</h1></div>`;
+    const c = K.car(id); if (!c) return `<div class="top">${back('#/stats/cars')}<h1>Δεν βρέθηκε</h1></div>`;
     const t = today(); const Y = Number(t.slice(0, 4));
     const hasP = K.fills(id).some((f) => f.ft === 'Βενζίνη'), hasG = K.fills(id).some((f) => f.ft === 'Αέριο');
     const f0 = K.fills(id)[0]?.d || t; const yrs = []; for (let y = Y; y >= Number(f0.slice(0, 4)); y--) yrs.push(y);
@@ -58,7 +58,7 @@ const detail = {
       return `<tr><td><b>${y}</b></td><td class="r">${km(k)}</td><td class="r">${k0(m.fuel)}</td>${hasP ? `<td class="r">${pl ? n1(K.consumption(id, 'Βενζίνη', a, b)) : ''}</td>` : ''}${hasG ? `<td class="r">${gl ? n1(K.consumption(id, 'Αέριο', a, b)) : ''}</td>` : ''}<td class="r">${k0(m.service)}</td><td class="r"><b>${k0(m.total)}</b></td><td class="r">${k ? n1(m.total / k, 2) : ''}</td></tr>`;
     }).join('');
     const ev = K.events(id).slice().reverse(); const fl = K.fills(id).slice().reverse().slice(0, 25);
-    return `<div class="top">${back('#/cars')}<h1>🚗 ${esc(c.name)}</h1><button class="btn sm" data-editcar>Επεξεργασία</button></div>
+    return `<div class="top">${back('#/stats/cars')}<h1>🚗 ${esc(c.name)}</h1><button class="btn sm" data-editcar>Επεξεργασία</button></div>
     <div class="grid2" style="margin-bottom:12px"><button class="btn" data-odo>+ Χιλιόμετρα (κοντέρ)</button><a class="btn" href="#/add/exp?cat=Αυτοκίνητο">+ Συνεργείο / έξοδο</a></div>
     <div class="card" style="overflow-x:auto"><table class="t st"><tr><th>Έτος</th><th class="r">km</th><th class="r">Καύσιμα</th>${hasP ? '<th class="r">l/100</th>' : ''}${hasG ? '<th class="r">kg/100</th>' : ''}<th class="r">Συνεργ.</th><th class="r">Σύνολο</th><th class="r">€/km</th></tr>${rows}</table>
       <div class="small muted" style="margin-top:6px">ποσά σε €</div></div>
@@ -123,6 +123,7 @@ function carSheet(ui, c) {
     };
   });
 }
+export const carsList = listView;
 export default {
   live: true,
   html(p, ui) { return (p[0] ? detail : listView).html(p, ui); },
