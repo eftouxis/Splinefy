@@ -11,6 +11,10 @@ export const PAYS = ['Μετρητά', 'POS', 'IRIS', 'Εθνική', 'Revolut',
 export const ECATS = ['Πάγια έξοδα', 'Marketing', 'Αμοιβή συνεργασίας', 'Πληρωμή Συνεργάτη', 'Εξοπλισμός γραφείου', 'ΕΦΚΑ / Φόροι', 'Λογιστής', 'Αγορές', 'Άλλο'];
 export const SALARY_CAT = 'Μισθός Χαράς';
 const SAL_NAME = 'Μισθός από γραφείο';
+export const COMM_CAT = 'Προμήθειες πληρωμών';
+/** methods that may carry a commission */
+export const FEE_PAYS = ['POS', 'IRIS', 'Revolut', 'Εθνική', 'IBAN'];
+export const payFees = () => pref().pfee || {};
 
 /** «μεμονωμένη πληρωμη», «πακέτο για 4 φορές» … → a few groups for the statistics */
 export function svcGroup(s) {
@@ -37,7 +41,15 @@ function build() {
   // expenses marked «🏢 για το γραφείο» in the shared/personal money (e.g. Cosmote paid by Άλκης for Χαρά)
   const viaShared = records('tx').filter((r) => r.ofc && r.kind === 'Έξοδο').map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat === 'Πάγια έξοδα' ? 'Πάγια έξοδα' : r.cat, a: r.a, pay: r.payer !== 'Χαρά' ? `πλήρωσε ${r.payer}` : null, _sp: r._sp, ext: true }))
     .concat(recurringMovements('2100-01-01', false).filter((r) => r.ofc && !r.skipped && r.kind === 'Έξοδο').map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat, a: r.a, pay: r.payer !== 'Χαρά' ? `πλήρωσε ${r.payer}` : null, rec: r.rec, _sp: r._sp, ext: true })));
-  const exp = records('oex', sp).concat(recEx, salary, viaShared);
+  // card / IRIS commissions: one computed expense per month and method, from the rates in the office settings
+  const pf = (records('opref', sp).find((r) => r.id === 'office') || {}).pfee || {}; const comm = new Map();
+  for (const r of inc) {
+    const f = pf[r.pay]; if (!f || (!f.p && !f.f) || !r.a) continue; const k = `${ym(r.d)}|${r.pay}`;
+    const x = comm.get(k) || { m: ym(r.d), pay: r.pay, a: 0, base: 0, n: 0 }; x.a += r.a * (f.p || 0) + (f.f || 0); x.base += r.a; x.n++; comm.set(k, x);
+  }
+  const commEx = [...comm.values()].map((x) => { const end = `${x.m}-${String(new Date(Number(x.m.slice(0, 4)), Number(x.m.slice(5)), 0).getDate()).padStart(2, '0')}`;
+    return { id: `comm-${x.m}-${x.pay}`, type: 'oex', d: end < t ? end : t, desc: `Προμήθεια ${x.pay} (${x.n} πληρωμές, ${Math.round(x.base)} €)`, cat: COMM_CAT, a: Math.round(x.a * 100) / 100, pay: x.pay, comm: true, _sp: OSP }; });
+  const exp = records('oex', sp).concat(recEx, salary, viaShared, commEx);
   C = { v: state.version, parts, pById, inc: inc.sort((a, b) => (a.d < b.d ? 1 : -1)), exp: exp.sort((a, b) => (a.d < b.d ? 1 : -1)), t };
   return C;
 }
