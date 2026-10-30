@@ -21,7 +21,7 @@ export default {
     ${(() => { const iOwe = ps.reduce((s2, x) => s2 + (x.b < -0.005 ? -x.b : 0), 0) + (me === 'Άλκης' ? Math.max(0, -owe) : Math.max(0, owe));
       const owedMe = ps.reduce((s2, x) => s2 + (x.b > 0.005 ? x.b : 0), 0) + (me === 'Άλκης' ? Math.max(0, owe) : Math.max(0, -owe));
       const cl = O.hasOffice() ? O.clientsWithDue().reduce((s2, x) => s2 + (x.due > 0 ? x.due : 0), 0) : 0;
-      return `<div class="grid2"><div class="card kpi"><div class="label">Χρωστάς συνολικά</div><div class="mid neg">${eur(iOwe)}</div>${me === 'Άλκης' && d.philippos ? '<div class="small muted">χωρίς τα λεφτά του Φιλίππου</div>' : ''}</div>
+      return `<div class="grid2"><div class="card kpi"><div class="label">Χρωστάς συνολικά</div><div class="mid neg">${eur(iOwe)}</div>${(() => { const toOther = me === 'Άλκης' ? Math.max(0, -owe) : Math.max(0, owe); return toOther > 0.005 ? `<div class="small muted">μαζί με ${eur(toOther)} ${me === 'Άλκης' ? 'στη Χαρά' : 'στον Άλκη'}</div>` : ''; })()}${me === 'Άλκης' && d.philippos ? '<div class="small muted">χωρίς τα λεφτά του Φιλίππου</div>' : ''}</div>
         <div class="card kpi"><div class="label">Σου χρωστάνε</div><div class="mid pos">${eur(owedMe)}</div>${cl ? `<div class="small muted">+ πελάτες γραφείου ${eur(cl)}</div>` : ''}</div></div>`; })()}
     <div class="row" style="margin:0 2px 6px"><div class="grow small muted">Ποιος χρωστάει σε ποιον</div><button class="btn sm" data-new>+ Άτομο</button></div>
     <div class="list">
