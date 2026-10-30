@@ -9,6 +9,7 @@ import * as LS from '../lessons.js';
 import * as PP from '../people.js';
 import * as PL from '../plan.js';
 import * as K from '../cars.js';
+import * as TD from '../tidy.js';
 
 let viewSel = null, monthOff = 0, allCats = false;
 const LS_KEY = 'homePer';
@@ -58,7 +59,7 @@ export default {
     <div class="grid3 quick" style="margin-bottom:12px">
       <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="#/add/inc">+ Έσοδο</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
     </div>
-    ${newsCard(t)}${carCard()}${roomCard()}
+    ${tidyCard()}${newsCard(t)}${carCard()}${roomCard()}
     <div class="card">
       <div class="seg per" style="margin-bottom:10px">${PERS.map(([k, l]) => `<button class="${k === per ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
       ${per === 'r' ? `<div class="grid2"><label class="f"><span>Από</span><input type="date" name="rf" value="${from}"></label><label class="f"><span>Έως</span><input type="date" name="rt" value="${P.to}"></label></div>`
@@ -99,11 +100,19 @@ export default {
     root.querySelector('[data-plist]')?.addEventListener('click', (e) => { const [a, b] = e.target.dataset.plist.split('|'); window.__listSet?.({ from: a, to: b, q: '', view: lview() }); ui.go('#/list'); });
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { monthOff = Math.min(0, monthOff + Number(b.dataset.m)); ui.render(); }));
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { viewSel = b.dataset.v; ui.render(); }));
+    root.querySelector('[data-tidy]')?.addEventListener('click', async (e) => { e.stopPropagation(); e.target.disabled = true; const n = await TD.moveMine(); ui.toast(`${n} κινήσεις πήγαν στα Προσωπικά ✓`); });
     root.querySelector('[data-seen]')?.addEventListener('click', (e) => { e.stopPropagation(); try { localStorage.setItem(SEEN, today()); } catch (_) { /* */ } ui.render(); });
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
     bindEdit(root, ui);
   },
 };
+function tidyCard() {
+  const m = TD.misplaced(); const n = m.tx.length + m.rec.length; if (!n) return '';
+  const other = state.user === 'Άλκης' ? 'τη Χαρά' : 'τον Άλκη';
+  return `<div class="card" style="border-left:4px solid #e0a030"><b>🔒 ${n} προσωπικές σου κινήσεις φαίνονται και στ${other.slice(1)}</b>
+    <div class="small muted" style="margin:4px 0 8px">Είναι παλιές ή επαναλαμβανόμενες κινήσεις που αφορούν μόνο εσένα (${m.rec.length ? `π.χ. ${esc(m.rec[0].name)}` : 'πλήρωσες εσύ, για σένα'}) αλλά είναι στο Κοινό. Μετακινούνται στα Προσωπικά — τα ποσά και τα «ποιος χρωστάει» δεν αλλάζουν.</div>
+    <button class="btn sm primary" data-tidy>Μεταφορά στα Προσωπικά</button></div>`;
+}
 const SEEN = 'seenUntil';
 /** recurring items that went in by themselves since the last visit (on this device) */
 function newsCard(t) {
