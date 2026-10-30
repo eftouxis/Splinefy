@@ -4,6 +4,7 @@ import { movements, debt } from '../ledger.js';
 import { state } from '../store.js';
 import * as P from '../people.js';
 import * as PL from '../plan.js';
+import * as O from '../office.js';
 import { personSheet } from './people.js';
 import { syncBadge } from '../main.js';
 
@@ -17,6 +18,11 @@ export default {
       <div class="grow"><div class="t">${esc(name)}</div><div class="s">${sub}</div></div>
       <div class="right"><div class="amt ${cls}">${amt}</div><div class="small muted">${lab}</div></div></div>`;
     return `<div class="top"><h1>Οφειλές</h1>${syncBadge()}</div>
+    ${(() => { const iOwe = ps.reduce((s2, x) => s2 + (x.b < -0.005 ? -x.b : 0), 0) + (me === 'Άλκης' ? Math.max(0, -owe) : Math.max(0, owe));
+      const owedMe = ps.reduce((s2, x) => s2 + (x.b > 0.005 ? x.b : 0), 0) + (me === 'Άλκης' ? Math.max(0, owe) : Math.max(0, -owe));
+      const cl = O.hasOffice() ? O.clientsWithDue().reduce((s2, x) => s2 + (x.due > 0 ? x.due : 0), 0) : 0;
+      return `<div class="grid2"><div class="card kpi"><div class="label">Χρωστάς συνολικά</div><div class="mid neg">${eur(iOwe)}</div>${me === 'Άλκης' && d.philippos ? '<div class="small muted">χωρίς τα λεφτά του Φιλίππου</div>' : ''}</div>
+        <div class="card kpi"><div class="label">Σου χρωστάνε</div><div class="mid pos">${eur(owedMe)}</div>${cl ? `<div class="small muted">+ πελάτες γραφείου ${eur(cl)}</div>` : ''}</div></div>`; })()}
     <div class="row" style="margin:0 2px 6px"><div class="grow small muted">Ποιος χρωστάει σε ποιον</div><button class="btn sm" data-new>+ Άτομο</button></div>
     <div class="list">
       ${row('#/couple', '💑', me === 'Χαρά' ? 'Άλκης' : 'Χαρά', 'κοινά, όπως στο Splid', Math.abs(owe) < 0.005 ? '✓' : eur(Math.abs(owe)), Math.abs(owe) < 0.005 ? 'muted' : me === 'Άλκης' ? (owe > 0 ? 'pos' : 'neg') : (owe > 0 ? 'neg' : 'pos'), Math.abs(owe) < 0.005 ? 'εντάξει' : owe > 0 ? 'χρωστάει η Χαρά' : 'χρωστάει ο Άλκης')}

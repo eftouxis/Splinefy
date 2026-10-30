@@ -34,7 +34,7 @@ export function entryView(k) {
       let f = st[k];
       if (!f || (id === 'new' ? f.id : f.id !== id) || location.hash.includes('?')) {
         if (id === 'new') f = blank(k);
-        else { const r = store.state.data[O.OSP]?.recs.get(id); if (!r) return '<div class="top"><h1>Δεν βρέθηκε</h1></div>'; f = { ...blank(k), ...r, a: cm(r.a), id }; }
+        else { const r = store.state.data[O.OSP]?.recs.get(id); if (!r) return '<div class="top"><h1>Δεν βρέθηκε</h1></div>'; f = { ...blank(k), ...r, a: cm(r.a), id, dueK: r.due > 0 ? 'owes' : r.due < 0 ? 'iowe' : '', dueA: r.due ? cm(Math.abs(r.due)) : '' }; }
         st[k] = f; if (location.hash.includes('?')) history.replaceState(null, '', `#/office/${k}/${id}`);
       }
       const parts = O.partners().filter((p) => p.active !== false || p.id === f.part);
@@ -42,6 +42,7 @@ export function entryView(k) {
       const amount = `<input class="amount" name="a" inputmode="decimal" placeholder="0,00 €" value="${esc(f.a)}" autocomplete="off">${calcHtml()}`;
       if (k === 'in') {
         const svcs = O.services().slice(0, 7);
+        const prevDue = f.cl ? (O.clientPays(f.cl).find((r) => r.id !== f.id && (!f.id || r.d <= f.d))?.due || 0) : 0;
         return `${top}<div class="card">
           <label class="f"><span>Πελάτης</span><span class="ac"><input name="cl" value="${esc(f.cl)}" autocomplete="off" placeholder="Όνομα πελάτη"><span class="ac-list" data-ac hidden></span></span></label>
           <label class="f"><span>Υπηρεσία</span>${chips('svc', svcs.map((s) => [s.name, s.name]), O.svcGroup(f.svc) === f.svc ? f.svc : '')}
@@ -52,7 +53,10 @@ export function entryView(k) {
           <label class="row" style="margin:0 2px 12px"><input type="checkbox" name="rcpt" style="width:auto" ${f.rcpt ? 'checked' : ''}> 🧾 Κόπηκε απόδειξη</label>
           ${parts.length ? `<label class="f"><span>Ήρθε μέσω συνεργάτη</span>${chips('part', [['', 'Κανένας'], ...parts.map((p) => [p.id, p.name])], f.part)}</label>
             ${f.part ? `<div class="small muted" data-fee style="margin:-4px 2px 10px"></div>` : ''}` : ''}
-          <label class="f"><span>Σημείωση</span><input name="note" value="${esc(f.note || '')}" placeholder="π.χ. χρωστάει 10 · 2η από τις 4 του πακέτου"></label>
+          <label class="f"><span>Μετά από αυτή την πληρωμή</span>${chips('dueK', [['', 'Εντάξει'], ['owes', 'Μου χρωστάει'], ['iowe', 'Του/της χρωστάω']], f.dueK)}
+            ${f.dueK ? `<input name="dueA" inputmode="decimal" value="${esc(f.dueA || '')}" placeholder="πόσα €" style="margin-top:6px">` : ''}
+            ${prevDue ? `<div class="small ${prevDue > 0 ? 'pos' : 'neg'}" style="margin-top:4px">Από την προηγούμενη φορά: ${prevDue > 0 ? 'σου χρωστούσε' : 'του/της χρωστούσες'} ${eur(Math.abs(prevDue))}</div>` : ''}</label>
+          <label class="f"><span>Σημείωση</span><input name="note" value="${esc(f.note || '')}" placeholder="π.χ. 2η από τις 4 του πακέτου"></label>
         </div>
         <button class="btn primary" style="width:100%" data-save>${f.id ? 'Αποθήκευση' : 'Καταχώρηση'}</button>
         ${f.id ? '<button class="btn" style="width:100%;margin-top:8px;color:var(--red)" data-del>Διαγραφή</button>' : '<button class="btn" style="width:100%;margin-top:8px" data-saveadd>Καταχώρηση και νέα</button>'}`;
@@ -76,7 +80,7 @@ export function entryView(k) {
       root.querySelector('[data-back]').addEventListener('click', () => { st[k] = null; ui.back(); });
       root.querySelectorAll('[data-ch]').forEach((c) => c.addEventListener('click', (e) => {
         const b = e.target.closest('[data-v]'); if (!b) return; read(); const n = c.dataset.ch;
-        f[n] = f[n] === b.dataset.v && n !== 'cat' && n !== 'pay' ? '' : b.dataset.v;
+        f[n] = f[n] === b.dataset.v && n !== 'cat' && n !== 'pay' && n !== 'dueK' ? '' : b.dataset.v;
         if (n === 'svc') { const s = O.services().find((x) => x.name === f.svc); if (s?.price && !parseAmount(f.a)) f.a = cm(s.price); }
         ui.render();
       }));
@@ -108,7 +112,9 @@ export function entryView(k) {
         if (k === 'in') {
           if (!f.cl.trim()) { ui.toast('Γράψε πελάτη'); return; }
           const pp = O.partner(f.part);
-          rec = { type: TYPE, d: f.d || today(), cl: f.cl.trim(), svc: f.svc.trim() || null, a, pay: f.pay || null, rcpt: !!f.rcpt, part: f.part || null, fee: pp ? Math.round(a * (pp.pct || 0) * 100) / 100 : null, note: f.note?.trim() || null };
+          const dv = parseAmount(f.dueA) || 0; const due = f.dueK === 'owes' ? dv : f.dueK === 'iowe' ? -dv : 0;
+          if (f.dueK && !dv) { ui.toast('Γράψε πόσα χρωστάει / χρωστάς'); return; }
+          rec = { type: TYPE, d: f.d || today(), cl: f.cl.trim(), svc: f.svc.trim() || null, a, pay: f.pay || null, rcpt: !!f.rcpt, part: f.part || null, fee: pp ? Math.round(a * (pp.pct || 0) * 100) / 100 : null, due: due || null, note: f.note?.trim() || null };
         } else {
           if (!f.cat) { ui.toast('Διάλεξε κατηγορία'); return; }
           if (f.cat === 'Αμοιβή συνεργασίας' && !f.part) { ui.toast('Διάλεξε συνεργάτη'); return; }

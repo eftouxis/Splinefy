@@ -100,3 +100,26 @@ export function services() {
 export function months(y) { const t = today(); return Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, '0')}`).filter((m) => m <= ym(t)); }
 export function monthTotals(m) { return totals(`${m}-01`, `${m}-31`); }
 export const fixed = () => records('ofix', [OSP]).sort((a, b) => (b.m || 0) - (a.m || 0));
+/** a client's open balance = what the latest payment says («μετά από αυτή: μου χρωστάει 5» = +5, «του χρωστάω 5» = −5) */
+export function clientDue(name) { const l = clientPays(name)[0]; return l && l.due ? l.due : 0; }
+export function clientsWithDue() {
+  const m = new Map();
+  for (const r of incomes(true)) { if (!r.cl) continue; const k = norm(r.cl).trim(); if (!m.has(k)) m.set(k, r); }   // newest first
+  return [...m.values()].filter((r) => r.due && Math.abs(r.due) > 0.004).map((r) => ({ name: r.cl.trim(), due: r.due, d: r.d }));
+}
+/** movements for a period ('YYYY-MM' or 'YYYY') and a filter: in, ex, rcpt, sal, svc:<group>, cat:<cat>, pay:<method>, part:<id> */
+export function filtered(period, f = '') {
+  const inP = (d) => d.startsWith(period);
+  const [k, ...rest] = f.split(':'); const v = rest.join(':');
+  let inc = incomes(true).filter((r) => inP(r.md || r.d)), exp = expenses(true).filter((r) => inP(r.d));
+  if (k === 'in') exp = [];
+  else if (k === 'ex') { inc = []; exp = exp.filter((r) => !r.sal); }
+  else if (k === 'rcpt') { inc = inc.filter((r) => r.rcpt); exp = []; }
+  else if (k === 'sal') { inc = []; exp = exp.filter((r) => r.sal); }
+  else if (k === 'svc') { inc = inc.filter((r) => svcGroup(r.svc) === v); exp = []; }
+  else if (k === 'pay') { inc = inc.filter((r) => (r.pay || '—') === v); exp = []; }
+  else if (k === 'part') { inc = inc.filter((r) => r.part === v); exp = exp.filter((r) => r.part === v); }
+  else if (k === 'cat') { inc = []; exp = exp.filter((r) => !r.sal && (r.cat || 'Άλλο') === v); }
+  return { inc, exp };
+}
+export const FILTER_LABEL = (f) => { const [k, ...r] = (f || '').split(':'); const v = r.join(':'); return ({ in: 'Μόνο έσοδα', ex: 'Μόνο έξοδα', rcpt: '🧾 Μόνο με απόδειξη', sal: 'Μόνο μισθός', svc: `Υπηρεσία: ${v}`, pay: `Τρόπος: ${v}`, part: `Συνεργάτης: ${partner(v)?.name || ''}`, cat: `Κατηγορία: ${v}` })[k] || ''; };
