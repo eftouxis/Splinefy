@@ -115,3 +115,7 @@ input[type=date] { min-width: 0; max-width: 100%; }
 .ac-list button:hover { background: var(--chip); }
 @media (max-width: 760px) { nav.bottom .in.n7 a { font-size: 9.6px; letter-spacing: -0.2px; } nav.bottom .in a { white-space: nowrap; overflow: hidden; } }
 .note a { color: var(--teal); }
+/* calmer quick buttons (tinted, not solid) */
+.quick .btn.red { background: #fbe9e7; color: #b23a2e; } .quick .btn.green { background: #e7f4ea; color: #2e7d32; } .quick .btn.blue { background: #e8eef5; color: #2f5f8f; }
+:root:not([data-theme="light"]) .quick .btn.red { background: rgba(192,57,43,.17); color: #f09487; } :root:not([data-theme="light"]) .quick .btn.green { background: rgba(46,125,50,.2); color: #86d18b; } :root:not([data-theme="light"]) .quick .btn.blue { background: rgba(120,150,180,.16); color: #a9c3dc; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .quick .btn.red { background: #fbe9e7; color: #b23a2e; } :root:not([data-theme="dark"]) .quick .btn.green { background: #e7f4ea; color: #2e7d32; } :root:not([data-theme="dark"]) .quick .btn.blue { background: #e8eef5; color: #2f5f8f; } }

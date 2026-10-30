@@ -59,7 +59,8 @@ export function entryView(k) {
           <label class="f"><span>Σημείωση</span><input name="note" value="${esc(f.note || '')}" placeholder="π.χ. 2η από τις 4 του πακέτου"></label>
         </div>
         <button class="btn primary" style="width:100%" data-save>${f.id ? 'Αποθήκευση' : 'Καταχώρηση'}</button>
-        ${f.id ? '<button class="btn" style="width:100%;margin-top:8px;color:var(--red)" data-del>Διαγραφή</button>' : '<button class="btn" style="width:100%;margin-top:8px" data-saveadd>Καταχώρηση και νέα</button>'}`;
+        ${f.id ? '<button class="btn" style="width:100%;margin-top:8px;color:var(--red)" data-del>Διαγραφή</button>' : '<button class="btn" style="width:100%;margin-top:8px" data-saveadd>Καταχώρηση και νέα</button>'}
+        ${f.id ? '' : '<div class="center small" style="margin-top:12px"><a href="#/add/inc?personal=1">Προσωπικό έσοδο (όχι από πελάτη) ›</a></div>'}`;
       }
       return `${top}<div class="card">
         ${amount}

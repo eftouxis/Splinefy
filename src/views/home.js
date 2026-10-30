@@ -10,6 +10,7 @@ import * as PP from '../people.js';
 import * as PL from '../plan.js';
 import * as K from '../cars.js';
 import * as TD from '../tidy.js';
+import * as O2 from '../office.js';
 import { tsOf } from '../hlc.js';
 
 let viewSel = null, monthOff = 0, allCats = false;
@@ -58,7 +59,7 @@ export default {
     return `
     <div class="top"><h1>Οικονομικά</h1>${syncBadge()}</div>
     <div class="grid3 quick" style="margin-bottom:12px">
-      <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="#/add/inc">+ Έσοδο</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
+      <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="${O2.hasOffice() ? '#/office/in/new' : '#/add/inc'}">${O2.hasOffice() ? '+ Πελάτης' : '+ Έσοδο'}</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
     </div>
     ${tidyCard()}${otherCard()}${newsCard(t)}${carCard()}${roomCard()}
     <div class="card">
@@ -125,7 +126,7 @@ function otherCard() {
   if (!l.length) return '';
   l.sort((a, b) => (tsOf(b.r._m) - tsOf(a.r._m)));
   const who = me === 'Άλκης' ? 'τη Χαρά' : 'τον Άλκη';
-  return `<div class="card" style="border-left:4px solid var(--blue)"><div class="row"><b class="grow">🔔 Από ${who} (${l.length})</b><button class="btn sm" data-seeno>OK</button></div>
+  return `<div class="card" style="border-left:4px solid var(--teal)"><div class="row"><b class="grow">🔔 Από ${who} (${l.length})</b><button class="btn sm" data-seeno>OK</button></div>
     <div class="small" style="margin-top:6px">${l.slice(0, 10).map(({ r, isNew, del }) => `${del ? '🗑 διαγράφηκε' : isNew ? '➕' : '✏️'} ${esc(r.desc || r.name || r.cat || '')} <b>${eur(r.a)}</b> <span class="muted">· ${r.type === 'rec' ? 'επαναλαμβανόμενο' : (r.d || '').split('-').reverse().join('/')} · ${esc(r.payer || '')}${r.for && r.for !== r.payer ? ' → ' + esc(r.for === 'Κοινό' ? 'κοινό' : r.for) : ''}</span>`).join('<br>')}${l.length > 10 ? `<br>… και ${l.length - 10} ακόμα` : ''}</div></div>`;
 }
 function tidyCard() {

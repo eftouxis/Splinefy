@@ -7,6 +7,7 @@ import * as K from '../cars.js';
 import { othHtml, readOth } from './othui.js';
 import { label as stuLabel } from './lessons/ui.js';
 import { calcHtml, bindCalc } from './calc.js';
+import * as O from '../office.js';
 import * as FQ from './freq.js';
 import * as T from '../trips.js';
 import * as P from '../people.js';
@@ -93,6 +94,7 @@ const seg = (name, opts, val, cls = '') => `<div class="seg ${cls}" data-seg="${
 
 export default {
   html([a, b]) {
+    if (a === 'inc' && b === undefined && O.hasOffice() && !location.hash.includes('personal') && !(f && f.kindKey === 'inc' && !f.id)) { setTimeout(() => location.replace('#/office/in/new'), 0); return ''; }
     const me = store.state.user;
     let occ = null;
     if (b !== undefined) {                       // edit
@@ -113,7 +115,7 @@ export default {
     const target = f.id ? f.sp : targetSpace(f);
     if (k === 'Έξοδο' && !f.id && !f.tripTouched) { const on = T.tripOn(f.d || today()); f.trip = on ? on.name : ''; f.tripAuto = !!on; }
     const tripPicks = k === 'Έξοδο' ? [...new Set([...(f.trip ? [f.trip] : []), ...T.recentTrips(f.d || today())])] : [];
-    const tgtName = target === 'shared' ? 'Κοινό — το βλέπει και η Χαρά' : 'Προσωπικό — μόνο εσύ';
+    const tgtName = target === 'shared' ? `Κοινό — το βλέπει και ${me === 'Χαρά' ? 'ο Άλκης' : 'η Χαρά'}` : 'Προσωπικό — μόνο εσύ';
     if (f.occ) {
       return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(f.desc)} <span class="small muted">↻ επαναλαμβανόμενο</span></h1></div>
       <div class="card"><div class="muted small">Αυτή η φορά: ${esc(f.d.split('-').reverse().join('/'))} · για ${esc(f.for === 'Κοινό' ? 'κοινό (½ ο καθένας)' : f.for || f.payer)}${f.oth && f.oth.length ? ' · μοιράζεται και με άλλους' : ''}</div>
@@ -201,6 +203,7 @@ export default {
       <div class="small muted center" style="margin-top:8px">${f._u ? '' : ''}</div>` : `<button class="btn" style="width:100%;margin-top:8px" data-saveadd>Καταχώρηση και νέα</button>`}`;
   },
   mount(root, [a, b], ui) {
+    if (!f || !root.querySelector('[data-save]')) return;               // redirected (e.g. Χαρά's income → Γραφείο)
     const read = () => {
       root.querySelectorAll('input[name],select[name],textarea[name]').forEach((el) => { if (el.name === 'othp' || el.name === 'otha') return; f[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
       if (root.querySelector('[data-othrow]') || f.oth) f.oth = readOth(root) || (root.querySelector('[data-othrow]') ? [] : f.oth);
@@ -210,6 +213,7 @@ export default {
     root.querySelectorAll('[data-seg]').forEach((sg) => sg.addEventListener('click', (e) => {
       const v = e.target.dataset.val; if (v === undefined) return; read();
       const name = sg.dataset.seg;
+      if (name === 'kind' && v === 'Έσοδο' && O.hasOffice()) { f = null; ui.go('#/office/in/new'); return; }      // Χαρά: income = a client payment (Γραφείο)
       if (name === 'kind') { const kk = KEY[v]; const keep = { a: f.a, d: f.d, desc: f.desc }; f = { ...blank(kk), ...keep, kindKey: kk }; history.replaceState(null, '', `#/add/${kk}`); }
       else if (name === 'forx') {
         if (v === '__oth') { f.withOth = 1; if (!f.oth || !f.oth.length) f.oth = [{ p: '', f: 0.5 }]; if (f.for === 'Φίλιππος') f.for = store.state.user; }
