@@ -34,7 +34,10 @@ function build() {
   const t = today();
   const recEx = recurringMovements('2100-01-01', true).filter((r) => !r.skipped).map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat, a: r.a, rec: r.rec, _sp: r._sp, part: null }));
   const salary = recurringMovements('2100-01-01', false).filter((r) => r.salary && !r.skipped && r._sp === OSP).map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: 'Μισθός Χαράς', cat: SALARY_CAT, a: r.a, rec: r.rec, _sp: r._sp, sal: true }));
-  const exp = records('oex', sp).concat(recEx, salary);
+  // expenses marked «🏢 για το γραφείο» in the shared/personal money (e.g. Cosmote paid by Άλκης for Χαρά)
+  const viaShared = records('tx').filter((r) => r.ofc && r.kind === 'Έξοδο').map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat === 'Πάγια έξοδα' ? 'Πάγια έξοδα' : r.cat, a: r.a, pay: r.payer !== 'Χαρά' ? `πλήρωσε ${r.payer}` : null, _sp: r._sp, ext: true }))
+    .concat(recurringMovements('2100-01-01', false).filter((r) => r.ofc && !r.skipped && r.kind === 'Έξοδο').map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat, a: r.a, pay: r.payer !== 'Χαρά' ? `πλήρωσε ${r.payer}` : null, rec: r.rec, _sp: r._sp, ext: true })));
+  const exp = records('oex', sp).concat(recEx, salary, viaShared);
   C = { v: state.version, parts, pById, inc: inc.sort((a, b) => (a.d < b.d ? 1 : -1)), exp: exp.sort((a, b) => (a.d < b.d ? 1 : -1)), t };
   return C;
 }

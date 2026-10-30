@@ -160,6 +160,7 @@ export default {
         ${k === 'Έξοδο' && f.withOth ? `<div class="note" style="margin:-2px 0 10px"><div class="small" style="font-weight:700;margin-bottom:6px">Μοιράζεται και με άλλους (αδερφή, φίλοι…)</div>
           ${othHtml(f.oth)}
           <label class="f" style="margin:0"><span>Το υπόλοιπο είναι για</span>${seg('for', [[me, 'Εμένα'], ['Κοινό', 'Κοινό ½ με ' + (me === 'Άλκης' ? 'Χαρά' : 'Άλκη')], [me === 'Άλκης' ? 'Χαρά' : 'Άλκης', me === 'Άλκης' ? 'Χαρά' : 'Άλκη']], f.for)}</label></div>` : ''}
+        ${k === 'Έξοδο' && f.for === 'Χαρά' && !f.withOth ? `<label class="row small" style="margin:-4px 2px 10px"><input type="checkbox" name="ofc" style="width:auto" ${f.ofc ? 'checked' : ''}> 🏢 Έξοδο του γραφείου της Χαράς (μετράει στο γραφείο, όχι στα προσωπικά της)</label>` : ''}
         ${k === 'Έξοδο' ? `<div class="burden muted" data-burden>${burdenHtml(f)}</div>` : ''}`}
       ${k === 'Έξοδο' && f.trip && f.tripAuto && !f.tripTouched ? `<div class="note trip-on" style="margin-bottom:10px"><span class="grow">✈️ Μπαίνει στο ταξίδι <b>${esc(f.trip)}</b> (είσαι σε ταξίδι αυτές τις μέρες)</span><button type="button" class="btn sm" data-notrip>Όχι</button></div>` : ''}
       ${k === 'Έξοδο' && K.cars().length && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο' || f.car) ? (() => {
@@ -302,7 +303,8 @@ export default {
         car: f.kind === 'Έξοδο' && f.car && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο') ? f.car : null,
         km: f.car && K.isFuelText(f.desc) ? parseAmount(String(f.km ?? '').replace(/\./g, '')) : null, q: f.car && K.isFuelText(f.desc) ? parseAmount(f.q) : null,
         ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? ftOf(f) : null,
-        oth: f.kind === 'Έξοδο' && f.withOth ? readOth(root) : null };
+        oth: f.kind === 'Έξοδο' && f.withOth ? readOth(root) : null,
+        ofc: f.kind === 'Έξοδο' && f.for === 'Χαρά' && (f.ofc === true || f.ofc === 'on') ? 1 : null };
       if (f.kind === 'Έσοδο' && (f.cat === 'Μισθός' || f.cat === 'Ιδιαίτερα')) {
         const mm = f.mm || monthFromText(`${f.desc} ${f.note || ''}`, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);
         rec.md = mm < dm ? eomOf(mm) : mm > dm ? `${mm}-01` : null;
