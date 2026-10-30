@@ -90,7 +90,7 @@ export function entryView(k) {
       }));
       const aI = root.querySelector('[name=a]'); bindCalc(root, aI, () => {});
       const fee = root.querySelector('[data-fee]');
-      const upFee = () => { if (!fee) return; const pp = O.partner(f.part); const a = parseAmount(aI.value) || 0; fee.textContent = pp ? `Αμοιβή ${pp.name}: ${eur(a * (pp.pct || 0))} (θα τη χρωστάς)` : ''; };
+      const upFee = () => { if (!fee) return; const pp = O.partner(f.part); const a = parseAmount(aI.value) || 0; fee.textContent = pp && pp.pct ? `Αμοιβή ${pp.name}: ${eur(a * (pp.pct || 0))} (θα τη χρωστάς)` : ''; };
       upFee(); aI.addEventListener('input', upFee);
       // VAT breakdown for the receipt
       const vatBox = root.querySelector('[data-vat]'), rc = root.querySelector('[name=rcpt]');
@@ -130,7 +130,7 @@ export function entryView(k) {
           const pp = O.partner(f.part);
           const dv = parseAmount(f.dueA) || 0; const due = f.dueK === 'owes' ? dv : f.dueK === 'iowe' ? -dv : 0;
           if (f.dueK && !dv) { ui.toast('Γράψε πόσα χρωστάει / χρωστάς'); return; }
-          rec = { type: TYPE, d: f.d || today(), cl: f.cl.trim(), svc: f.svc.trim() || null, a, pay: f.pay || null, rcpt: !!f.rcpt, part: f.part || null, fee: pp ? Math.round(a * (pp.pct || 0) * 100) / 100 : null, due: due || null,
+          rec = { type: TYPE, d: f.d || today(), cl: f.cl.trim(), svc: f.svc.trim() || null, a, pay: f.pay || null, rcpt: !!f.rcpt, part: f.part || null, fee: pp && pp.pct ? Math.round(a * (pp.pct || 0) * 100) / 100 : null, due: due || null,
             ...(pp?.disc && parseAmount(f.list) > a ? { list: parseAmount(f.list), disc: Math.round((parseAmount(f.list) - a) * 100) / 100 } : { list: null, disc: null }), vr: f.rcpt ? O.vatRate() : null, note: f.note?.trim() || null };
         } else {
           if (!f.cat) { ui.toast('Διάλεξε κατηγορία'); return; }

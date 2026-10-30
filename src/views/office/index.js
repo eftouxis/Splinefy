@@ -172,10 +172,10 @@ const partnersView = {
   html() {
     const ps = O.partners();
     return `<div class="top">${back('#/office')}<h1>Συνεργάτες</h1><button class="btn sm primary" data-new>+ Συνεργάτης</button></div>
-    <div class="small muted" style="margin:-4px 4px 10px">Χώροι που σου στέλνουν πελάτες (π.χ. Nadi). Το ποσοστό είναι η αμοιβή τους για κάθε πελάτη/ραντεβού που προωθούν.</div>
+    <div class="small muted" style="margin:-4px 4px 10px">Χώροι που σου στέλνουν πελάτες (π.χ. Nadi). Για τον καθένα ορίζεις αν παίρνει αμοιβή (ποσοστό ανά πελάτη/ραντεβού) και αν ο πελάτης του έχει έκπτωση.</div>
     <div class="list">${ps.map((p) => { const s = O.partnerStatus(p.id); return `<div class="item" style="display:block;${p.active === false ? 'opacity:.6' : ''}">
-      <div class="row" data-edit="${esc(p.id)}" style="cursor:pointer"><div class="grow"><div class="t">${esc(p.name)} <span class="small muted">· αμοιβή ${fmtPct(p.pct)}${p.disc ? ` · έκπτωση πελάτη ${Math.round(p.disc * 100)}%` : ''}${p.active === false ? ' · ανενεργός' : ''}</span></div>
-        <div class="s">${s.n} πελάτες · αμοιβές ${eur(s.fees)} · πληρώθηκαν ${eur(s.paid)}</div></div>
+      <div class="row" data-edit="${esc(p.id)}" style="cursor:pointer"><div class="grow"><div class="t">${esc(p.name)} <span class="small muted">· ${p.pct ? `αμοιβή ${fmtPct(p.pct)}` : 'χωρίς αμοιβή'}${p.disc ? ` · έκπτωση πελάτη ${Math.round(p.disc * 100)}%` : ''}${p.active === false ? ' · ανενεργός' : ''}</span></div>
+        <div class="s">${s.n} πελάτες${s.fees || s.paid ? ` · αμοιβές ${eur(s.fees)} · πληρώθηκαν ${eur(s.paid)}` : ''}</div></div>
         <div class="right"><div class="amt ${s.owed > 0.004 ? 'neg' : 'muted'}">${s.owed > 0.004 ? eur(s.owed) : '✓'}</div><div class="small muted">${s.owed > 0.004 ? 'τους χρωστάς' : 'εντάξει'}</div></div></div>
       ${s.owed > 0.004 ? `<button class="btn sm" style="margin-top:8px" data-pay="${esc(p.id)}">Πλήρωσα ${esc(p.name)}</button>` : ''}</div>`; }).join('') || '<div class="item muted">Κανένας ακόμα</div>'}</div>`;
   },
@@ -190,8 +190,8 @@ const fmtPct = (x) => { const p = (x || 0) * 100; return Math.abs(p - 100 / 3) <
 function partnerSheet(ui, p) {
   sheet(`<div class="mid">${p ? 'Συνεργάτης' : 'Νέος συνεργάτης'}</div>
     <label class="f" style="margin-top:10px"><span>Όνομα</span><input name="name" value="${esc(p?.name || '')}" placeholder="π.χ. Nadi"></label>
-    <label class="f"><span>Αμοιβή συνεργασίας (ποσοστό)</span><input name="pct" value="${p ? (Math.abs((p.pct || 0) - 1 / 3) < 1e-6 ? '1/3' : String(Math.round((p.pct || 0) * 1000) / 10).replace('.', ',') + '%') : ''}" placeholder="π.χ. 20% ή 1/3"></label>
-    <label class="f"><span>Έκπτωση στον πελάτη που έρχεται από εκεί (%)</span><input name="disc" inputmode="decimal" value="${p?.disc ? String(Math.round(p.disc * 1000) / 10).replace('.', ',') : ''}" placeholder="π.χ. 15 — άδειο = καμία"></label>
+    <label class="f"><span>Αμοιβή συνεργασίας (ποσοστό)</span><input name="pct" value="${p ? (Math.abs((p.pct || 0) - 1 / 3) < 1e-6 ? '1/3' : String(Math.round((p.pct || 0) * 1000) / 10).replace('.', ',') + '%') : '0%'}" placeholder="0% = χωρίς αμοιβή · π.χ. 20% ή 1/3"></label>
+    <label class="f"><span>Έκπτωση στον πελάτη που έρχεται από εκεί (%)</span><input name="disc" inputmode="decimal" value="${p ? (p.disc ? String(Math.round(p.disc * 1000) / 10).replace('.', ',') : '') : '15'}" placeholder="π.χ. 15 — άδειο = καμία"></label>
     <label class="row small" style="margin:0 2px 12px"><input type="checkbox" name="active" style="width:auto" ${p?.active === false ? '' : 'checked'}> Ενεργός (εμφανίζεται στις πληρωμές)</label>
     <button class="btn primary" data-ok>Αποθήκευση</button>${p ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-no]').onclick = close;
