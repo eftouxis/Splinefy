@@ -31,10 +31,12 @@ export function fx(r, t = today()) {
 export const VIEWS = [['Άλκης', 'U'], ['Χαρά', 'V'], ['Κοινά', 'W'], ['Φίλιππος', 'X']];
 
 /** recurring definitions expanded into dated movements (with one-off overrides) */
-export function recurringMovements(until = addDays(today(), 60)) {
+/** biz: false = personal/household items, true = only office (Γραφείο) items, 'all' = both */
+export function recurringMovements(until = addDays(today(), 60), biz = false) {
   const out = [];
   const overrides = new Map(records('recx').map((x) => [x.id, x]));
   for (const def of records('rec')) {
+    if (biz !== 'all' && !!def.biz !== !!biz) continue;
     if (!def.start || !def.a && def.a !== 0) continue;
     const every = def.every || 1, unit = def.unit || 'm';
     for (let n = 0; n < 1000; n++) {
@@ -43,7 +45,7 @@ export function recurringMovements(until = addDays(today(), 60)) {
       const oid = `${def.id}@${d}`; const ov = overrides.get(oid) || {};
       if (ov.skip) { out.push({ id: oid, type: 'tx', d, a: 0, desc: def.name, cat: def.cat, kind: def.kind, payer: def.payer, for: def.for, rec: def.id, skipped: true, _sp: def._sp }); continue; }
       out.push({ id: oid, type: 'tx', d, a: ov.a ?? def.a, desc: def.name, cat: def.cat, kind: def.kind, payer: ov.payer || def.payer,
-                 for: ov.for ?? def.for, rec: def.id, bill: def.bill, oth: def.oth, _sp: def._sp });
+                 for: ov.for ?? def.for, rec: def.id, bill: def.bill, oth: def.oth, _sp: def._sp, salary: def.salary || null, biz: def.biz || null, note: ov.note || null });
     }
   }
   return out;

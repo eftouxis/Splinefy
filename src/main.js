@@ -18,6 +18,8 @@ import namesView from './views/names.js';
 import goalsView from './views/goals.js';
 import debtsView from './views/debts.js';
 import coupleView from './views/couple.js';
+import officeView from './views/office/index.js';
+import { hasOffice } from './office.js';
 import { hasLessons } from './lessons.js';
 
 const app = document.getElementById('app');
@@ -28,7 +30,7 @@ const ROUTES = [
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
   [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'], [/^#\/cars(?:\/([\w-]+))?$/, carsView, 'stats'], [/^#\/people(?:\/([\w-]+))?$/, peopleView, 'debts'],
-  [/^#\/trips(?:\/(.+))?$/, tripsView, 'stats'], [/^#\/philippos$/, philView, 'debts'], [/^#\/names$/, namesView, 'settings'], [/^#\/goals$/, goalsView, 'debts'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'],
+  [/^#\/trips(?:\/(.+))?$/, tripsView, 'stats'], [/^#\/philippos$/, philView, 'debts'], [/^#\/names$/, namesView, 'settings'], [/^#\/goals$/, goalsView, 'debts'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0 };
 
@@ -58,6 +60,7 @@ const SVG = {
   list: '<path d="M4 6h16M4 12h16M4 18h10"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   debt: '<path d="M4 8h14l-4-4"/><path d="M20 16H6l4 4"/>',
+  brief: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',
   stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
@@ -65,9 +68,9 @@ const SVG = {
 const svg = (k) => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SVG[k]}</svg>`;
 function navHtml(active) {
   const a = (h, i, t, k, cls = '') => `<a href="${h}" class="${cls} ${active === k ? 'on' : ''}"><span class="i">${svg(i)}</span>${t}</a>`;
-  const les = hasLessons();
-  return `<div class="in ${les ? 'n7' : ''}" style="grid-template-columns:repeat(${les ? 7 : 6},1fr)">${a('#/', 'home', 'Αρχική', 'home')}${a('#/list', 'list', 'Κινήσεις', 'list')}${a('#/debts', 'debt', 'Οφειλές', 'debts')}${a('#/add/exp', 'plus', 'Νέα', 'add', 'plus')}
-    ${a('#/stats', 'stats', 'Στατιστικά', 'stats')}${les ? a('#/lessons', 'book', 'Μαθήματα', 'lessons') : ''}${a('#/settings', 'gear', 'Ρυθμίσεις', 'settings')}</div>`;
+  const les = hasLessons(), off = hasOffice(), extra = les || off;
+  return `<div class="in ${extra ? 'n7' : ''}" style="grid-template-columns:repeat(${extra ? 7 : 6},1fr)">${a('#/', 'home', 'Αρχική', 'home')}${a('#/list', 'list', 'Κινήσεις', 'list')}${a('#/debts', 'debt', 'Οφειλές', 'debts')}${a('#/add/exp', 'plus', 'Νέα', 'add', 'plus')}
+    ${a('#/stats', 'stats', 'Στατιστικά', 'stats')}${les ? a('#/lessons', 'book', 'Μαθήματα', 'lessons') : ''}${off ? a('#/office', 'brief', 'Γραφείο', 'office') : ''}${a('#/settings', 'gear', 'Ρυθμίσεις', 'settings')}</div>`;
 }
 
 export function render() {

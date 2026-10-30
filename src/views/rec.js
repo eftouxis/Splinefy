@@ -37,11 +37,11 @@ const listView = {
     const t = today();
     const all = store.records('rec').filter((r) => !(r.start && r.end && r.end < r.start)).sort((a, b) => (nextDate(a) || '9') < (nextDate(b) || '9') ? -1 : 1);
     const act = all.filter((r) => !r.start || nextDate(r)), old = all.filter((r) => r.start && !nextDate(r));
-    const mine = act.filter((r) => r._sp !== 'shared'), shared = act.filter((r) => r._sp === 'shared');
+    const mine = act.filter((r) => r._sp !== 'shared' && !r.biz), shared = act.filter((r) => r._sp === 'shared');
     const row = (r) => {
       const nx = nextDate(r);
       return `<div class="item" data-go="#/rec/${esc(r._sp)}/${esc(r.id)}"><div class="dot">${ICON[r.cat] || '📄'}</div>
-        <div class="grow"><div class="t">${esc(r.name)}</div>
+        <div class="grow"><div class="t">${esc(r.name)}${r.biz ? ' <span class="space-tag">🏢 Γραφείο</span>' : ''}</div>
         <div class="s">${r.start && r.start > t && nx ? 'ξεκινά ' + dFull(r.start) + ' · ' : ''}${freqLabel(r)} · ${r.start ? (nx ? 'επόμενο ' + dShort(nx) : 'τελείωσε') : '<span class="neg">⚠ χωρίς ημερομηνία έναρξης</span>'}${r.for === 'Κοινό' ? ' · κοινό ½' : ''}${r.oth ? ' · μοιράζεται' : ''}${r.end && r.end >= t ? ' · έως ' + dFull(r.end) : ''}</div></div>
         <div class="amt ${r.kind === 'Έσοδο' ? 'pos' : ''}">${eur(r.a)}</div></div>`;
     };
@@ -71,7 +71,7 @@ const formView = {
     }
     if (id && !cur) return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>Δεν βρέθηκε</h1></div>`;
     const past = cur && cur.start && cur.start < t;
-    const upcoming = cur ? recurringMovements(addMonths(t, 13)).filter((m) => m.rec === cur.id && m.d >= t).slice(0, 4) : [];
+    const upcoming = cur ? recurringMovements(addMonths(t, 13), 'all').filter((m) => m.rec === cur.id && m.d >= t).slice(0, 4) : [];
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${cur ? esc(cur.name) : 'Νέο επαναλαμβανόμενο'}</h1></div>
     ${seg('kind', [['Έξοδο', 'Έξοδο'], ['Έσοδο', 'Έσοδο']], f.kind)}
     <div class="card" style="margin-top:10px">
@@ -115,7 +115,7 @@ const formView = {
       const a = parseAmount(f.a); if (!f.name.trim() || a == null) { ui.toast('Όνομα και ποσό'); return; }
       const fr = FQ.toRec({ fq: f.fq, cn: f.fqn, cu: f.fqu }); if (!fr) { ui.toast('Γράψε κάθε πόσο'); return; }
       const { unit, every } = fr;
-      const rec = { type: 'rec', name: f.name.trim(), a, cat: f.cat, kind: f.kind, payer: f.payer, for: f.kind === 'Έσοδο' ? f.for || '' : f.for, unit, every, start: f.start || null, end: f.end || null, oth: f.kind === 'Έξοδο' && f.oth && f.oth.length ? f.oth : null };
+      const rec = { type: 'rec', name: f.name.trim(), a, cat: f.cat, kind: f.kind, payer: f.payer, for: f.kind === 'Έσοδο' ? f.for || '' : f.for, unit, every, start: f.start || null, end: f.end || null, oth: f.kind === 'Έξοδο' && f.oth && f.oth.length ? f.oth : null, biz: cur?.biz || null, salary: cur?.salary || null };
       const personal = personalSpace();
       const target = personal && f.payer === store.state.user && (rec.for === store.state.user || (f.kind === 'Έσοδο' && !rec.for)) ? personal.id : 'shared';
       if (!cur) { await store.put(target, null, rec); f = null; ui.toast('Προστέθηκε ✓'); ui.go('#/rec'); return; }

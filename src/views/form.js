@@ -99,7 +99,7 @@ export default {
       const sp = a, id = decodeURIComponent(b);
       if (!f || f.id !== id) {
         let r = store.state.data[sp]?.recs.get(id);
-        if (!r && id.includes('@')) { occ = recurringMovements('2100-01-01').find((x) => x.id === id); r = occ; }
+        if (!r && id.includes('@')) { occ = recurringMovements('2100-01-01', 'all').find((x) => x.id === id); r = occ; }
         if (!r) return `<h1>Δεν βρέθηκε</h1><a class="btn" href="#/">Αρχική</a>`;
         f = { ...blank(KEY[r.kind] || 'exp'), ...Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith('_'))), a: cm(r.a), both: cm(r.both), share: cm(r.share), cons: cm(r.cons), q: cm(r.q), id, sp, occ: id.includes('@'), touched: { cat: 1, for: 1, payer: 1, ft: r.ft ? 1 : 0 }, tripTouched: 1, withOth: r.oth && r.oth.length ? 1 : 0, mm: r.md ? r.md.slice(0, 7) : '' };
         if (r.kind === 'Έξοδο' && r.both != null) { f.payer = 'Και οι 2'; f.bothX = String(Math.round(((r.a || 0) - r.both) * 100) / 100).replace('.', ','); }
