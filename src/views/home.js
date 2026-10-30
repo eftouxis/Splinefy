@@ -116,6 +116,10 @@ function otherCard() {
   const l = [];
   for (const sp of store.visibleSpaces()) for (const r of (store.state.data[sp.id]?.recs.values() || [])) {
     if (!['tx', 'rec'].includes(r.type) || !r._u || r._u === me || tsOf(r._m) <= seen) continue;
+    if (r._x && r.type === 'tx') {                    // a removal that does not touch me (e.g. the other moved their own item to their personal space) is not news
+      const f = fx(r, '9999-12-31'); const mine = me === 'Άλκης' ? f.Q : f.S;
+      if (Math.abs(mine || 0) < 0.005 && Math.abs((f.P || 0) - (f.Q || 0)) < 0.005) continue;
+    }
     l.push({ r, isNew: tsOf(r._t?.type) > seen, del: !!r._x });
   }
   if (!l.length) return '';
