@@ -72,12 +72,12 @@ export default {
         <div><div class="small muted">Έξοδα</div><div class="mid neg">${eur(cur.exp)}</div></div>
         <div><div class="small muted">Διαφορά</div><div class="mid ${cur.diff < 0 ? 'neg' : 'pos'}">${eur(cur.diff)}</div></div>
       </div>
-      <div class="small muted center" style="margin-top:6px">${nDays > 1 ? `${nDays} μέρες · έξοδα ${eur(cur.exp / nDays)} τη μέρα<br>` : ''}Ίδια περίοδος πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</div>
+      <div class="small muted center" style="margin-top:6px">${nDays > 1 ? `${nDays} μέρες · έξοδα ${eur(cur.exp / nDays)} τη μέρα<br>` : ''}Ίδια περίοδος πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}${cats.length ? '<br>▲▼ = σε σχέση με πέρσι' : ''}</div>
       <div class="center" style="margin-top:8px"><button class="btn sm" data-plist="${from}|${to}">Κινήσεις περιόδου ›</button></div>
       ${cats.length ? `<h2 style="margin-top:14px">Πού πήγαν</h2>` + cats.map(([c, v]) => {
         const pv = ly.byCat.get(c) || 0; const dlt = v - pv;
         return `<div style="margin:8px 0;cursor:pointer" data-hcat="Έξοδο|${esc(c)}"><div class="row"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b>${eur(v)}</b>
-          <span class="small ${dlt > 0 ? 'neg' : 'pos'}" style="width:70px;text-align:right">${pv ? (dlt > 0 ? '▲ ' : '▼ ') + eur(Math.abs(dlt)).replace(' €', '') : ''}</span></div>
+          <span class="small ${dlt > 0 ? 'neg' : 'pos'}" style="width:92px;text-align:right;line-height:1.2">${pv ? `${dlt > 0 ? '▲ +' : '▼ −'}${eur(Math.abs(dlt))}<br><span style="opacity:.8">${dlt > 0 ? '+' : '−'}${Math.round(Math.abs(dlt) / pv * 100)}%</span>` : '<span class="muted">νέο</span>'}</span></div>
           <div class="bar" style="margin-top:4px"><i style="width:${Math.round((v / maxc) * 100)}%"></i></div></div>`;
       }).join('') + (catsAll.length > 5 ? `<div class="center"><button class="btn sm ghost" data-allcats>${allCats ? 'Λιγότερες ▴' : `Όλες οι κατηγορίες (${catsAll.length}) ▾`}</button></div>` : '') : ''}
       ${incs.length ? `<h2 style="margin-top:14px">Από πού ήρθαν</h2>` + incs.map(([c, v]) => `<div class="row" style="margin:6px 0;cursor:pointer" data-hcat="Έσοδο|${esc(c)}"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b class="pos">${eur(v)}</b><span class="muted">›</span></div>`).join('') : ''}

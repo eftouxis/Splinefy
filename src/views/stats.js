@@ -38,7 +38,7 @@ function catBars(entries, cmp = null, cmpLabel = '') {
   return entries.map(([c, v]) => {
     const p = cmp?.get(c) || 0; const dl = v - p;
     return `<div class="cbar" data-cat="${esc(c)}"><div class="row"><span>${ICON[c] || '•'}</span><span class="grow">${esc(c)}</span><b>${eur(v)}</b>
-      ${cmp ? `<span class="small ${dl > 0 ? 'neg' : 'pos'}" style="width:96px;text-align:right" title="${esc(cmpLabel)}">${p ? (dl > 0 ? '▲ ' : '▼ ') + k0(Math.abs(dl)) : 'νέο'}</span>` : ''}</div>
+      ${cmp ? `<span class="small ${dl > 0 ? 'neg' : 'pos'}" style="width:150px;text-align:right" title="${esc(cmpLabel)}">${p ? `${dl > 0 ? '▲ +' : '▼ −'}${eur(Math.abs(dl))} <span style="opacity:.8">(${dl > 0 ? '+' : '−'}${Math.round(Math.abs(dl) / p * 100)}%)</span>` : 'νέο'}</span>` : ''}</div>
       <div class="bar" style="margin-top:4px"><i style="width:${Math.round((v / max) * 100)}%"></i></div></div>`;
   }).join('');
 }
