@@ -48,14 +48,19 @@ export const incomes = (all = false) => build().inc.filter((r) => all || r.d <= 
 export const expenses = (all = false) => build().exp.filter((r) => all || r.d <= today());
 export const salaryDef = () => records('rec', [OSP]).find((r) => r.salary && !(r.end && r.end < today())) || records('rec', [OSP]).find((r) => r.salary) || null;
 export const pref = () => records('opref', [OSP]).find((r) => r.id === 'office') || { goal: 0, open: 0 };
+/** VAT rate for receipts (setting, default 24%) */
+export const vatRate = () => { const v = pref().vat; return v != null ? v : 0.24; };
+/** a payment split: with a receipt the amount includes VAT; without one it is all net */
+export function split(a, rcpt, rate = vatRate()) { const net = rcpt ? a / (1 + rate) : a; return { net, vat: a - net }; }
 export { SAL_NAME };
 
 /** totals for a date range */
 export function totals(from, to) {
-  let inc = 0, rcpt = 0, exp = 0, sal = 0, fee = 0, n = 0; const bySvc = new Map(), byCat = new Map(), byPay = new Map();
+  let inc = 0, rcpt = 0, exp = 0, sal = 0, fee = 0, n = 0, net = 0, vat = 0, disc = 0; const rate = vatRate(); const bySvc = new Map(), byCat = new Map(), byPay = new Map();
   for (const r of incomes()) {
     const d = r.md || r.d; if (d < from || d > to) continue;
-    inc += r.a || 0; n++; if (r.rcpt) rcpt += r.a || 0; fee += r.fee || 0;
+    inc += r.a || 0; n++; if (r.rcpt) rcpt += r.a || 0; fee += r.fee || 0; disc += r.disc || 0;
+    const sp = split(r.a || 0, r.rcpt, r.vr != null ? r.vr : rate); net += sp.net; vat += sp.vat;
     const g = svcGroup(r.svc); bySvc.set(g, (bySvc.get(g) || 0) + (r.a || 0));
     byPay.set(r.pay || '—', (byPay.get(r.pay || '—') || 0) + (r.a || 0));
   }
@@ -64,7 +69,7 @@ export function totals(from, to) {
     if (r.sal) { sal += r.a || 0; continue; }
     exp += r.a || 0; byCat.set(r.cat || 'Άλλο', (byCat.get(r.cat || 'Άλλο') || 0) + (r.a || 0));
   }
-  return { inc, rcpt, exp, sal, fee, n, res: inc - exp - sal, bySvc, byCat, byPay };
+  return { inc, rcpt, exp, sal, fee, n, net, vat, disc, res: inc - exp - sal, bySvc, byCat, byPay };
 }
 /** money of the office now: opening + all income − all expenses − salaries */
 export function balance() {

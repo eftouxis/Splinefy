@@ -50,9 +50,12 @@ export function entryView(k) {
           ${amount}
           <label class="f" style="margin-top:10px"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(f.d)}"></label>
           <label class="f"><span>Τρόπος πληρωμής</span>${chips('pay', O.PAYS.map((p) => [p, p]), f.pay)}</label>
-          <label class="row" style="margin:0 2px 12px"><input type="checkbox" name="rcpt" style="width:auto" ${f.rcpt ? 'checked' : ''}> 🧾 Κόπηκε απόδειξη</label>
+          <label class="row" style="margin:0 2px 6px"><input type="checkbox" name="rcpt" style="width:auto" ${f.rcpt ? 'checked' : ''}> 🧾 Κόπηκε απόδειξη</label>
+          <div class="note small" data-vat style="margin-bottom:12px"></div>
           ${parts.length ? `<label class="f"><span>Ήρθε μέσω συνεργάτη</span>${chips('part', [['', 'Κανένας'], ...parts.map((p) => [p.id, p.name])], f.part)}</label>
-            ${f.part ? `<div class="small muted" data-fee style="margin:-4px 2px 10px"></div>` : ''}` : ''}
+            ${f.part ? `<div class="small muted" data-fee style="margin:-4px 2px 10px"></div>` : ''}
+            ${f.part && O.partner(f.part)?.disc ? `<div class="note small" style="margin:-4px 0 12px">🏷 Πελάτης από ${esc(O.partner(f.part).name)}: έκπτωση ${Math.round(O.partner(f.part).disc * 100)}%.
+              <div class="row" style="margin-top:6px;gap:6px"><span>Κανονική τιμή</span><input name="list" inputmode="decimal" value="${esc(f.list || cm(O.services().find((x) => x.name === O.svcGroup(f.svc))?.price || ''))}" style="width:90px;padding:6px 8px"><span data-discv class="grow"></span><button type="button" class="btn sm" data-applyd>Βάλε το</button></div></div>` : ''}` : ''}
           <label class="f"><span>Μετά από αυτή την πληρωμή</span>${chips('dueK', [['', 'Εντάξει'], ['owes', 'Μου χρωστάει'], ['iowe', 'Του/της χρωστάω']], f.dueK)}
             ${f.dueK ? `<input name="dueA" inputmode="decimal" value="${esc(f.dueA || '')}" placeholder="πόσα €" style="margin-top:6px">` : ''}
             ${prevDue ? `<div class="small ${prevDue > 0 ? 'pos' : 'neg'}" style="margin-top:4px">Από την προηγούμενη φορά: ${prevDue > 0 ? 'σου χρωστούσε' : 'του/της χρωστούσες'} ${eur(Math.abs(prevDue))}</div>` : ''}</label>
@@ -89,6 +92,18 @@ export function entryView(k) {
       const fee = root.querySelector('[data-fee]');
       const upFee = () => { if (!fee) return; const pp = O.partner(f.part); const a = parseAmount(aI.value) || 0; fee.textContent = pp ? `Αμοιβή ${pp.name}: ${eur(a * (pp.pct || 0))} (θα τη χρωστάς)` : ''; };
       upFee(); aI.addEventListener('input', upFee);
+      // VAT breakdown for the receipt
+      const vatBox = root.querySelector('[data-vat]'), rc = root.querySelector('[name=rcpt]');
+      const upVat = () => { if (!vatBox) return; const a = parseAmount(aI.value) || 0; const r = O.vatRate(); const pc = Math.round(r * 1000) / 10;
+        if (!a) { vatBox.innerHTML = rc.checked ? `Με απόδειξη: το ποσό περιλαμβάνει ΦΠΑ ${String(pc).replace('.', ',')}%` : 'Χωρίς απόδειξη: όλο το ποσό είναι καθαρό'; return; }
+        const sp = O.split(a, rc.checked, r);
+        vatBox.innerHTML = rc.checked ? `🧾 Χωρίς ΦΠΑ <b>${eur(sp.net)}</b> · ΦΠΑ ${String(pc).replace('.', ',')}% <b>${eur(sp.vat)}</b> · Σύνολο <b>${eur(a)}</b>` : `Χωρίς απόδειξη: καθαρό <b>${eur(a)}</b>`; };
+      if (vatBox) { upVat(); aI.addEventListener('input', upVat); rc.addEventListener('change', () => { f.rcpt = rc.checked; upVat(); }); }
+      // partner discount
+      const lI = root.querySelector('[name=list]'), dv = root.querySelector('[data-discv]');
+      const pD = O.partner(f.part)?.disc || 0;
+      const upD = () => { if (!lI) return; const l = parseAmount(lI.value) || 0; dv.innerHTML = l ? `→ πληρώνει <b>${eur(l * (1 - pD))}</b>` : ''; };
+      if (lI) { upD(); lI.addEventListener('input', upD); root.querySelector('[data-applyd]').addEventListener('click', () => { const l = parseAmount(lI.value) || 0; if (!l) return; f.list = lI.value; aI.value = cm(Math.round(l * (1 - pD) * 100) / 100); aI.dispatchEvent(new Event('input')); }); }
       if (k === 'in') {
         const clI = root.querySelector('[name=cl]');
         ac(root, clI, () => O.clients().sort((a, b) => (a.last < b.last ? 1 : -1)).map((c) => ({ v: c.name, s: `${c.n}× · ${c.lastSvc || ''}` })), (v) => {
@@ -115,7 +130,8 @@ export function entryView(k) {
           const pp = O.partner(f.part);
           const dv = parseAmount(f.dueA) || 0; const due = f.dueK === 'owes' ? dv : f.dueK === 'iowe' ? -dv : 0;
           if (f.dueK && !dv) { ui.toast('Γράψε πόσα χρωστάει / χρωστάς'); return; }
-          rec = { type: TYPE, d: f.d || today(), cl: f.cl.trim(), svc: f.svc.trim() || null, a, pay: f.pay || null, rcpt: !!f.rcpt, part: f.part || null, fee: pp ? Math.round(a * (pp.pct || 0) * 100) / 100 : null, due: due || null, note: f.note?.trim() || null };
+          rec = { type: TYPE, d: f.d || today(), cl: f.cl.trim(), svc: f.svc.trim() || null, a, pay: f.pay || null, rcpt: !!f.rcpt, part: f.part || null, fee: pp ? Math.round(a * (pp.pct || 0) * 100) / 100 : null, due: due || null,
+            ...(pp?.disc && parseAmount(f.list) > a ? { list: parseAmount(f.list), disc: Math.round((parseAmount(f.list) - a) * 100) / 100 } : { list: null, disc: null }), vr: f.rcpt ? O.vatRate() : null, note: f.note?.trim() || null };
         } else {
           if (!f.cat) { ui.toast('Διάλεξε κατηγορία'); return; }
           if (f.cat === 'Αμοιβή συνεργασίας' && !f.part) { ui.toast('Διάλεξε συνεργάτη'); return; }

@@ -42,7 +42,7 @@ const home = {
         <div data-go="${L(m, 'ex')}" style="cursor:pointer"><div class="small muted">Έξοδα ›</div><div class="mid neg">${eur(z.exp)}</div></div>
         <div data-go="${L(m, 'sal')}" style="cursor:pointer"><div class="small muted">Μισθός ›</div><div class="mid">${eur(z.sal)}</div></div></div>
       <div class="center" style="margin-top:8px">Αποτέλεσμα <b class="${z.res < 0 ? 'neg' : 'pos'}">${eur(z.res)}</b></div>
-      <div class="small muted center" style="margin-top:4px">${z.n} πληρωμές · <a href="${L(m, 'rcpt')}">🧾 με απόδειξη ${eur(z.rcpt)}</a>${z.fee ? ` · αμοιβές συνεργατών ${eur(z.fee)}` : ''}<br>Ίδια περίοδος πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</div>
+      <div class="small muted center" style="margin-top:4px">Καθαρά (χωρίς ΦΠΑ) <b>${eur(z.net)}</b> · <span data-vatset style="text-decoration:underline;cursor:pointer">ΦΠΑ ${String(Math.round(O.vatRate() * 1000) / 10).replace('.', ',')}%</span> ${eur(z.vat)}<br>${z.n} πληρωμές · <a href="${L(m, 'rcpt')}">🧾 με απόδειξη ${eur(z.rcpt)}</a>${z.disc ? ` · εκπτώσεις συνεργασιών ${eur(z.disc)}` : ''}${z.fee ? ` · αμοιβές συνεργατών ${eur(z.fee)}` : ''}<br>Ίδια περίοδος πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</div>
       <div class="center" style="margin-top:8px"><button class="btn sm" data-go="#/office/list/${m}">Κινήσεις μήνα ›</button></div></div>
     <div class="card" data-goal style="cursor:pointer"><div class="row"><b class="grow">🏢 Υπόλοιπο γραφείου</b><b class="${bal < 0 ? 'neg' : 'pos'}" style="font-size:20px">${eur(bal)}</b></div>
       ${pr.asOf ? '' : '<div class="small neg" style="margin-top:4px">⚠ Δεν έχεις ορίσει πόσα έχει πραγματικά ο λογαριασμός — εδώ μετράνε όλα τα έσοδα − έξοδα από την αρχή, χωρίς τα λεφτά που πήρες για σένα. Πάτα εδώ.</div>'}
@@ -74,6 +74,12 @@ const home = {
     box.addEventListener('click', (e) => { const b = e.target.closest('[data-acv]'); if (b) ui.go(`#/office/c/${encodeURIComponent(b.dataset.acv)}`); });
     fi.addEventListener('keydown', (e) => { if (e.key !== 'Enter') return; const b = box.querySelector('[data-acv]'); if (b) ui.go(`#/office/c/${encodeURIComponent(b.dataset.acv)}`); });
     root.querySelector('[data-goal]').addEventListener('click', () => goalSheet(ui));
+    root.querySelector('[data-vatset]')?.addEventListener('click', () => sheet(`<div class="mid">ΦΠΑ στις αποδείξεις</div><div class="small muted">Ισχύει για τις νέες πληρωμές με απόδειξη (οι παλιές κρατάνε το ποσοστό που είχαν).</div>
+      <label class="f" style="margin-top:10px"><span>Ποσοστό ΦΠΑ (%)</span><input name="v" inputmode="decimal" value="${String(Math.round(O.vatRate() * 1000) / 10).replace('.', ',')}"></label>
+      <button class="btn primary" data-ok>Αποθήκευση</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+      el.querySelector('[data-no]').onclick = close;
+      el.querySelector('[data-ok]').onclick = async () => { const v = parseAmount(el.querySelector('[name=v]').value); if (v == null) return; await store.put(O.OSP, 'office', { type: 'opref', vat: v / 100 }); close(); };
+    }));
   },
 };
 function salarySheet(ui) {
@@ -172,7 +178,7 @@ const partnersView = {
     return `<div class="top">${back('#/office')}<h1>Συνεργάτες</h1><button class="btn sm primary" data-new>+ Συνεργάτης</button></div>
     <div class="small muted" style="margin:-4px 4px 10px">Χώροι που σου στέλνουν πελάτες (π.χ. Nadi). Το ποσοστό είναι η αμοιβή τους για κάθε πελάτη/ραντεβού που προωθούν.</div>
     <div class="list">${ps.map((p) => { const s = O.partnerStatus(p.id); return `<div class="item" style="display:block;${p.active === false ? 'opacity:.6' : ''}">
-      <div class="row" data-edit="${esc(p.id)}" style="cursor:pointer"><div class="grow"><div class="t">${esc(p.name)} <span class="small muted">· ${fmtPct(p.pct)}${p.active === false ? ' · ανενεργός' : ''}</span></div>
+      <div class="row" data-edit="${esc(p.id)}" style="cursor:pointer"><div class="grow"><div class="t">${esc(p.name)} <span class="small muted">· αμοιβή ${fmtPct(p.pct)}${p.disc ? ` · έκπτωση πελάτη ${Math.round(p.disc * 100)}%` : ''}${p.active === false ? ' · ανενεργός' : ''}</span></div>
         <div class="s">${s.n} πελάτες · αμοιβές ${eur(s.fees)} · πληρώθηκαν ${eur(s.paid)}</div></div>
         <div class="right"><div class="amt ${s.owed > 0.004 ? 'neg' : 'muted'}">${s.owed > 0.004 ? eur(s.owed) : '✓'}</div><div class="small muted">${s.owed > 0.004 ? 'τους χρωστάς' : 'εντάξει'}</div></div></div>
       ${s.owed > 0.004 ? `<button class="btn sm" style="margin-top:8px" data-pay="${esc(p.id)}">Πλήρωσα ${esc(p.name)}</button>` : ''}</div>`; }).join('') || '<div class="item muted">Κανένας ακόμα</div>'}</div>`;
@@ -189,6 +195,7 @@ function partnerSheet(ui, p) {
   sheet(`<div class="mid">${p ? 'Συνεργάτης' : 'Νέος συνεργάτης'}</div>
     <label class="f" style="margin-top:10px"><span>Όνομα</span><input name="name" value="${esc(p?.name || '')}" placeholder="π.χ. Nadi"></label>
     <label class="f"><span>Αμοιβή συνεργασίας (ποσοστό)</span><input name="pct" value="${p ? (Math.abs((p.pct || 0) - 1 / 3) < 1e-6 ? '1/3' : String(Math.round((p.pct || 0) * 1000) / 10).replace('.', ',') + '%') : ''}" placeholder="π.χ. 20% ή 1/3"></label>
+    <label class="f"><span>Έκπτωση στον πελάτη που έρχεται από εκεί (%)</span><input name="disc" inputmode="decimal" value="${p?.disc ? String(Math.round(p.disc * 1000) / 10).replace('.', ',') : ''}" placeholder="π.χ. 15 — άδειο = καμία"></label>
     <label class="row small" style="margin:0 2px 12px"><input type="checkbox" name="active" style="width:auto" ${p?.active === false ? '' : 'checked'}> Ενεργός (εμφανίζεται στις πληρωμές)</label>
     <button class="btn primary" data-ok>Αποθήκευση</button>${p ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-no]').onclick = close;
@@ -199,7 +206,8 @@ function partnerSheet(ui, p) {
     el.querySelector('[data-ok]').onclick = async () => {
       const name = el.querySelector('[name=name]').value.trim(); if (!name) return;
       const raw = el.querySelector('[name=pct]').value.trim(); let pct = parseAmount(raw.replace('%', '')) || 0; if (raw.endsWith('%') || pct > 1) pct /= 100;
-      await store.put(p?._sp || O.OSP, p?.id || null, { type: 'opart', name, pct, active: el.querySelector('[name=active]').checked });
+      const dsc = (parseAmount(el.querySelector('[name=disc]').value.replace('%', '')) || 0) / 100;
+      await store.put(p?._sp || O.OSP, p?.id || null, { type: 'opart', name, pct, disc: dsc || null, active: el.querySelector('[name=active]').checked });
       close(); ui.toast('Αποθηκεύτηκε ✓');
     };
   });
@@ -218,11 +226,11 @@ const statsView = {
     const bar = (l, tot, fk) => l.map(([k, v]) => `<div style="margin:6px 0;cursor:pointer" data-go="${L(statY, `${fk}:${k}`)}"><div class="row"><span class="grow">${esc(k)}</span><b>${eur(v)}</b><span class="small muted" style="width:44px;text-align:right">${tot ? Math.round((v / tot) * 100) : 0}%</span></div><div class="bar" style="margin-top:3px"><i style="width:${tot ? Math.round((v / l[0][1]) * 100) : 0}%"></i></div></div>`).join('');
     return `<div class="top">${back('#/office')}<h1>Στατιστικά γραφείου</h1></div>
     <div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-y="-1">◀</button><div class="grow center mid">${statY}</div><button class="btn sm ghost" data-y="1" ${statY >= Number(t.slice(0, 4)) ? 'disabled' : ''}>▶</button></div>
-    <div class="card" style="overflow-x:auto"><table class="t st"><tr><th>Μήνας</th><th class="r">Έσοδα</th><th class="r">🧾</th><th class="r">Έξοδα</th>${hasSal ? '<th class="r">Μισθός</th>' : ''}<th class="r">Αποτέλ.</th></tr>
-      ${rows.slice().reverse().map((r) => `<tr class="click"><td data-go="#/office/list/${r.m}">${MSHORT[Number(r.m.slice(5)) - 1]}</td><td class="r pos" data-go="${L(r.m, 'in')}">${k0(r.inc)}</td><td class="r muted" data-go="${L(r.m, 'rcpt')}">${k0(r.rcpt)}</td><td class="r" data-go="${L(r.m, 'ex')}">${k0(r.exp)}</td>${hasSal ? `<td class="r" data-go="${L(r.m, 'sal')}">${k0(r.sal)}</td>` : ''}<td class="r ${r.res < 0 ? 'neg' : 'pos'}" data-go="#/office/list/${r.m}">${k0(r.res)}</td></tr>`).join('')}
-      <tr class="tot click"><td data-go="#/office/list/${statY}">Σύνολο</td><td class="r" data-go="${L(statY, 'in')}">${k0(Y.inc)}</td><td class="r" data-go="${L(statY, 'rcpt')}">${k0(Y.rcpt)}</td><td class="r" data-go="${L(statY, 'ex')}">${k0(Y.exp)}</td>${hasSal ? `<td class="r">${k0(Y.sal)}</td>` : ''}<td class="r">${k0(Y.res)}</td></tr>
-      <tr><td>Μ.Ο.</td><td class="r">${k0(Y.inc / n)}</td><td class="r">${k0(Y.rcpt / n)}</td><td class="r">${k0(Y.exp / n)}</td>${hasSal ? `<td class="r">${k0(Y.sal / n)}</td>` : ''}<td class="r">${k0(Y.res / n)}</td></tr></table>
-      <div class="small muted" style="margin-top:6px">σε € · 🧾 = με απόδειξη · πάτα όποιο νούμερο για τις κινήσεις του</div></div>
+    <div class="card" style="overflow-x:auto"><table class="t st"><tr><th>Μήνας</th><th class="r">Έσοδα</th><th class="r">🧾</th><th class="r">Καθαρά</th><th class="r">Έξοδα</th>${hasSal ? '<th class="r">Μισθός</th>' : ''}<th class="r">Αποτέλ.</th></tr>
+      ${rows.slice().reverse().map((r) => `<tr class="click"><td data-go="#/office/list/${r.m}">${MSHORT[Number(r.m.slice(5)) - 1]}</td><td class="r pos" data-go="${L(r.m, 'in')}">${k0(r.inc)}</td><td class="r muted" data-go="${L(r.m, 'rcpt')}">${k0(r.rcpt)}</td><td class="r" data-go="${L(r.m, 'in')}">${k0(r.net)}</td><td class="r" data-go="${L(r.m, 'ex')}">${k0(r.exp)}</td>${hasSal ? `<td class="r" data-go="${L(r.m, 'sal')}">${k0(r.sal)}</td>` : ''}<td class="r ${r.res < 0 ? 'neg' : 'pos'}" data-go="#/office/list/${r.m}">${k0(r.res)}</td></tr>`).join('')}
+      <tr class="tot click"><td data-go="#/office/list/${statY}">Σύνολο</td><td class="r" data-go="${L(statY, 'in')}">${k0(Y.inc)}</td><td class="r" data-go="${L(statY, 'rcpt')}">${k0(Y.rcpt)}</td><td class="r">${k0(Y.net)}</td><td class="r" data-go="${L(statY, 'ex')}">${k0(Y.exp)}</td>${hasSal ? `<td class="r">${k0(Y.sal)}</td>` : ''}<td class="r">${k0(Y.res)}</td></tr>
+      <tr><td>Μ.Ο.</td><td class="r">${k0(Y.inc / n)}</td><td class="r">${k0(Y.rcpt / n)}</td><td class="r">${k0(Y.net / n)}</td><td class="r">${k0(Y.exp / n)}</td>${hasSal ? `<td class="r">${k0(Y.sal / n)}</td>` : ''}<td class="r">${k0(Y.res / n)}</td></tr></table>
+      <div class="small muted" style="margin-top:6px">σε € · 🧾 = με απόδειξη · Καθαρά = χωρίς τον ΦΠΑ των αποδείξεων (χωρίς απόδειξη = όλο) · ΦΠΑ χρονιάς ${eur(Y.vat)}${Y.disc ? ` · εκπτώσεις συνεργασιών ${eur(Y.disc)}` : ''} · πάτα όποιο νούμερο για τις κινήσεις του</div></div>
     <h2>Ανά υπηρεσία</h2><div class="card">${bar(sv, Y.inc, 'svc') || '<span class="muted">—</span>'}</div>
     <h2>Έξοδα ανά κατηγορία</h2><div class="card">${bar(ct, Y.exp, 'cat') || '<span class="muted">—</span>'}</div>
     ${parts.length ? `<h2>Αμοιβές συνεργατών</h2><div class="card">${parts.map((x) => `<div class="row" style="margin:4px 0;cursor:pointer" data-go="${L(statY, 'part:' + x.p.id)}"><span class="grow">${esc(x.p.name)} <span class="small muted">${fmtPct(x.p.pct)}</span></span><b>${eur(x.v)}</b></div>`).join('')}</div>` : ''}
