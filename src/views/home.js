@@ -10,6 +10,7 @@ import * as PP from '../people.js';
 import * as PL from '../plan.js';
 import * as K from '../cars.js';
 import * as TD from '../tidy.js';
+import { tsOf } from '../hlc.js';
 
 let viewSel = null, monthOff = 0, allCats = false;
 const LS_KEY = 'homePer';
@@ -59,7 +60,7 @@ export default {
     <div class="grid3 quick" style="margin-bottom:12px">
       <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="#/add/inc">+ Έσοδο</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
     </div>
-    ${tidyCard()}${newsCard(t)}${carCard()}${roomCard()}
+    ${tidyCard()}${otherCard()}${newsCard(t)}${carCard()}${roomCard()}
     <div class="card">
       <div class="seg per" style="margin-bottom:10px">${PERS.map(([k, l]) => `<button class="${k === per ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
       ${per === 'r' ? `<div class="grid2"><label class="f"><span>Από</span><input type="date" name="rf" value="${from}"></label><label class="f"><span>Έως</span><input type="date" name="rt" value="${P.to}"></label></div>`
@@ -100,12 +101,29 @@ export default {
     root.querySelector('[data-plist]')?.addEventListener('click', (e) => { const [a, b] = e.target.dataset.plist.split('|'); window.__listSet?.({ from: a, to: b, q: '', view: lview() }); ui.go('#/list'); });
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { monthOff = Math.min(0, monthOff + Number(b.dataset.m)); ui.render(); }));
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { viewSel = b.dataset.v; ui.render(); }));
+    root.querySelector('[data-seeno]')?.addEventListener('click', () => { try { localStorage.setItem(SEEN_O, String(Date.now())); } catch (_) { /* */ } ui.render(); });
     root.querySelector('[data-tidy]')?.addEventListener('click', async (e) => { e.stopPropagation(); e.target.disabled = true; const n = await TD.moveMine(); ui.toast(`${n} κινήσεις πήγαν στα Προσωπικά ✓`); });
     root.querySelector('[data-seen]')?.addEventListener('click', (e) => { e.stopPropagation(); try { localStorage.setItem(SEEN, today()); } catch (_) { /* */ } ui.render(); });
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
     bindEdit(root, ui);
   },
 };
+const SEEN_O = 'seenOther';
+/** what the other one added or changed since I last looked (after sync) */
+function otherCard() {
+  const me = state.user; let seen = 0;
+  try { seen = Number(localStorage.getItem(SEEN_O) || 0); if (!seen) { localStorage.setItem(SEEN_O, String(Date.now())); return ''; } } catch (_) { return ''; }
+  const l = [];
+  for (const sp of store.visibleSpaces()) for (const r of (store.state.data[sp.id]?.recs.values() || [])) {
+    if (!['tx', 'rec'].includes(r.type) || !r._u || r._u === me || tsOf(r._m) <= seen) continue;
+    l.push({ r, isNew: tsOf(r._t?.type) > seen, del: !!r._x });
+  }
+  if (!l.length) return '';
+  l.sort((a, b) => (tsOf(b.r._m) - tsOf(a.r._m)));
+  const who = me === 'Άλκης' ? 'τη Χαρά' : 'τον Άλκη';
+  return `<div class="card" style="border-left:4px solid var(--blue)"><div class="row"><b class="grow">🔔 Από ${who} (${l.length})</b><button class="btn sm" data-seeno>OK</button></div>
+    <div class="small" style="margin-top:6px">${l.slice(0, 10).map(({ r, isNew, del }) => `${del ? '🗑 διαγράφηκε' : isNew ? '➕' : '✏️'} ${esc(r.desc || r.name || r.cat || '')} <b>${eur(r.a)}</b> <span class="muted">· ${r.type === 'rec' ? 'επαναλαμβανόμενο' : (r.d || '').split('-').reverse().join('/')} · ${esc(r.payer || '')}${r.for && r.for !== r.payer ? ' → ' + esc(r.for === 'Κοινό' ? 'κοινό' : r.for) : ''}</span>`).join('<br>')}${l.length > 10 ? `<br>… και ${l.length - 10} ακόμα` : ''}</div></div>`;
+}
 function tidyCard() {
   const m = TD.misplaced(); const n = m.tx.length + m.rec.length; if (!n) return '';
   const other = state.user === 'Άλκης' ? 'τη Χαρά' : 'τον Άλκη';

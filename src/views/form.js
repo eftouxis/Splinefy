@@ -116,11 +116,11 @@ export default {
     const tgtName = target === 'shared' ? 'Κοινό — το βλέπει και η Χαρά' : 'Προσωπικό — μόνο εσύ';
     if (f.occ) {
       return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(f.desc)} <span class="small muted">↻ επαναλαμβανόμενο</span></h1></div>
-      <div class="card"><div class="muted small">Αυτή η φορά: ${esc(f.d)}</div>
+      <div class="card"><div class="muted small">Αυτή η φορά: ${esc(f.d.split('-').reverse().join('/'))} · για ${esc(f.for === 'Κοινό' ? 'κοινό (½ ο καθένας)' : f.for || f.payer)}${f.oth && f.oth.length ? ' · μοιράζεται και με άλλους' : ''}</div>
         <label class="f"><span>Ποσό αυτή τη φορά</span><input class="amount" name="a" inputmode="decimal" value="${esc(f.a)}">${calcHtml()}</label>
         <label class="f"><span>Πλήρωσε</span>${seg('payer', people.map((p) => [p, p]), f.payer)}</label>
         <label class="row" style="margin:4px 0 10px"><input type="checkbox" name="fwd" style="width:auto" ${f.fwd ? 'checked' : ''}> <b>Από εδώ και πέρα</b>&nbsp;με αυτό το ποσό (π.χ. νέα τιμή)</label>
-        <div class="note small">Χωρίς το τικ αλλάζει μόνο αυτή τη φορά. Οι προηγούμενες φορές μένουν πάντα όπως ήταν. <a href="#/rec/${esc(f.sp)}/${esc(f.rec)}">Όλες οι ρυθμίσεις του παγίου ›</a></div></div>
+        <div class="note small">Χωρίς το τικ αλλάζει μόνο αυτή τη φορά. Οι προηγούμενες φορές μένουν πάντα όπως ήταν. <a href="#/rec/${esc(f.sp)}/${esc(f.rec)}">Όλες οι ρυθμίσεις του επαναλαμβανόμενου (και «Για ποιον») ›</a></div></div>
       <button class="btn primary" style="width:100%" data-save>Αποθήκευση</button>
       <button class="btn" style="width:100%;margin-top:8px" data-skip>${f.skipped ? 'Επαναφορά (έγινε κανονικά)' : 'Δεν έγινε αυτή τη φορά'}</button>`;
     }
