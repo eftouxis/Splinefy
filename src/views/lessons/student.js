@@ -32,14 +32,14 @@ export default {
         l ? (l.h ? (d <= t ? 'done' : 'plan') : 'off') : '', st.start && d < st.start ? 'out' : '', st.end && d > st.end ? 'out' : ''].join(' ');
       cells += `<button class="${cls}" data-day="${d}" title="${esc(hol?.name || '')}"><span>${Number(d.slice(8))}</span><b>${l ? (l.h ? fmtH(l.h) : '✗') : ''}</b></button>`;
     }
-    const mp = L.payments(id).filter((p) => p.d.startsWith(month)).reduce((s, p) => s + p.a, 0);
+    const mp = L.payments(id).filter((p) => (p.md || p.d).startsWith(month)).reduce((s, p) => s + p.a, 0);
     // school-year table
     const Y = st.archived ? Number(st.archived) : L.yearOf(t);
     const rows = L.yMonths(Y).map((mk, i) => {
       const from = i === 0 ? L.yStart(Y) : `${mk}-01`, to = i === 12 ? L.yEnd(Y) : `${mk}-31`;
       const ll = L.lessons({ stu: id, from, to });
       const h = ll.reduce((s, l) => s + l.h, 0), v = ll.reduce((s, l) => s + l.v, 0);
-      const p = L.payments(id).filter((q) => q.d >= from && q.d <= to).reduce((s, q) => s + q.a, 0);
+      const p = L.payments(id).filter((q) => (q.md || q.d) >= from && (q.md || q.d) <= to).reduce((s, q) => s + q.a, 0);
       if (!h && !p) return '';
       return `<tr style="${from > t ? 'opacity:.55;font-style:italic' : ''}"><td>${MSHORT[Number(mk.slice(5)) - 1]} ${mk.slice(2, 4)}</td><td class="r">${fmtH(h)}</td><td class="r">${eur(v)}</td><td class="r">${p ? eur(p) : ''}</td></tr>`;
     }).join('');
@@ -75,7 +75,7 @@ export default {
       ${st.open ? `<div class="small muted" style="margin-top:6px">Από πριν: ${eur(st.open)}</div>` : ''}</div>
     <h2>Πληρωμές</h2>
     <div class="list">${pays.slice(0, 40).map((p) => `<div class="item" ${p.type === 'tx' ? `data-paytx="${esc(p.id)}"` : ''}><div class="dot">💶</div>
-      <div class="grow"><div class="t">${dFull(p.d)}</div><div class="s">${esc(p.note || '')}</div></div><div class="amt pos">+${eur(p.a)}</div></div>`).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>`;
+      <div class="grow"><div class="t">${dFull(p.d)}</div><div class="s">${p.md && p.md.slice(0, 7) !== p.d.slice(0, 7) ? `για ${MONTHS[Number(p.md.slice(5, 7)) - 1]}${p.note ? ' · ' : ''}` : ''}${esc(p.note || '')}</div></div><div class="amt pos">+${eur(p.a)}</div></div>`).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>`;
   },
   mount(root, [id], ui) {
     root.querySelector('[data-back]')?.addEventListener('click', () => ui.go('#/lessons'));

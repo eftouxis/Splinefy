@@ -174,7 +174,7 @@ export function yearStats(Y) {
   const sIdx = (d) => { const i = (Number(d.slice(0, 4)) - Y) * 12 + Number(d.slice(5, 7)) - 6; return i >= 1 && i <= 12 ? i : -1; };
   for (const tx of records('tx', [LSP])) {
     if (tx.kind !== 'Έσοδο') continue;
-    if (tx.cat === 'Ιδιαίτερα') { const i = monthIdx(Y, tx.d); if (i >= 0) out[i].recv += tx.a || 0; }
+    if (tx.cat === 'Ιδιαίτερα') { const i = monthIdx(Y, tx.md || tx.d); if (i >= 0) out[i].recv += tx.a || 0; }
     else if (tx.cat === 'Μισθός') { const i = sIdx(tx.md || tx.d); if (i >= 0) { if (tx.extra) out[i].extra += tx.a || 0; else out[i].salGot += tx.a || 0; } }
   }
   // expected salaries (for the months that have not ended yet)

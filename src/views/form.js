@@ -137,12 +137,12 @@ export default {
         <div class="chips" data-stu>${LS.students().filter((s) => f.allStu || LS.isActive(s) || s.id === f.stu).map((s) => `<button type="button" class="chip ${s.id === f.stu ? 'on' : ''}" data-id="${esc(s.id)}">${esc(stuLabel(s))}</button>`).join('')}
         ${f.allStu ? '' : '<button type="button" class="chip" data-allstu>Παλιοί…</button>'}
         <button type="button" class="chip ${f.stu ? '' : 'on'}" data-id="">Κανένας</button></div></label>` : ''}
-      ${k === 'Έσοδο' && f.cat === 'Μισθός' ? (() => {
-        const base = f.d || today(); const auto = monthFromText(f.desc, base); const sel = f.mm || auto || base.slice(0, 7);
+      ${k === 'Έσοδο' && (f.cat === 'Μισθός' || f.cat === 'Ιδιαίτερα') ? (() => {
+        const base = f.d || today(); const auto = monthFromText(`${f.desc} ${f.note || ''}`, base); const sel = f.mm || auto || base.slice(0, 7);
         const opts = [-3, -2, -1, 0, 1].map((n) => addMonths(`${base.slice(0, 7)}-01`, n).slice(0, 7));
         if (!opts.includes(sel)) opts.unshift(sel);
-        return `<label class="f"><span>Αφορά μήνα (μετράει σε αυτόν, όποια μέρα κι αν πληρώθηκες)</span><select name="mm">${opts.map((m) => `<option value="${m}" ${m === sel ? 'selected' : ''}>${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</option>`).join('')}</select></label>
-          <label class="row small" style="margin:-2px 2px 10px"><input type="checkbox" name="extra" style="width:auto" ${f.extra ? 'checked' : ''}> Έκτακτο (αναδρομικά, δώρο κ.λπ.) — μετράει επιπλέον του μισθού</label>`;
+        return `<label class="f"><span>Αφορά μήνα (μετράει σε αυτόν, όποια μέρα κι αν πληρώθηκες${f.cat === 'Ιδιαίτερα' ? ' — π.χ. εξόφληση Οκτωβρίου' : ''})</span><select name="mm">${opts.map((m) => `<option value="${m}" ${m === sel ? 'selected' : ''}>${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</option>`).join('')}</select></label>
+          ${f.cat === 'Μισθός' ? `<label class="row small" style="margin:-2px 2px 10px"><input type="checkbox" name="extra" style="width:auto" ${f.extra ? 'checked' : ''}> Έκτακτο (αναδρομικά, δώρο κ.λπ.) — μετράει επιπλέον του μισθού</label>` : ''}`;
       })() : ''}
       <label class="f"><span>Περιγραφή</span><span class="ac"><input name="desc" value="${esc(f.desc)}" autocomplete="off" placeholder="${k === 'Μεταφορά' ? 'π.χ. revolut' : 'π.χ. Σκλαβενίτης'}"><span class="ac-list" data-ac hidden></span></span></label>
       ${k === 'Μεταφορά' ? `
@@ -251,7 +251,7 @@ export default {
     const fill = (src, dst) => { const t = parseAmount(aI.value), v = parseAmount(src.value); if (t != null && v != null) dst.value = String(Math.round((t - v) * 100) / 100).replace('.', ','); };
     bA?.addEventListener('input', () => fill(bA, bX)); bX?.addEventListener('input', () => fill(bX, bA));
     root.querySelector('[name=mm]')?.addEventListener('change', () => { read(); f.mmTouched = 1; });
-    root.querySelector('[name=desc]')?.addEventListener('blur', () => { if (f.cat !== 'Μισθός' || f.mmTouched) return; read(); const m = monthFromText(f.desc, f.d); if (m && m !== f.mm) { f.mm = m; ui.render(); } });
+    root.querySelector('[name=desc]')?.addEventListener('blur', () => { if ((f.cat !== 'Μισθός' && f.cat !== 'Ιδιαίτερα') || f.mmTouched) return; read(); const m = monthFromText(`${f.desc} ${f.note || ''}`, f.d); if (m && m !== f.mm) { f.mm = m; ui.render(); } });
     if (!f.id && !f.a) setTimeout(() => root.querySelector('[name=a]')?.focus(), 50);
     root.querySelector('[data-freq]')?.addEventListener('change', () => { read(); f.rep = true; ui.render(); });
     const upBurden = () => { const b = root.querySelector('[data-burden]'); if (!b) return; read(); b.innerHTML = burdenHtml(f); };
@@ -299,10 +299,10 @@ export default {
         km: f.car && K.isFuelText(f.desc) ? parseAmount(String(f.km ?? '').replace(/\./g, '')) : null, q: f.car && K.isFuelText(f.desc) ? parseAmount(f.q) : null,
         ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? ftOf(f) : null,
         oth: f.kind === 'Έξοδο' && f.withOth ? readOth(root) : null };
-      if (f.kind === 'Έσοδο' && f.cat === 'Μισθός') {
-        const mm = f.mm || monthFromText(f.desc, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);
+      if (f.kind === 'Έσοδο' && (f.cat === 'Μισθός' || f.cat === 'Ιδιαίτερα')) {
+        const mm = f.mm || monthFromText(`${f.desc} ${f.note || ''}`, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);
         rec.md = mm < dm ? eomOf(mm) : mm > dm ? `${mm}-01` : null;
-        if (!rec.desc) rec.desc = `Μισθός ${MONTHS_GEN[Number(mm.slice(5)) - 1]}`;
+        if (!rec.desc && f.cat === 'Μισθός') rec.desc = `Μισθός ${MONTHS_GEN[Number(mm.slice(5)) - 1]}`;
       }
       if (f.id) {
         const want = targetSpace({ ...f, toShared: f.sp === 'shared' });

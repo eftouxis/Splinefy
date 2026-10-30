@@ -1,5 +1,5 @@
 // Shared pieces of the lessons screens: bottom sheets, lesson / payment / slot editors.
-import { esc, eur, today, dShort, dFull, parseAmount, addDays, pad } from '../../util.js';
+import { esc, eur, today, dShort, dFull, parseAmount, addDays, pad, MONTHS, norm } from '../../util.js';
 import * as store from '../../store.js';
 import * as L from '../../lessons.js';
 
@@ -104,6 +104,9 @@ export function addLessonSheet(ui, stu0 = null, d0 = today()) {
 }
 
 /** payment of a student = income «Ιδιαίτερα» in the personal ledger */
+const addMonthsU = (s, n) => { const [y, m] = s.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; };
+/** the month a payment concerns → stored date (last day of an earlier month / first day of a later one), null when it is the payment month */
+const mdOf = (mm, d) => { if (!mm || mm === d.slice(0, 7)) return null; if (mm < d.slice(0, 7)) { const [y, m] = mm.split('-').map(Number); return `${mm}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`; } return `${mm}-01`; };
 export function paySheet(ui, stu0 = null, tx = null) {
   const list = L.students().filter((s) => L.isActive(s) || s.id === stu0 || s.id === tx?.stu);
   let stu = stu0 || tx?.stu || list[0]?.id;
@@ -115,6 +118,7 @@ export function paySheet(ui, stu0 = null, tx = null) {
     <div class="small muted center" data-bal style="margin:6px 0 10px"></div>
     <div class="grid2"><label class="f"><span>Ημερομηνία</span><input type="date" name="d" value="${tx ? tx.d : today()}"></label>
     <label class="f"><span>Σημείωση</span><input name="note" value="${esc(tx?.note || '')}"></label></div>
+    <label class="f"><span>Αφορά μήνα (π.χ. εξόφληση Οκτωβρίου)</span><select name="mm"></select></label>
     <div class="note small">Μπαίνει μία φορά και φαίνεται και στην καρτέλα του μαθητή και στα έσοδά σου (Ιδιαίτερα).</div>
     <button class="btn primary" data-ok>${tx ? 'Αποθήκευση' : 'Καταχώρηση'}</button>
     ${tx ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
@@ -124,6 +128,18 @@ export function paySheet(ui, stu0 = null, tx = null) {
       el.querySelector('[data-bal]').textContent = `Υπόλοιπο μετά: ${Math.abs(b) < 0.005 ? 'εξοφλημένος ✓' : b > 0 ? 'χρωστάει ' + eur(b) : 'προπληρωμένα ' + eur(-b)}`;
     };
     showBal(); inp.addEventListener('input', showBal);
+    const D = el.querySelector('[name=d]'), MM = el.querySelector('[name=mm]'); let mmTouched = !!tx?.md;
+    const fillMM = () => { const base = D.value || today(); const cur = MM.value || (tx?.md || base).slice(0, 7);
+      const opts = [-3, -2, -1, 0, 1].map((n) => addMonthsU(`${base.slice(0, 7)}-01`, n).slice(0, 7)); if (!opts.includes(cur)) opts.unshift(cur);
+      const sel = mmTouched ? cur : base.slice(0, 7);
+      MM.innerHTML = opts.map((m) => `<option value="${m}" ${m === sel ? 'selected' : ''}>${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</option>`).join(''); };
+    fillMM(); D.addEventListener('change', fillMM); MM.addEventListener('change', () => { mmTouched = true; });
+    const STEMS = ['ιανουαρ', 'φεβρουαρ', 'μαρτ', 'απριλ', 'μαι', 'ιουν', 'ιουλ', 'αυγουστ', 'σεπτεμβρ', 'οκτωβρ', 'νοεμβρ', 'δεκεμβρ'];
+    el.querySelector('[name=note]').addEventListener('input', (e) => {      // «εξόφληση Οκτωβρίου» → Οκτώβριος
+      const t = norm(e.target.value); const i = STEMS.findIndex((x) => new RegExp(`(^|[^a-zα-ω])${x}`).test(t)); if (i < 0) return;
+      const base = D.value || today(); let y = Number(base.slice(0, 4)); let m = `${y}-${String(i + 1).padStart(2, '0')}`; if (m > addMonthsU(`${base.slice(0, 7)}-01`, 1).slice(0, 7)) m = `${y - 1}${m.slice(4)}`;
+      mmTouched = true; if (![...MM.options].some((o) => o.value === m)) MM.insertAdjacentHTML('afterbegin', `<option value="${m}">${MONTHS[i]} ${m.slice(0, 4)}</option>`); MM.value = m;
+    });
     bindChips(el, 'stu', (id) => { stu = id; if (!tx) inp.value = String(suggest(id)).replace('.', ','); showBal(); });
     el.querySelector('[data-no]').onclick = close;
     el.querySelector('[data-del]')?.addEventListener('click', async () => { if (!(await ui.confirm('Διαγραφή της πληρωμής;', 'Διαγραφή'))) return; await store.del(L.LSP, tx.id); close(); ui.toast('Διαγράφηκε'); });
@@ -131,7 +147,7 @@ export function paySheet(ui, stu0 = null, tx = null) {
       const a = parseAmount(inp.value); if (!a) { ui.toast('Γράψε ποσό'); return; }
       const st = L.student(stu);
       await store.put(L.LSP, tx?.id || null, { type: 'tx', kind: 'Έσοδο', cat: 'Ιδιαίτερα', payer: 'Άλκης', for: '', a, d: el.querySelector('[name=d]').value || today(),
-        desc: st.full || st.name, stu, note: el.querySelector('[name=note]').value.trim() || null });
+        desc: st.full || st.name, stu, note: el.querySelector('[name=note]').value.trim() || null, md: mdOf(MM.value, el.querySelector('[name=d]').value || today()) });
       close(); ui.toast('Πληρωμή καταχωρήθηκε ✓');
     };
   });
