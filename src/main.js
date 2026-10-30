@@ -87,7 +87,7 @@ export function render() {
   if (key === 'office' && hasOffice()) {
     if (!sub) { sub = document.createElement('div'); sub.id = 'subnav'; document.body.appendChild(sub); }
     const cur = (h.match(/^#\/office\/?(\w*)/) || [])[1] || '';
-    const L = [['', '🏢', 'Γραφείο'], ['clients', '👥', 'Πελάτες'], ['partners', '🤝', 'Συνεργάτες'], ['stats', '📊', 'Στατιστικά'], ['list', '📄', 'Κινήσεις'], ['fixed', '📋', 'Πάγια'], ['rec', '↻', 'Επαναλ.']];
+    const L = [['clients', '👥', 'Πελάτες'], ['partners', '🤝', 'Συνεργάτες'], ['stats', '📊', 'Στατιστικά'], ['list', '📄', 'Κινήσεις'], ['fixed', '📋', 'Πάγια'], ['rec', '↻', 'Επαναλ.']];
     sub.innerHTML = L.map(([k, i, t]) => `<a href="#/office${k ? '/' + k : ''}" class="${cur === k || (k === 'clients' && cur === 'c') ? 'on' : ''}"><span>${i}</span>${t}</a>`).join('');
     document.body.classList.add('has-sub'); const on = sub.querySelector('.on'); if (on) sub.scrollLeft = on.offsetLeft - sub.clientWidth / 2 + on.clientWidth / 2;
   } else if (sub) { sub.remove(); document.body.classList.remove('has-sub'); }

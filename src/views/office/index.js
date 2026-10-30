@@ -55,11 +55,7 @@ const home = {
       <div class="mid">${sal ? `${eur(sal.a)} τον μήνα · από ${dFull(sal.start)}` : 'Όρισε μισθό'}</div></div><span class="muted">›</span></div></div>
     <h2>Τελευταίες πληρωμές</h2>
     <div class="list">${recent.map(payRow).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>
-    ${upcoming.length ? `<h2>Έρχονται (30 μέρες)</h2><div class="list">${upcoming.map(expRow).join('')}</div>` : ''}
-    <div class="grid3" style="margin-top:12px">
-      <a class="btn sm" href="#/office/clients">👥 Πελάτες</a><a class="btn sm" href="#/office/partners">🤝 Συνεργάτες</a><a class="btn sm" href="#/office/stats">📊 Στατιστικά</a>
-      <a class="btn sm" href="#/office/fixed">📋 Πάγια</a><a class="btn sm" href="#/office/rec">↻ Επαναλ.</a><a class="btn sm" href="#/office/list/${t.slice(0, 7)}">📄 Κινήσεις</a>
-    </div>`;
+    ${upcoming.length ? `<h2>Έρχονται (30 μέρες)</h2><div class="list">${upcoming.map(expRow).join('')}</div>` : ''}`;
   },
   mount(root, p, ui) {
     bindCommon(root, ui);
