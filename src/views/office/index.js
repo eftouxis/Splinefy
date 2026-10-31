@@ -14,6 +14,7 @@ const bindCommon = (root, ui) => {
   root.querySelectorAll('[data-pfee]').forEach((b) => b.addEventListener('click', (e) => { e.preventDefault(); pfeeSheet(); }));
 };
 /** the office pays back someone who paid office expenses (a shared record, so the other side sees it too) */
+window.__repaySheet = (who) => repaySheet(who);
 function repaySheet(who) {
   const x = O.officeDebts().find((d) => d.who === who); if (!x) return;
   sheet(`<div class="mid">Επιστροφή ${who === 'Άλκης' ? 'στον Άλκη' : 'σε ' + esc(who)}</div><div class="small muted">Το γραφείο του χρωστάει ${eur(x.owed)}. Δεν είναι έξοδο (το έξοδο μετρήθηκε ήδη), απλώς βγαίνουν τα χρήματα από το γραφείο.</div>
@@ -81,7 +82,7 @@ const home = {
     <div class="card" data-goal style="cursor:pointer"><div class="row"><b class="grow">🏢 Υπόλοιπο γραφείου</b><b class="${bal < 0 ? 'neg' : 'pos'}" style="font-size:20px">${eur(bal)}</b></div>
       ${pr.asOf ? '' : '<div class="small neg" style="margin-top:4px">⚠ Δεν έχεις ορίσει πόσα έχει πραγματικά ο λογαριασμός — εδώ μετράνε όλα τα έσοδα − έξοδα από την αρχή, χωρίς τα λεφτά που πήρες για σένα. Πάτα εδώ.</div>'}
       ${pr.goal ? `<div class="bar" style="margin-top:8px"><i style="width:${Math.max(0, Math.min(100, Math.round((bal / pr.goal) * 100)))}%"></i></div><div class="small muted" style="margin-top:4px">Μαξιλάρι γραφείου: στόχος ${eur(pr.goal)} · ${bal >= pr.goal ? '✓ πέτυχε' : `λείπουν ${eur(pr.goal - bal)}`}</div>` : '<div class="small muted" style="margin-top:4px">Πάτα για στόχο «μαξιλάρι γραφείου» ή αρχικό ποσό</div>'}
-      ${odebts.map((x) => `<div class="row small" style="margin-top:6px"><span class="grow">Το γραφείο χρωστάει ${x.who === 'Άλκης' ? 'στον Άλκη' : 'σε ' + esc(x.who)} <b class="neg">${eur(x.owed)}</b> (πλήρωσε έξοδα για το γραφείο)</span><button class="btn sm" data-orep="${esc(x.who)}">Τον πλήρωσα</button></div>`).join('')}
+      ${odebts.map((x) => `<div class="row small" style="margin-top:6px"><a class="grow" href="#/odebt/${encodeURIComponent(x.who)}" style="color:inherit">Το γραφείο χρωστάει ${x.who === 'Άλκης' ? 'στον Άλκη' : 'σε ' + esc(x.who)} <b class="neg">${eur(x.owed)}</b> (πλήρωσε έξοδα για το γραφείο) ›</a><button class="btn sm" data-orep="${esc(x.who)}">Τον πλήρωσα</button></div>`).join('')}
       ${owed.length ? `<div class="small" style="margin-top:6px">Χρωστάς σε συνεργάτες: ${owed.map((x) => `${esc(x.p.name)} <b class="neg">${eur(x.owed)}</b>`).join(' · ')}</div>` : ''}</div>
     ${dues.length ? `<div class="card"><b>Εκκρεμότητες πελατών</b>
       ${dues.filter((x) => x.due > 0).length ? `<div class="small" style="margin-top:4px">Σου χρωστάνε <b class="pos">${eur(dues.filter((x) => x.due > 0).reduce((s, x) => s + x.due, 0))}</b>: ${dues.filter((x) => x.due > 0).map((x) => `<a href="#/office/c/${encodeURIComponent(x.name)}">${esc(x.name)}</a> ${eur(x.due)}`).join(' · ')}</div>` : ''}
@@ -104,7 +105,7 @@ const home = {
     box.addEventListener('pointerdown', (e) => e.preventDefault());
     box.addEventListener('click', (e) => { const b = e.target.closest('[data-acv]'); if (b) ui.go(`#/office/c/${encodeURIComponent(b.dataset.acv)}`); });
     fi.addEventListener('keydown', (e) => { if (e.key !== 'Enter') return; const b = box.querySelector('[data-acv]'); if (b) ui.go(`#/office/c/${encodeURIComponent(b.dataset.acv)}`); });
-    root.querySelector('[data-goal]').addEventListener('click', (e) => { if (e.target.closest('[data-orep]')) return; goalSheet(ui); });
+    root.querySelector('[data-goal]').addEventListener('click', (e) => { if (e.target.closest('[data-orep],a')) return; goalSheet(ui); });
     root.querySelectorAll('[data-orep]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); repaySheet(b.dataset.orep); }));
     root.querySelector('[data-vatset]')?.addEventListener('click', () => sheet(`<div class="mid">ΦΠΑ στις αποδείξεις</div><div class="small muted">Ισχύει για τις νέες πληρωμές με απόδειξη (οι παλιές κρατάνε το ποσοστό που είχαν).</div>
       <label class="f" style="margin-top:10px"><span>Ποσοστό ΦΠΑ (%)</span><input name="v" inputmode="decimal" value="${String(Math.round(O.vatRate() * 1000) / 10).replace('.', ',')}"></label>

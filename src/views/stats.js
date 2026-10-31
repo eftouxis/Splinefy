@@ -7,6 +7,25 @@ import { ICON } from './common.js';
 import * as T from '../trips.js';
 import { balancesHtml, balancesMount } from './balances.js';
 import { carsList } from './cars.js';
+import { sheet } from './lessons/ui.js';
+import * as store from '../store.js';
+import * as PL from '../plan.js';
+import { parseAmount } from '../util.js';
+let ymode = (() => { try { return localStorage.getItem('stats-ymode') || 'cal'; } catch { return 'cal'; } })();
+const fmtD = (s) => `${s.slice(8)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
+/** the school-year dates: one start per year (the previous year ends the day before) */
+function sySheet(ui, years) {
+  sheet(`<div class="mid">🎓 Σχολικές χρονιές</div><div class="small muted">Κάθε χρονιά ξεκινάει από την ημερομηνία που γράφεις και τελειώνει την προηγούμενη μέρα από την έναρξη της επόμενης. Αν δεν αλλάξεις κάτι: 16 Ιουνίου (μετά τις εξετάσεις).</div>
+    <div style="margin:10px 0">${years.map((Y) => `<label class="row" style="margin:6px 0;gap:10px"><span style="width:70px"><b>${ST.syLabel(Y)}</b></span><span class="small muted">από</span><input type="date" data-sy="${Y}" value="${ST.syStart(Y)}" style="flex:1"></label>`).join('')}</div>
+    <button class="btn primary" data-ok>Αποθήκευση</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelector('[data-ok]').onclick = async () => {
+      const starts = { ...(ST.syPref()?.starts || {}) };
+      el.querySelectorAll('[data-sy]').forEach((i) => { const Y = i.dataset.sy; if (i.value && i.value !== `${Y}-06-16`) starts[Y] = i.value; else delete starts[Y]; });
+      await store.put(ST.syPref()?._sp || PL.goalSpace(), 'syear', { type: 'pref', starts }); close();
+    };
+  });
+}
 
 let view = null, tab = 'months', selY = null, selCat = null;
 const TABS = [['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί'], ['inv', 'Επενδύσεις'], ['bal', 'Ισολογισμός'], ['cars', 'Αυτοκίνητα']];
@@ -94,6 +113,43 @@ const pages = {
     ${inc.length ? `<h2>Έσοδα</h2><div class="card">${catBars(inc)}</div>` : ''}`;
   },
   years() {
+    const mode = `<div class="row" style="margin-bottom:8px"><div class="chips grow" style="margin:0"><button class="chip ${ymode === 'cal' ? 'on' : ''}" data-ym="cal">📅 Ημερολογιακά</button><button class="chip ${ymode === 'sch' ? 'on' : ''}" data-ym="sch">🎓 Σχολικά</button></div>${ymode === 'sch' ? '<button class="btn sm" data-sydates>Ημερομηνίες ›</button>' : ''}</div>`;
+    return mode + (ymode === 'sch' ? pages.syears() : pages.cyears());
+  },
+  syears() {
+    const t = today(); const Y = ST.syOf(t); const f = ST.syOf(`${ST.firstMonth(view)}-01`);
+    const ys = []; for (let y = f; y <= Y; y++) ys.push(y);
+    const rows = ys.map((y) => ({ y, ...ST.schoolYear(view, y) }));
+    const noInc = view === 'Φίλιππος' || (view === 'Κοινά' && !rows[rows.length - 1]?.inc);
+    const months = (y) => { const e = ST.syEnd(y) < t ? ST.syEnd(y) : t; const s = ST.syStart(y); return Math.max(1, (Number(e.slice(0, 4)) - Number(s.slice(0, 4))) * 12 + Number(e.slice(5, 7)) - Number(s.slice(5, 7)) + (Number(e.slice(8)) - Number(s.slice(8)) + 1) / 30); };
+    const cur = rows[rows.length - 1], prev = rows[rows.length - 2];
+    const prevSame = prev ? ST.dayRange(view, ST.syStart(Y - 1), (() => { const d = new Date(t + 'T12:00'); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10); })()) : null;
+    return `<div class="card"><div class="row"><b class="grow">Φέτος ${ST.syLabel(Y)}</b><span class="small muted">${fmtD(ST.syStart(Y))} – σήμερα</span></div>
+      <div class="grid3 center" style="margin-top:8px">${noInc ? '' : `<div><div class="small muted">Έσοδα</div><div class="mid pos">${eur(cur.inc)}</div></div>`}<div><div class="small muted">Έξοδα</div><div class="mid">${eur(cur.exp)}</div></div>${noInc ? '' : `<div><div class="small muted">Διαφορά</div><div class="mid ${cur.inc - cur.exp < 0 ? 'neg' : 'pos'}">${eur(cur.inc - cur.exp)}</div></div>`}</div>
+      ${prevSame ? `<div class="small muted center" style="margin-top:6px">Ίδιο διάστημα πέρσι (${ST.syLabel(Y - 1)}): ${noInc ? '' : `έσοδα ${eur(prevSame.inc)} · `}έξοδα ${eur(prevSame.exp)}${noInc ? '' : ` · διαφορά ${eur(prevSame.inc - prevSame.exp)}`}</div>` : ''}</div>
+    <div class="card">${bars(ys.map((y) => ST.syLabel(y).slice(2)), [...(noInc ? [] : [{ name: 'Έσοδα', cls: 's-inc', values: rows.map((r) => r.inc) }]), { name: 'Έξοδα', cls: 's-exp', values: rows.map((r) => r.exp) }], ys.map((y) => 'sy:' + y))}</div>
+    <div class="card" style="overflow-x:auto"><table class="t st"><tr><th>Χρονιά</th>${noInc ? '' : '<th class="r">Έσοδα</th>'}<th class="r">Έξοδα</th>${noInc ? '' : '<th class="r">Διαφορά</th>'}<th class="r">/μήνα</th><th></th></tr>
+      ${rows.slice().reverse().map((r) => `<tr data-k="sy:${r.y}" class="click"><td><b>${ST.syLabel(r.y)}</b></td>${noInc ? '' : `<td class="r pos">${k0(r.inc)}</td>`}<td class="r">${k0(r.exp)}</td>${noInc ? '' : `<td class="r ${r.inc - r.exp < 0 ? 'neg' : 'pos'}">${k0(r.inc - r.exp)}</td>`}<td class="r muted">${k0(r.exp / months(r.y))}</td><td class="muted">›</td></tr>`).join('')}</table>
+      <div class="small muted" style="margin-top:6px">σε € · σχολική χρονιά = από ${fmtD(ST.syStart(Y)).slice(0, 5)} ως ${fmtD(ST.syEnd(Y)).slice(0, 5)} (αλλάζει από «Ημερομηνίες») · πάτα μια χρονιά για ανάλυση</div></div>`;
+  },
+  syear([y]) {
+    y = Number(y); const t = today(); const s0 = ST.syStart(y), e0 = ST.syEnd(y) < t ? ST.syEnd(y) : t;
+    const s = ST.dayRange(view, s0, e0), ly = ST.schoolYear(view, y - 1);
+    const ms = []; for (let m = s0.slice(0, 7); m <= e0.slice(0, 7); m = addMonths(`${m}-01`, 1).slice(0, 7)) ms.push(m);
+    const mv = ms.map((m) => ST.dayRange(view, `${m}-01` < s0 ? s0 : `${m}-01`, `${m}-31` > e0 ? e0 : `${m}-31`));
+    const cats = [...s.cats.entries()].filter(([, v]) => v > 0.004).sort((a, b) => b[1] - a[1]);
+    const inc = [...s.icats.entries()].filter(([, v]) => v > 0.004).sort((a, b) => b[1] - a[1]);
+    return `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-back>‹</button><div class="grow mid">Σχολική χρονιά ${ST.syLabel(y)}</div></div>
+    <div class="small muted" style="margin:-4px 4px 8px">${fmtD(s0)} – ${fmtD(ST.syEnd(y))}${e0 === t && ST.syEnd(y) > t ? ' (ως σήμερα)' : ''}</div>
+    <div class="grid3"><div class="card kpi"><div class="label">Έσοδα</div><div class="mid pos">${eur(s.inc)}</div><div class="small muted">πέρσι ${eur(ly.inc)}</div></div>
+      <div class="card kpi"><div class="label">Έξοδα</div><div class="mid">${eur(s.exp)}</div><div class="small muted">πέρσι ${eur(ly.exp)}</div></div>
+      <div class="card kpi"><div class="label">Διαφορά</div><div class="mid ${s.inc - s.exp < 0 ? 'neg' : 'pos'}">${eur(s.inc - s.exp)}</div><div class="small muted">πέρσι ${eur(ly.inc - ly.exp)}</div></div></div>
+    <div class="card">${bars(ms.map((m) => MSHORT[Number(m.slice(5)) - 1]), [{ name: 'Έσοδα', cls: 's-inc', values: mv.map((x) => x.inc) }, { name: 'Έξοδα', cls: 's-exp', values: mv.map((x) => x.exp) }], ms.map((m) => 'm:' + m), 150)}</div>
+    <h2>Έξοδα ανά κατηγορία <span class="small muted">(▲▼ σε σχέση με ${ST.syLabel(y - 1)})</span></h2>
+    <div class="card">${catBars(cats, ly.cats, ST.syLabel(y - 1)) || '—'}</div>
+    ${inc.length ? `<h2>Έσοδα</h2><div class="card">${catBars(inc, ly.icats, ST.syLabel(y - 1))}</div>` : ''}`;
+  },
+  cyears() {
     const t = today(); const Y = Number(t.slice(0, 4)); const f = Number(ST.firstMonth(view).slice(0, 4));
     const ys = []; for (let y = f; y <= Y; y++) ys.push(y);
     const rows = ys.map((y) => ({ y, ...ST.year(view, y) }));
@@ -179,21 +235,23 @@ export default {
     const me = state.user; const views = [me, 'Κοινά', 'Φίλιππος'];
     view = view && views.includes(view) ? view : me;
     if (sub && TABS.some(([k]) => k === sub)) tab = sub;
-    const body = sub === 'm' ? pages.month([arg]) : sub === 'y' ? pages.year([arg]) : pages[tab]();
+    const body = sub === 'm' ? pages.month([arg]) : sub === 'y' ? pages.year([arg]) : sub === 'sy' ? pages.syear([arg]) : pages[tab]();
     return `<div class="top"><h1>Στατιστικά</h1></div>
-    ${(tab === 'bal' || tab === 'inv' || tab === 'cars') && sub !== 'm' && sub !== 'y' ? '' : `<div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>`}
-    <div class="tabs">${TABS.map(([k, l]) => `<button class="${k === tab && sub !== 'm' && sub !== 'y' ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+    ${(tab === 'bal' || tab === 'inv' || tab === 'cars') && sub !== 'm' && sub !== 'y' && sub !== 'sy' ? '' : `<div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>`}
+    <div class="tabs">${TABS.map(([k, l]) => `<button class="${k === tab && sub !== 'm' && sub !== 'y' && sub !== 'sy' ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
     ${body}`;
   },
   mount(root, [sub], ui) {
-    if (tab === 'bal' && sub !== 'm' && sub !== 'y') balancesMount(root, ui);
-    if (tab === 'cars' && sub !== 'm' && sub !== 'y') carsList.mount(root, [], ui);
+    if (tab === 'bal' && sub !== 'm' && sub !== 'y' && sub !== 'sy') balancesMount(root, ui);
+    if (tab === 'cars' && sub !== 'm' && sub !== 'y' && sub !== 'sy') carsList.mount(root, [], ui);
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { view = b.dataset.v; ui.render(); }));
     root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; ui.go(`#/stats/${tab}`); }));
     root.querySelectorAll('[data-y]').forEach((b) => b.addEventListener('click', () => { selY += Number(b.dataset.y); ui.render(); }));
     root.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => { selCat = b.dataset.c; ui.render(); }));
     root.querySelectorAll('[data-k]').forEach((b) => b.addEventListener('click', () => { const [t, v] = b.dataset.k.split(':'); ui.go(`#/stats/${t}/${v}`); }));
     root.querySelector('[data-back]')?.addEventListener('click', () => ui.back());
+    root.querySelectorAll('[data-ym]').forEach((b) => b.addEventListener('click', () => { ymode = b.dataset.ym; try { localStorage.setItem('stats-ymode', ymode); } catch {} ui.render(); }));
+    root.querySelector('[data-sydates]')?.addEventListener('click', () => { const t = today(); const Y = ST.syOf(t), f = Math.max(ST.syOf(`${ST.firstMonth(view)}-01`), Y - 6); const ys = []; for (let y = Y + 1; y >= f; y--) ys.push(y); sySheet(ui, ys); });
     root.querySelectorAll('[data-cat]').forEach((b) => b.addEventListener('click', () => { selCat = b.dataset.cat; tab = 'cats'; ui.go('#/stats/cats'); }));
     root.querySelectorAll('[data-q]').forEach((b) => b.addEventListener('click', () => { window.__listSet?.({ q: b.dataset.q }); ui.go('#/list'); }));
     root.querySelector('[data-listm]')?.addEventListener('click', (e) => { window.__listSet?.({ month: e.target.dataset.listm, q: '' }); ui.go('#/list'); });
