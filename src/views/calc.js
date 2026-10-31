@@ -6,7 +6,7 @@ export const calcHtml = () => `<div class="calc" data-calc>${OPS.map(([l, v]) =>
 const hasOp = (s) => /\d\s*[+\-*/×÷−]\s*[\d(]/.test(s);
 const show = (n) => String(n).replace('.', ',');
 export function bindCalc(root, input, onChange) {
-  const bar = root.querySelector('[data-calc]'); if (!bar || !input) return;
+  const bar = root.querySelector('[data-calc]'); if (!bar || !input) return; input._calc = bar;
   const res = bar.querySelector('[data-calcres]');
   const upd = () => { const v = input.value; const x = hasOp(v) ? parseAmount(v) : null; res.textContent = x != null ? `= ${eur(x)}` : ''; };
   const settle = () => { if (hasOp(input.value)) { const x = parseAmount(input.value); if (x != null) { input.value = show(x); upd(); onChange?.(); } } };
@@ -22,4 +22,28 @@ export function bindCalc(root, input, onChange) {
   input.addEventListener('input', upd);
   input.addEventListener('blur', settle);
   upd();
+}
+
+/** every other money field (inputmode=decimal) gets the same keys while it has focus */
+export function autoCalc() {
+  document.addEventListener('focusin', (e) => {
+    const input = e.target;
+    if (!(input instanceof HTMLInputElement) || input.inputMode !== 'decimal' || input.dataset.nocalc != null) return;
+    if (input._calc) return;
+    const wrap = document.createElement('div'); wrap.innerHTML = calcHtml(); const bar = wrap.firstElementChild; bar.dataset.auto = '1'; bar.style.marginTop = '6px';
+    input.insertAdjacentElement('afterend', bar); input._calc = bar;
+    const res = bar.querySelector('[data-calcres]');
+    const upd = () => { const v = input.value; const x = hasOp(v) ? parseAmount(v) : null; res.textContent = x != null ? `= ${eur(x)}` : ''; };
+    const settle = () => { if (hasOp(input.value)) { const x = parseAmount(input.value); if (x != null) { input.value = show(x); input.dispatchEvent(new Event('input', { bubbles: true })); } } };
+    bar.addEventListener('pointerdown', (ev) => ev.preventDefault());
+    bar.addEventListener('click', (ev) => {
+      const op = ev.target.dataset.op; if (!op) return; ev.preventDefault(); ev.stopPropagation();
+      if (op === '=') { settle(); upd(); input.focus(); return; }
+      const sym = { '*': '×', '/': '÷', '-': '−' }[op] || op;
+      input.value = input.value.replace(/[+\-*/×÷−]\s*$/, '') + sym; input.focus(); upd();
+    });
+    input.addEventListener('input', upd);
+    input.addEventListener('blur', () => { settle(); setTimeout(() => { if (document.activeElement !== input) { bar.remove(); input._calc = null; input.removeEventListener('input', upd); } }, 150); }, { once: true });
+    upd();
+  });
 }

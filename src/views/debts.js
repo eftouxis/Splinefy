@@ -14,7 +14,7 @@ export default {
     const d = debt(movements()); const owe = d.alkisMinusShare; const me = state.user;
     const ps = P.people().map((p) => ({ p, b: P.balance(p.id) }));
     const R = PL.room(); const gs = PL.goals();
-    const od = me !== 'Χαρά' ? O.officeDebts().find((x) => x.who === me && (x.owed > 0.004 || x.spent > 0.004)) : null;
+    const od = me === 'Άλκης' ? (O.officeDebts().find((x) => x.who === me) || { spent: 0, paid: 0, owed: 0 }) : null;
     const ods = me === 'Χαρά' ? O.officeDebts().filter((x) => x.spent > 0.004) : [];
     const row = (go, dot, name, sub, amt, cls, lab) => `<div class="item" data-go="${go}"><div class="dot">${dot}</div>
       <div class="grow"><div class="t">${esc(name)}</div><div class="s">${sub}</div></div>
@@ -28,8 +28,8 @@ export default {
     <div class="row" style="margin:0 2px 6px"><div class="grow small muted">Ποιος χρωστάει σε ποιον</div><button class="btn sm" data-new>+ Άτομο</button></div>
     <div class="list">
       ${row('#/couple', '💑', me === 'Χαρά' ? 'Άλκης' : 'Χαρά', 'κοινά, όπως στο Splid', Math.abs(owe) < 0.005 ? '✓' : eur(Math.abs(owe)), Math.abs(owe) < 0.005 ? 'muted' : me === 'Άλκης' ? (owe > 0 ? 'pos' : 'neg') : (owe > 0 ? 'neg' : 'pos'), Math.abs(owe) < 0.005 ? 'εντάξει' : owe > 0 ? 'χρωστάει η Χαρά' : 'χρωστάει ο Άλκης')}
-      ${ods.map((x) => row(`#/odebt/${encodeURIComponent(x.who)}`, '🏢', `Γραφείο → ${x.who}`, 'χρωστάει το γραφείο, όχι εσύ (δεν μετράει στο σύνολο)', x.owed > 0.004 ? eur(x.owed) : '✓', x.owed > 0.004 ? 'neg' : 'muted', x.owed > 0.004 ? 'του χρωστάει' : 'εντάξει')).join('')}
-      ${od ? row(`#/odebt/${encodeURIComponent(me)}`, '🏢', 'Γραφείο Χαράς', `έξοδα για το γραφείο ${eur(od.spent)}${od.paid ? ` · σου έδωσε ${eur(od.paid)}` : ''}`, od.owed > 0.004 ? eur(od.owed) : '✓', od.owed > 0.004 ? 'pos' : 'muted', od.owed > 0.004 ? 'σου χρωστάει' : 'εντάξει') : ''}
+      ${ods.map((x) => row(`#/odebt/${encodeURIComponent(x.who)}`, '🏢', `Healthy Project → ${x.who}`, 'χρωστάει το γραφείο, όχι εσύ (δεν μετράει στο σύνολο)', x.owed > 0.004 ? eur(x.owed) : '✓', x.owed > 0.004 ? 'neg' : 'muted', x.owed > 0.004 ? 'του χρωστάει' : 'εντάξει')).join('')}
+      ${od ? row(`#/odebt/${encodeURIComponent(me)}`, '🏢', 'Healthy Project', od.spent ? `γραφείο Χαράς · έξοδα ${eur(od.spent)}${od.paid ? ` · σου έδωσε ${eur(od.paid)}` : ''}` : 'γραφείο Χαράς · πάτα για να συνδέσεις έξοδα', od.owed > 0.004 ? eur(od.owed) : '✓', od.owed > 0.004 ? 'pos' : 'muted', od.owed > 0.004 ? 'σου χρωστάει' : 'εντάξει') : ''}
       ${me === 'Άλκης' || Math.abs(d.philippos) > 0.005 ? row('#/philippos', '👶', 'Φίλιππος', 'τα λεφτά του που κρατάς', eur(Math.abs(d.philippos)), Math.abs(d.philippos) < 0.005 ? 'muted' : 'neg', 'του χρωστάει ο Άλκης') : ''}
       ${ps.map(({ p, b }) => row(`#/people/${esc(p.id)}`, esc(p.name.slice(0, 1)), p.name, p.plan ? `🎯 ${eur(p.plan.m)}/μήνα` : esc(p.note || ''), Math.abs(b) < 0.005 ? '✓' : eur(Math.abs(b)), b > 0.005 ? 'pos' : b < -0.005 ? 'neg' : 'muted', b > 0.005 ? 'μου χρωστάει' : b < -0.005 ? 'χρωστάω' : 'εντάξει')).join('')}
     </div>

@@ -66,20 +66,21 @@ const detail = {
     const es = P.entries(id); const b = es.reduce((s, e) => s + e.a, 0);
     // running balance (oldest → newest) and totals of debts / money given back
     let run = 0; es.slice().reverse().forEach((e) => { run += e.a; e.bal = run; });
-    const isPay = (e) => e.m && (e.m.k === 'got' || e.m.k === 'gave');
+    const isPay = (e) => e.m && (e.m.k === 'got' || e.m.k === 'gave' || e.m.k === 'set');
     const debtsSum = es.filter((e) => !isPay(e)).reduce((s, e) => s + Math.abs(e.a), 0), paysSum = es.filter(isPay).reduce((s, e) => s + Math.abs(e.a), 0);
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(p.name)}</h1><button class="btn sm" data-edit>Επεξεργασία</button></div>
     <div class="card kpi"><div class="label">${Math.abs(b) < 0.005 ? 'Είστε εντάξει' : b > 0 ? 'Σου χρωστάει' : `${g(p, 1)} χρωστάς`}</div><div class="big ${b > 0.005 ? 'pos' : b < -0.005 ? 'neg' : ''}">${eur(Math.abs(b))}</div></div>
-    ${es.length > 1 ? `<div class="grid2"><div class="card kpi"><div class="label">📝 Χρέη συνολικά</div><div class="mid">${eur(debtsSum)}</div><div class="small muted">${es.filter((e) => !isPay(e)).length} καταχωρήσεις</div></div>
+    ${es.length > 1 && !p.bill ? `<div class="grid2"><div class="card kpi"><div class="label">📝 Χρέη συνολικά</div><div class="mid">${eur(debtsSum)}</div><div class="small muted">${es.filter((e) => !isPay(e)).length} καταχωρήσεις</div></div>
       <div class="card kpi"><div class="label">💶 Επιστράφηκαν</div><div class="mid">${eur(paysSum)}</div><div class="small muted">${es.filter(isPay).length} πληρωμές</div></div></div>` : ''}
     ${planHtml(p)}
     <div class="small muted" style="margin:2px 4px 6px">💶 Δόθηκαν λεφτά (ξεχρεώνει):</div>
     <div class="grid2 quick" style="margin-bottom:10px"><button class="btn green" data-k="got">${g(p)} μου έδωσε</button><button class="btn" data-k="gave">${g(p, 1)} έδωσα</button></div>
     <div class="small muted" style="margin:2px 4px 6px">📝 Νέο χρέος (χωρίς να δοθούν λεφτά):</div>
-    <div class="grid2" style="margin-bottom:12px"><button class="btn sm" data-k="owesme">+ Μου χρωστάει</button><button class="btn sm" data-k="iowe">+ ${g(p, 1)} χρωστάω</button></div>
+    <div class="grid2" style="margin-bottom:${p.bill ? 6 : 12}px"><button class="btn sm" data-k="owesme">+ Μου χρωστάει</button><button class="btn sm" data-k="iowe">+ ${g(p, 1)} χρωστάω</button></div>
+    ${p.bill ? '<button class="btn sm" style="width:100%;margin-bottom:12px" data-k="set">🧾 Νέο υπόλοιπο από λογαριασμό</button>' : ''}
     <div class="list">${es.map((e) => `<div class="item" ${e.m ? `data-m="${esc(e.m.id)}"` : `data-tx="${esc(e.tx._sp)}/${esc(e.tx.id)}"`}><div class="dot">${e.m ? (e.m.k === 'got' || e.m.k === 'gave' ? '💶' : '📝') : e.tx.rec ? '↻' : '🧾'}</div>
-      <div class="grow"><div class="t">${esc(e.what)}</div><div class="s">${dFull(e.d)}${e.m ? ' · ' + esc((P.KINDS[e.m.k]?.label || '').replace('Του/της', g(p, 1).toLowerCase())) : ''}</div></div>
-      <div class="right"><div class="amt ${e.a > 0 ? 'pos' : 'neg'}">${e.a > 0 ? '+' : '−'}${eur(Math.abs(e.a))}</div><div class="small muted">υπόλ. ${eur(Math.abs(e.bal))}</div></div></div>`).join('') || '<div class="item muted">Τίποτα ακόμα</div>'}</div>
+      <div class="grow"><div class="t">${esc(e.setTo != null && !e.m.note ? "Από λογαριασμό" : e.what)}</div><div class="s">${dFull(e.d)}${e.setTo != null ? ` · διαφορά ${e.a >= 0 ? '+' : '−'}${eur(Math.abs(e.a))}` : e.m ? ' · ' + esc((P.KINDS[e.m.k]?.label || '').replace('Του/της', g(p, 1).toLowerCase())) : ''}</div></div>
+      <div class="right"><div class="amt ${e.setTo != null ? (e.setTo >= 0 ? 'pos' : 'neg') : e.a > 0 ? 'pos' : 'neg'}">${e.setTo != null ? `= ${eur(Math.abs(e.setTo))}` : `${e.a > 0 ? '+' : '−'}${eur(Math.abs(e.a))}`}</div><div class="small muted">υπόλ. ${eur(Math.abs(e.bal))}</div></div></div>`).join('') || '<div class="item muted">Τίποτα ακόμα</div>'}</div>
     <div class="small muted" style="margin-top:6px">Όλο το ιστορικό, νεότερα πάνω · 📝 = χρέος · 💶 = πληρωμή · υπόλ. = πόσα έμεναν μετά από αυτή την κίνηση · πάτα μια γραμμή για αλλαγή</div>`;
   },
   mount(root, [id], ui) {
@@ -96,15 +97,18 @@ function movSheet(ui, pid, k, m) {
   const ps = k === 'gave' && !m ? PL.status(p) : null;
   const sugg = ps && ps.due > 0.004 ? String(Math.round(ps.due * 100) / 100).replace('.', ',') : !m && ((k === 'got' && b > 0.005) || (k === 'gave' && b < -0.005)) ? String(Math.round(Math.abs(b) * 100) / 100).replace('.', ',') : '';
   sheet(`<div class="mid">${esc(K.label.replace('Του/της', p.name.endsWith('ς') ? 'Του' : 'Της'))} · ${esc(p.name)}</div><div class="small muted">${esc(K.hint)}</div>
+    ${k === 'set' ? `<div class="seg" data-sgn style="margin-top:10px"><button type="button" data-val="1" class="${(m?.sign || 1) > 0 ? 'on' : ''}">Μας χρωστάει</button><button type="button" data-val="-1" class="${(m?.sign || 1) < 0 ? 'on' : ''}">Του χρωστάμε</button></div>` : ''}
     <input class="amount" name="a" inputmode="decimal" style="margin-top:10px" value="${esc(m ? String(m.a).replace('.', ',') : sugg)}" placeholder="0,00 €">
     <div class="grid2" style="margin-top:10px"><label class="f"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(m?.d || today())}"></label>
     <label class="f"><span>Τι (προαιρετικά)</span><input name="note" value="${esc(m?.note || '')}" placeholder="π.χ. 1ο τρίμηνο 2026"></label></div>
     <button class="btn primary" data-ok>Αποθήκευση</button>${m ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-no]').onclick = close;
+    let sign = m?.sign || 1;
+    el.querySelectorAll('[data-sgn] button').forEach((b) => b.addEventListener('click', () => { sign = Number(b.dataset.val); el.querySelectorAll('[data-sgn] button').forEach((x) => x.classList.toggle('on', x === b)); }));
     el.querySelector('[data-del]')?.addEventListener('click', async () => { await store.del(m._sp, m.id); close(); });
     el.querySelector('[data-ok]').onclick = async () => {
-      const a = parseAmount(el.querySelector('[name=a]').value); if (!a) { ui.toast('Γράψε ποσό'); return; }
-      await store.put(m?._sp || P.peopleSpace(), m?.id || null, { type: 'pmov', p: pid, k, a, d: el.querySelector('[name=d]').value || today(), note: el.querySelector('[name=note]').value.trim() || null });
+      const a = parseAmount(el.querySelector('[name=a]').value); if (!a && !(k === 'set' && a === 0)) { ui.toast('Γράψε ποσό'); return; }
+      await store.put(m?._sp || p._sp || P.peopleSpace(), m?.id || null, { type: 'pmov', p: pid, k, a: Math.abs(a), sign: k === 'set' ? (a < 0 ? -sign : sign) : null, d: el.querySelector('[name=d]').value || today(), note: el.querySelector('[name=note]').value.trim() || null });
       close(); ui.toast('Αποθηκεύτηκε ✓');
     };
   });
@@ -114,6 +118,8 @@ export function personSheet(ui, p) {
   sheet(`<div class="mid">${p ? 'Επεξεργασία' : 'Νέο άτομο'}</div>
     <label class="f" style="margin-top:10px"><span>Όνομα</span><input name="name" value="${esc(p?.name || '')}" placeholder="π.χ. Μαμά, Αδερφή, Σοφία (νονά)"></label>
     <label class="f"><span>Σημείωση</span><input name="note" value="${esc(p?.note || '')}"></label>
+    <label class="row small" style="margin:0 2px 8px"><input type="checkbox" name="sh" style="width:auto" ${p?._sp === 'shared' ? 'checked' : ''}> <span>👫 Κοινό — το βλέπει και ${store.state.user === 'Χαρά' ? 'ο Άλκης' : 'η Χαρά'}</span></label>
+    <label class="row small" style="margin:0 2px 12px"><input type="checkbox" name="bill" style="width:auto" ${p?.bill ? 'checked' : ''}> <span>🧾 Υπόλοιπο από λογαριασμό (π.χ. κοινόχρηστα: γράφεις κάθε φορά το υπόλοιπο που λέει ο λογαριασμός)</span></label>
     <button class="btn primary" data-ok>Αποθήκευση</button>${p ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-no]').onclick = close;
     el.querySelector('[data-del]')?.addEventListener('click', async () => {
@@ -122,7 +128,15 @@ export function personSheet(ui, p) {
     });
     el.querySelector('[data-ok]').onclick = async () => {
       const name = el.querySelector('[name=name]').value.trim(); if (!name) return;
-      const id = await store.put(p?._sp || P.peopleSpace(), p?.id || null, { type: 'person', name, note: el.querySelector('[name=note]').value.trim() || null });
+      const sh = el.querySelector('[name=sh]').checked; const sp = sh ? 'shared' : P.peopleSpace();
+      const fields = { type: 'person', name, note: el.querySelector('[name=note]').value.trim() || null, bill: el.querySelector('[name=bill]').checked ? 1 : null };
+      if (p && p._sp !== sp) {                     // moved between personal and shared: the person and its entries go together
+        const nid = await store.put(sp, null, { ...fields, plan: p.plan || null });
+        const movs = store.records('pmov').filter((m) => m.p === p.id);
+        for (const m of movs) { const { id: _i, _t, _u, _m, _x, _sp, ...f } = m; await store.put(sp, null, { ...f, p: nid }); await store.del(m._sp, m.id); }
+        await store.del(p._sp, p.id); close(); ui.go(`#/people/${nid}`); return;
+      }
+      const id = await store.put(p?._sp || sp, p?.id || null, fields);
       close(); if (!p) ui.go(`#/people/${id}`);
     };
   });

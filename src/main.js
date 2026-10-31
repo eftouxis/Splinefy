@@ -23,6 +23,7 @@ import coupleView from './views/couple.js';
 import officeView from './views/office/index.js';
 import { hasOffice } from './office.js';
 import { hasLessons } from './lessons.js';
+import { autoCalc } from './views/calc.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
@@ -141,6 +142,7 @@ async function start() {
   catch (e) { setTimeout(() => ui.toast('Σύνδεση: ' + e.message, 4000), 300); }
   await store.init();
   syncState.last = (await store.kv.get('lastSync')) || 0;
+  autoCalc();
   window.addEventListener('hashchange', () => { document.querySelectorAll('.sheet-bg').forEach((e) => e.remove()); render(); });
   let lastV = store.state.version;
   store.on((v) => {

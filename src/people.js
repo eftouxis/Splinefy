@@ -9,6 +9,7 @@ export const KINDS = {                      // sign: + they owe me · − I owe 
   iowe: { s: -1, label: 'Του/της χρωστάω', hint: 'νέο χρέος: π.χ. πλήρωσε κάτι για μένα' },
   got: { s: -1, label: 'Μου έδωσε', hint: 'μου έδωσε χρήματα — ξεχρεώνει ό,τι μου χρωστούσε (ή του/της χρωστάω εγώ)' },
   gave: { s: +1, label: 'Του/της έδωσα', hint: 'έδωσα χρήματα — ξεχρεώνω ό,τι του/της χρωστούσα' },
+  set: { s: 0, label: 'Υπόλοιπο από λογαριασμό', hint: 'γράφεις το υπόλοιπο όπως το λέει ο λογαριασμός (π.χ. κοινοχρήστων) και η εφαρμογή βάζει τη διαφορά' },
 };
 const mySpace = () => state.spaces.find((s) => s.owner === state.user && s.members.length === 1 && s.members.includes(state.user));
 export const peopleSpace = () => mySpace()?.id || 'shared';
@@ -27,7 +28,10 @@ export function entries(pid) {
     }
   }
   for (const m of records('pmov')) if (m.p === pid) out.push({ d: m.d, a: (KINDS[m.k]?.s || 0) * (m.a || 0), what: m.note || KINDS[m.k]?.label || '', m });
-  return out.sort((a, b) => (a.d === b.d ? 0 : a.d < b.d ? 1 : -1));
+  // «Υπόλοιπο από λογαριασμό»: the balance becomes exactly that amount (+ they owe us · − we owe them) → its entry is the difference
+  out.sort((a, b) => (a.d !== b.d ? (a.d < b.d ? -1 : 1) : (a.m?.k === 'set') - (b.m?.k === 'set')));
+  let run = 0; for (const e of out) { if (e.m?.k === 'set') { e.a = Math.round(((e.m.a || 0) * (e.m.sign || 1) - run) * 100) / 100; e.setTo = (e.m.a || 0) * (e.m.sign || 1); } run += e.a; }
+  return out.reverse();
 }
 const fmtShare = (o, r) => (o.a != null ? `μερίδιο ${String(Math.round(o.a * 100) / 100).replace('.', ',')} €` : o.f === 0.5 ? 'μισό' : `${Math.round(o.f * 100)}%`);
 export const balance = (pid) => entries(pid).reduce((s, e) => s + e.a, 0);
