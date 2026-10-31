@@ -47,7 +47,9 @@ export function recurringMovements(until = addDays(today(), 60), biz = false) {
       if (d > until || (def.end && d > def.end)) break;
       const oid = `${def.id}@${d}`; const ov = overrides.get(oid) || {};
       if (ov.skip) { out.push({ id: oid, type: 'tx', d, a: 0, desc: def.name, cat: def.cat, kind: def.kind, payer: def.payer, for: def.for, rec: def.id, skipped: true, _sp: def._sp }); continue; }
-      out.push({ id: oid, type: 'tx', d, a: ov.a ?? def.a, desc: def.name, cat: def.cat, kind: def.kind, payer: ov.payer || def.payer,
+      // income taxed later at the tax return (e.g. rent): only the net counts; the tax waits in Οφειλές → Εφορία
+      const gross = ov.a ?? def.a, tx = def.tax && def.kind === 'Έσοδο' ? def.tax : 0;
+      out.push({ id: oid, type: 'tx', d, a: tx ? Math.round(gross * (1 - tx) * 100) / 100 : gross, ...(tx ? { gross, taxA: Math.round(gross * tx * 100) / 100 } : {}), desc: def.name, cat: def.cat, kind: def.kind, payer: ov.payer || def.payer,
                  for: ov.for ?? def.for, rec: def.id, bill: def.bill, oth: def.oth, _sp: def._sp, ofc: def.ofc || null, ooff: def.ooff || null, salary: def.salary || null, biz: def.biz || null, note: ov.note || null });
     }
   }

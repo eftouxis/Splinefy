@@ -22,14 +22,12 @@ export default {
     <h2>Ποιος είσαι σε αυτή τη συσκευή</h2>
     <div class="card"><div class="chips">${['Άλκης', 'Χαρά'].map((u) => `<button class="chip ${S.user === u ? 'on' : ''}" data-user="${u}">${u}</button>`).join('')}</div></div>
     <h2>Οργάνωση</h2>
-    <div class="list"><a class="item" href="#/rec" style="text-decoration:none;color:inherit"><div class="dot">↻</div><div class="grow t">Επαναλαμβανόμενα <span class="small muted">(κάθε μήνα, κάθε χρόνο…)</span></div><div class="muted">›</div></a>
-      <a class="item" href="#/people" style="text-decoration:none;color:inherit"><div class="dot">🤝</div><div class="grow t">Χρωστούμενα με άλλους</div><div class="muted">›</div></a>
+    <div class="list"><a class="item" href="#/rec" style="text-decoration:none;color:inherit"><div class="dot">↻</div><div class="grow t">Επαναλαμβανόμενα</div><div class="muted">›</div></a>
       <a class="item" href="#/trips" style="text-decoration:none;color:inherit"><div class="dot">✈️</div><div class="grow t">Ταξίδια <span class="small muted">(ημερομηνίες, όνομα)</span></div><div class="muted">›</div></a>
       <a class="item" href="#/goals" style="text-decoration:none;color:inherit"><div class="dot">🎯</div><div class="grow t">Στόχοι <span class="small muted">(ξεχρέωμα, αποταμίευση)</span></div><div class="muted">›</div></a>
-      <a class="item" href="#/names" style="text-decoration:none;color:inherit"><div class="dot">✏️</div><div class="grow t">Ενιαία ονόματα <span class="small muted">(ίδια γραφή για κάθε έξοδο)</span></div><div class="muted">›</div></a>
-      <a class="item" href="#/changelog" style="text-decoration:none;color:inherit"><div class="dot">📜</div><div class="grow t">Τι άλλαξε <span class="small muted">(έκδοση ${VERSION})</span></div><div class="muted">›</div></a>
       <a class="item" href="#/cats" style="text-decoration:none;color:inherit"><div class="dot">🏷️</div><div class="grow t">Κατηγορίες και «Είδος»</div><div class="muted">›</div></a>
-      ${store.state.user === 'Άλκης' ? '<a class="item" href="#/lessons/help" style="text-decoration:none;color:inherit"><div class="dot">📚</div><div class="grow t">Μαθήματα: οδηγίες</div><div class="muted">›</div></a>' : ''}</div>
+      <a class="item" href="#/names" style="text-decoration:none;color:inherit"><div class="dot">✏️</div><div class="grow t">Ενιαία ονόματα <span class="small muted">(ίδια γραφή για κάθε έξοδο)</span></div><div class="muted">›</div></a>
+      <a class="item" href="#/changelog" style="text-decoration:none;color:inherit"><div class="dot">📜</div><div class="grow t">Τι άλλαξε <span class="small muted">(έκδοση ${VERSION})</span></div><div class="muted">›</div></a></div>
     <h2>Συγχρονισμός (OneDrive)</h2>
     <div class="card">
       ${CONFIG.devServer ? `<div class="note">Δοκιμαστική λειτουργία: συγχρονισμός με τοπικό φάκελο δοκιμών.</div>` :

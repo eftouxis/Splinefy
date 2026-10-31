@@ -2,7 +2,7 @@
 // Two sources: shares of expenses you paid (oth on a movement / recurring item) and direct entries (pmov).
 import { records, state } from './store.js';
 import { movements, othSum } from './ledger.js';
-import { today } from './util.js';
+import { today, MSHORT as MSH } from './util.js';
 
 export const KINDS = {                      // sign: + they owe me · − I owe them
   owesme: { s: +1, label: 'Μου χρωστάει', hint: 'νέο χρέος: π.χ. πλήρωσα κάτι για αυτόν/ή' },
@@ -18,7 +18,9 @@ export const person = (id) => people().find((p) => p.id === id);
 /** all entries for one person: {d, a(signed), what, src} newest first */
 export function entries(pid) {
   const t = today(); const out = [];
+  const isTax = !!records('person').find((x) => x.id === pid)?.tax;
   for (const r of movements()) {
+    if (isTax && r.taxA && r.d <= t && !r.skipped) out.push({ d: r.d, a: -r.taxA, what: `${r.desc} ${MSH[Number(r.d.slice(5, 7)) - 1]} ${r.d.slice(2, 4)}: φόρος ${Math.round((r.taxA / r.gross) * 100)}% · ${r.for === 'Κοινό' ? 'κοινό' : r.payer}`, tx: r });
     // an expense paid from the credit we have with them (e.g. common charges from the building's credit)
     if (r.cred === pid && r.credA && r.d <= t && !r.skipped) out.push({ d: r.d, a: -r.credA, what: `${r.desc || r.cat} (από το πιστωτικό)`, tx: r });
     if (!r.oth || r.d > t || r.skipped) continue;
