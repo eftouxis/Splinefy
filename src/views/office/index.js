@@ -6,7 +6,8 @@ import { syncBadge } from '../../main.js';
 import { sheet } from '../lessons/ui.js';
 import { entryView } from './entry.js';
 
-const k0 = (x) => eur(x).replace(' €', '');
+const k0 = (x) => `${Math.round(x || 0).toLocaleString('el-GR')} €`;
+let cmpM = 'inc';
 const back = (h) => `<button class="btn sm ghost" data-back="${h || ''}">‹</button>`;
 const bindCommon = (root, ui) => {
   root.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => (b.dataset.back ? ui.go(b.dataset.back) : ui.back())));
@@ -60,7 +61,6 @@ const home = {
     const t = today(); const base = new Date(); base.setDate(1); base.setMonth(base.getMonth() + monthOff);
     const m = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
     const z = O.monthTotals(m); const ly = O.totals(`${Number(m.slice(0, 4)) - 1}${m.slice(4)}-01`, `${Number(m.slice(0, 4)) - 1}${m.slice(4)}-${monthOff === 0 ? t.slice(8) : '31'}`);
-    const bal = O.balance(); const pr = O.pref(); const sal = O.salaryDef();
     const owed = O.partners().map((p) => ({ p, ...O.partnerStatus(p.id) })).filter((x) => Math.abs(x.owed) > 0.004);
     const recent = O.incomes().slice(0, 8);
     const upcoming = O.expenses(true).filter((r) => r.d > t && r.d <= addMonths(t, 1).slice(0, 10)).reverse().slice(0, 6);
@@ -68,27 +68,33 @@ const home = {
     const odebts = O.officeDebts().filter((x) => x.owed > 0.004);
     return `<div class="top"><h1>Γραφείο</h1>${syncBadge()}</div>
     <span class="ac" style="margin-bottom:10px"><input type="search" name="find" placeholder="🔍 Πελάτης (όνομα)" autocomplete="off"><span class="ac-list" data-ac hidden></span></span>
-    <div class="grid2 quick" style="margin-bottom:12px"><a class="btn green" href="#/office/in/new">+ Πληρωμή πελάτη</a><a class="btn red" href="#/office/ex/new">− Έξοδο γραφείου</a></div>
+    <div class="grid2 quick" style="margin-bottom:12px"><a class="btn green" href="#/office/in/new">+ Έσοδο γραφείου</a><a class="btn red" href="#/office/ex/new">− Έξοδο γραφείου</a></div>
     <div class="card">
       <div class="row"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${MONTHS[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}${monthOff === 0 ? ' <span class="small muted">ως σήμερα</span>' : ''}</div>
         <button class="btn sm ghost" data-m="1" ${monthOff >= 0 ? 'disabled' : ''}>▶</button></div>
       <div class="grid3 center" style="margin-top:10px">
         <div data-go="${L(m, 'in')}" style="cursor:pointer"><div class="small muted">Έσοδα ›</div><div class="mid pos">${eur(z.inc)}</div></div>
         <div data-go="${L(m, 'ex')}" style="cursor:pointer"><div class="small muted">Έξοδα ›</div><div class="mid neg">${eur(z.exp)}</div></div>
-        <div data-go="${L(m, 'sal')}" style="cursor:pointer"><div class="small muted">Μισθός ›</div><div class="mid">${eur(z.sal)}</div></div></div>
-      <div class="center" style="margin-top:8px">Αποτέλεσμα <b class="${z.res < 0 ? 'neg' : 'pos'}">${eur(z.res)}</b></div>
-      <div class="small muted center" style="margin-top:4px">Καθαρά (χωρίς ΦΠΑ) <b>${eur(z.net)}</b> · <span data-vatset style="text-decoration:underline;cursor:pointer">ΦΠΑ ${String(Math.round(O.vatRate() * 1000) / 10).replace('.', ',')}%</span> ${eur(z.vat)}<br>${z.n} πληρωμές · <a href="${L(m, 'rcpt')}">🧾 με απόδειξη ${eur(z.rcpt)}</a>${z.disc ? ` · εκπτώσεις συνεργασιών ${eur(z.disc)}` : ''}${z.fee ? ` · αμοιβές συνεργατών ${eur(z.fee)}` : ''} · <span data-pfee style="text-decoration:underline;cursor:pointer">${z.byCat.get(O.COMM_CAT) ? `💳 προμήθειες ${eur(z.byCat.get(O.COMM_CAT))}` : '💳 προμήθειες κάρτας/IRIS'}</span>${z.ninv ? `<br><a href="${L(m, 'inv')}">📑 αγορές με τιμολόγιο ${eur(z.inv)} (ΦΠΑ ${eur(z.ivat)})</a>` : ''}<br>Ίδια περίοδος πέρσι: έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</div>
-      <div class="center" style="margin-top:8px"><button class="btn sm" data-go="#/office/list/${m}">Κινήσεις μήνα ›</button></div></div>
-    <div class="card" data-goal style="cursor:pointer"><div class="row"><b class="grow">🏢 Υπόλοιπο γραφείου</b><b class="${bal < 0 ? 'neg' : 'pos'}" style="font-size:20px">${eur(bal)}</b></div>
-      ${pr.asOf ? '' : '<div class="small neg" style="margin-top:4px">⚠ Δεν έχεις ορίσει πόσα έχει πραγματικά ο λογαριασμός — εδώ μετράνε όλα τα έσοδα − έξοδα από την αρχή, χωρίς τα λεφτά που πήρες για σένα. Πάτα εδώ.</div>'}
-      ${pr.goal ? `<div class="bar" style="margin-top:8px"><i style="width:${Math.max(0, Math.min(100, Math.round((bal / pr.goal) * 100)))}%"></i></div><div class="small muted" style="margin-top:4px">Μαξιλάρι γραφείου: στόχος ${eur(pr.goal)} · ${bal >= pr.goal ? '✓ πέτυχε' : `λείπουν ${eur(pr.goal - bal)}`}</div>` : '<div class="small muted" style="margin-top:4px">Πάτα για στόχο «μαξιλάρι γραφείου» ή αρχικό ποσό</div>'}
-      ${odebts.map((x) => `<div class="row small" style="margin-top:6px"><a class="grow" href="#/odebt/${encodeURIComponent(x.who)}" style="color:inherit">Το γραφείο χρωστάει ${x.who === 'Άλκης' ? 'στον Άλκη' : 'σε ' + esc(x.who)} <b class="neg">${eur(x.owed)}</b> (πλήρωσε έξοδα για το γραφείο) ›</a><button class="btn sm" data-orep="${esc(x.who)}">Τον πλήρωσα</button></div>`).join('')}
-      ${owed.length ? `<div class="small" style="margin-top:6px">Χρωστάς σε συνεργάτες: ${owed.map((x) => `${esc(x.p.name)} <b class="neg">${eur(x.owed)}</b>`).join(' · ')}</div>` : ''}</div>
+        <div data-go="#/office/list/${m}" style="cursor:pointer"><div class="small muted">Κέρδος ›</div><div class="mid ${z.inc - z.exp < 0 ? 'neg' : 'pos'}">${eur(z.inc - z.exp)}</div></div></div>
+      <div class="small muted center" style="margin-top:6px">Κέρδος = έσοδα − έξοδα του μήνα (πριν τον μισθό σου) · πέρσι τον ίδιο μήνα: ${eur(ly.inc - ly.exp)}</div>
+      <details style="margin-top:8px"><summary class="small" style="cursor:pointer;text-align:center">Λεπτομέρειες μήνα</summary>
+        <div class="small" style="margin-top:6px;line-height:1.7">
+          <div class="row"><span class="grow">Πληρωμές πελατών</span><b>${z.n}</b></div>
+          <div class="row"><span class="grow"><a href="${L(m, 'rcpt')}">Από αυτές με απόδειξη</a></span><b>${eur(z.rcpt)}</b></div>
+          <div class="row"><span class="grow">Έσοδα χωρίς τον ΦΠΑ</span><b>${eur(z.net)}</b></div>
+          <div class="row"><span class="grow">ΦΠΑ αποδείξεων (<span data-vatset style="text-decoration:underline;cursor:pointer">${String(Math.round(O.vatRate() * 1000) / 10).replace('.', ',')}%</span>)</span><b>${eur(z.vat)}</b></div>
+          ${z.ninv ? `<div class="row"><span class="grow"><a href="${L(m, 'inv')}">Αγορές με τιμολόγιο</a> · ΦΠΑ ${eur(z.ivat)}</span><b>${eur(z.inv)}</b></div>` : ''}
+          ${z.fee ? `<div class="row"><span class="grow">Αμοιβές συνεργατών (μέσα στα έξοδα)</span><b>${eur(z.fee)}</b></div>` : ''}
+          ${z.disc ? `<div class="row"><span class="grow">Εκπτώσεις σε πελάτες συνεργατών</span><b>${eur(z.disc)}</b></div>` : ''}
+          <div class="row"><span class="grow"><span data-pfee style="text-decoration:underline;cursor:pointer">Προμήθειες κάρτας / IRIS</span></span><b>${eur(z.byCat.get(O.COMM_CAT) || 0)}</b></div>
+          <div class="row"><span class="grow">Μισθός σου</span><b>${eur(z.sal)}</b></div>
+          <div class="row"><span class="grow">Μένουν στο γραφείο (κέρδος − μισθός)</span><b class="${z.res < 0 ? 'neg' : 'pos'}">${eur(z.res)}</b></div>
+          <div class="row muted"><span class="grow">Ίδιος μήνας πέρσι</span><span>έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</span></div>
+        </div></details></div>
     ${dues.length ? `<div class="card"><b>Εκκρεμότητες πελατών</b>
       ${dues.filter((x) => x.due > 0).length ? `<div class="small" style="margin-top:4px">Σου χρωστάνε <b class="pos">${eur(dues.filter((x) => x.due > 0).reduce((s, x) => s + x.due, 0))}</b>: ${dues.filter((x) => x.due > 0).map((x) => `<a href="#/office/c/${encodeURIComponent(x.name)}">${esc(x.name)}</a> ${eur(x.due)}`).join(' · ')}</div>` : ''}
       ${dues.filter((x) => x.due < 0).length ? `<div class="small" style="margin-top:4px">Χρωστάς <b class="neg">${eur(-dues.filter((x) => x.due < 0).reduce((s, x) => s + x.due, 0))}</b>: ${dues.filter((x) => x.due < 0).map((x) => `<a href="#/office/c/${encodeURIComponent(x.name)}">${esc(x.name)}</a> ${eur(-x.due)}`).join(' · ')}</div>` : ''}</div>` : ''}
-    <div class="card" data-sal style="cursor:pointer"><div class="row"><span class="dot">👩‍⚕️</span><div class="grow"><div class="small muted">Μισθός Χαράς (έξοδο γραφείου → έσοδο στα προσωπικά)</div>
-      <div class="mid">${sal ? `${eur(sal.a)} τον μήνα · από ${dFull(sal.start)}` : 'Όρισε μισθό'}</div></div><span class="muted">›</span></div></div>
+    ${odebts.length || owed.length ? `<div class="card small">${odebts.map((x) => `<div><a href="#/odebt/${encodeURIComponent(x.who)}">Το γραφείο χρωστάει ${x.who === 'Άλκης' ? 'στον Άλκη' : 'σε ' + esc(x.who)} <b class="neg">${eur(x.owed)}</b> ›</a></div>`).join('')}${owed.length ? `<div><a href="#/office/partners">Χρωστάς σε συνεργάτες: ${owed.map((x) => `${esc(x.p.name)} <b class="neg">${eur(x.owed)}</b>`).join(' · ')} ›</a></div>` : ''}</div>` : ''}
     <h2>Τελευταίες πληρωμές</h2>
     <div class="list">${recent.map(payRow).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>
     ${upcoming.length ? `<h2>Έρχονται (30 μέρες)</h2><div class="list">${upcoming.map(expRow).join('')}</div>` : ''}`;
@@ -96,7 +102,6 @@ const home = {
   mount(root, p, ui) {
     bindCommon(root, ui);
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { monthOff = Math.min(0, monthOff + Number(b.dataset.m)); ui.render(); }));
-    root.querySelector('[data-sal]').addEventListener('click', () => salarySheet(ui));
     const fi = root.querySelector('[name=find]'), box = root.querySelector('[data-ac]');
     const showF = () => { const q = norm(fi.value).trim(); if (!q) { box.hidden = true; return; }
       const hits = O.clients().filter((c) => norm(c.name).includes(q)).sort((a, b) => (norm(a.name).startsWith(q) ? 0 : 1) - (norm(b.name).startsWith(q) ? 0 : 1) || (a.last < b.last ? 1 : -1)).slice(0, 8);
@@ -105,8 +110,6 @@ const home = {
     box.addEventListener('pointerdown', (e) => e.preventDefault());
     box.addEventListener('click', (e) => { const b = e.target.closest('[data-acv]'); if (b) ui.go(`#/office/c/${encodeURIComponent(b.dataset.acv)}`); });
     fi.addEventListener('keydown', (e) => { if (e.key !== 'Enter') return; const b = box.querySelector('[data-acv]'); if (b) ui.go(`#/office/c/${encodeURIComponent(b.dataset.acv)}`); });
-    root.querySelector('[data-goal]').addEventListener('click', (e) => { if (e.target.closest('[data-orep],a')) return; goalSheet(ui); });
-    root.querySelectorAll('[data-orep]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); repaySheet(b.dataset.orep); }));
     root.querySelector('[data-vatset]')?.addEventListener('click', () => sheet(`<div class="mid">ΦΠΑ στις αποδείξεις</div><div class="small muted">Ισχύει για τις νέες πληρωμές με απόδειξη (οι παλιές κρατάνε το ποσοστό που είχαν).</div>
       <label class="f" style="margin-top:10px"><span>Ποσοστό ΦΠΑ (%)</span><input name="v" inputmode="decimal" value="${String(Math.round(O.vatRate() * 1000) / 10).replace('.', ',')}"></label>
       <button class="btn primary" data-ok>Αποθήκευση</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
@@ -196,12 +199,13 @@ const clientView = {
   html([name]) {
     const ps = O.clientPays(name); const sum = ps.reduce((s, r) => s + (r.a || 0), 0); const due = O.clientDue(name); const cd = O.clientCard(name);
     return `<div class="top">${back()}<h1>${esc(name)}</h1><button class="btn sm" data-card>${cd ? 'Στοιχεία' : '+ Στοιχεία'}</button></div>
+    ${(() => { const s = O.clientSource(name); return s ? `<div class="small muted" style="margin:-4px 4px 8px">Σε έμαθε από: <b>${esc(O.srcLabel(s))}</b>${s.set ? '' : ' (από τις πληρωμές του)'}</div>` : '<div class="small muted" style="margin:-4px 4px 8px">Από πού σε έμαθε: — (πάτα «Στοιχεία»)</div>'; })()}
     ${cd && (cd.phone || cd.email || cd.note) ? `<div class="card small">${cd.phone ? `📞 <a href="tel:${esc(cd.phone.replace(/[^\d+]/g, ''))}">${esc(cd.phone)}</a>` : ''}${cd.phone && cd.email ? ' · ' : ''}${cd.email ? `✉️ <a href="mailto:${esc(cd.email)}">${esc(cd.email)}</a>` : ''}${cd.note ? `<div class="muted" style="margin-top:4px">${esc(cd.note)}</div>` : ''}</div>` : ''}
     ${due ? `<div class="card kpi"><div class="label">${due > 0 ? 'Σου χρωστάει' : 'Του/της χρωστάς'}</div><div class="big ${due > 0 ? 'pos' : 'neg'}">${eur(Math.abs(due))}</div><div class="small muted">από την τελευταία πληρωμή — διορθώνεται εκεί</div></div>` : ''}
     <div class="grid3"><div class="card kpi"><div class="label">Σύνολο</div><div class="mid">${eur(sum)}</div></div>
       <div class="card kpi"><div class="label">Πληρωμές</div><div class="mid">${ps.length}</div></div>
       <div class="card kpi"><div class="label">Από</div><div class="mid">${ps.length ? dFull(ps[ps.length - 1].d) : '—'}</div></div></div>
-    <a class="btn green" style="width:100%;margin-bottom:12px" href="#/office/in/new?cl=${encodeURIComponent(name)}">+ Πληρωμή από ${esc(name.split(' ')[0])}</a>
+    <a class="btn green" style="width:100%;margin-bottom:12px" href="#/office/in/new?cl=${encodeURIComponent(name)}">+ Έσοδο από ${esc(name.split(' ')[0])}</a>
     <div class="list">${ps.map(payRow).join('')}</div>`;
   },
   mount(root, [name], ui) { bindCommon(root, ui); root.querySelector('[data-card]').addEventListener('click', () => clientSheet(ui, O.clientCard(decodeURIComponent(name)), decodeURIComponent(name))); },
@@ -211,13 +215,17 @@ function clientSheet(ui, c, name = '') {
   sheet(`<div class="mid">${c ? 'Στοιχεία πελάτη' : 'Νέος πελάτης'}</div>
     <label class="f" style="margin-top:10px"><span>Ονοματεπώνυμο</span><input name="name" value="${esc(c?.name || name || '')}"></label>
     <div class="grid2"><label class="f"><span>Κινητό</span><input name="phone" inputmode="tel" value="${esc(c?.phone || '')}"></label><label class="f"><span>E-mail</span><input name="email" inputmode="email" value="${esc(c?.email || '')}"></label></div>
+    ${(() => { const cur = c?.src ? { src: c.src, part: c.srcPart } : (name ? O.clientSource(name) : null); const parts = O.partners();
+      return `<label class="f"><span>Από πού σε έμαθε</span><select name="src"><option value=""></option>${O.SRCS.map((x) => `<option ${cur?.src === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+      <label class="f" data-srcpart style="${cur?.src === 'Συνεργαζόμενος χώρος' ? '' : 'display:none'}"><span>Ποιος συνεργαζόμενος χώρος</span><select name="srcPart"><option value=""></option>${parts.map((x) => `<option value="${esc(x.id)}" ${cur?.part === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>`; })()}
     <label class="f"><span>Σημείωση</span><input name="note" value="${esc(c?.note || '')}"></label>
     <button class="btn primary" data-ok>Αποθήκευση</button>${c ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή στοιχείων</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-no]').onclick = close;
     el.querySelector('[data-del]')?.addEventListener('click', async () => { await store.del(c._sp, c.id); close(); });
+    el.querySelector('[name=src]').addEventListener('change', (e) => { el.querySelector('[data-srcpart]').style.display = e.target.value === 'Συνεργαζόμενος χώρος' ? '' : 'none'; });
     el.querySelector('[data-ok]').onclick = async () => {
       const v = (k) => el.querySelector(`[name=${k}]`).value.trim() || null; const nm = v('name'); if (!nm) return;
-      await store.put(O.OSP, c?.id || null, { type: 'ocl', name: nm, phone: v('phone'), email: v('email'), note: v('note') }); close();
+      await store.put(O.OSP, c?.id || null, { type: 'ocl', name: nm, phone: v('phone'), email: v('email'), note: v('note'), src: v('src'), srcPart: v('src') === 'Συνεργαζόμενος χώρος' ? v('srcPart') : null }); close();
       if (!c) ui.go(`#/office/c/${encodeURIComponent(nm)}`);
     };
   });
@@ -277,26 +285,43 @@ const statsView = {
     const bar = (l, tot, fk) => l.map(([k, v]) => `<div style="margin:6px 0;cursor:pointer" data-go="${L(statY, `${fk}:${k}`)}"><div class="row"><span class="grow">${esc(k)}</span><b>${eur(v)}</b><span class="small muted" style="width:44px;text-align:right">${tot ? Math.round((v / tot) * 100) : 0}%</span></div><div class="bar" style="margin-top:3px"><i style="width:${tot ? Math.round((v / l[0][1]) * 100) : 0}%"></i></div></div>`).join('');
     return `<div class="top">${back('#/office')}<h1>Στατιστικά γραφείου</h1></div>
     <div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-y="-1">◀</button><div class="grow center mid">${statY}</div><button class="btn sm ghost" data-y="1" ${statY >= Number(t.slice(0, 4)) ? 'disabled' : ''}>▶</button></div>
-    <div class="card" style="overflow-x:auto"><table class="t st"><tr><th>Μήνας</th><th class="r">Έσοδα</th><th class="r">🧾</th><th class="r">Καθαρά</th><th class="r">Έξοδα</th>${hasSal ? '<th class="r">Μισθός</th>' : ''}<th class="r">Αποτέλ.</th></tr>
+    <div class="card" style="overflow-x:auto"><table class="t st"><tr><th>Μήνας</th><th class="r">Έσοδα</th><th class="r">🧾</th><th class="r">Καθαρά</th><th class="r">Έξοδα</th>${hasSal ? '<th class="r">Μισθός</th>' : ''}<th class="r">Μένουν</th></tr>
       ${rows.slice().reverse().map((r) => `<tr class="click"><td data-go="#/office/list/${r.m}">${MSHORT[Number(r.m.slice(5)) - 1]}</td><td class="r pos" data-go="${L(r.m, 'in')}">${k0(r.inc)}</td><td class="r muted" data-go="${L(r.m, 'rcpt')}">${k0(r.rcpt)}</td><td class="r" data-go="${L(r.m, 'in')}">${k0(r.net)}</td><td class="r" data-go="${L(r.m, 'ex')}">${k0(r.exp)}</td>${hasSal ? `<td class="r" data-go="${L(r.m, 'sal')}">${k0(r.sal)}</td>` : ''}<td class="r ${r.res < 0 ? 'neg' : 'pos'}" data-go="#/office/list/${r.m}">${k0(r.res)}</td></tr>`).join('')}
       <tr class="tot click"><td data-go="#/office/list/${statY}">Σύνολο</td><td class="r" data-go="${L(statY, 'in')}">${k0(Y.inc)}</td><td class="r" data-go="${L(statY, 'rcpt')}">${k0(Y.rcpt)}</td><td class="r">${k0(Y.net)}</td><td class="r" data-go="${L(statY, 'ex')}">${k0(Y.exp)}</td>${hasSal ? `<td class="r">${k0(Y.sal)}</td>` : ''}<td class="r">${k0(Y.res)}</td></tr>
       <tr><td>Μ.Ο.</td><td class="r">${k0(Y.inc / n)}</td><td class="r">${k0(Y.rcpt / n)}</td><td class="r">${k0(Y.net / n)}</td><td class="r">${k0(Y.exp / n)}</td>${hasSal ? `<td class="r">${k0(Y.sal / n)}</td>` : ''}<td class="r">${k0(Y.res / n)}</td></tr></table>
-      <div class="small muted" style="margin-top:6px">σε € · 🧾 = με απόδειξη · Καθαρά = χωρίς τον ΦΠΑ των αποδείξεων (χωρίς απόδειξη = όλο) · ΦΠΑ χρονιάς ${eur(Y.vat)}${Y.disc ? ` · εκπτώσεις συνεργασιών ${eur(Y.disc)}` : ''} · πάτα όποιο νούμερο για τις κινήσεις του</div></div>
+      <div class="small muted" style="margin-top:6px">🧾 = με απόδειξη · Μένουν = έσοδα − έξοδα − μισθός · Καθαρά = χωρίς τον ΦΠΑ των αποδείξεων (χωρίς απόδειξη = όλο) · ΦΠΑ χρονιάς ${eur(Y.vat)}${Y.disc ? ` · εκπτώσεις συνεργασιών ${eur(Y.disc)}` : ''} · πάτα όποιο νούμερο για τις κινήσεις του</div></div>
     ${Y.ninv || Y.vat ? (() => { const q = [1, 2, 3, 4].map((i) => { const ms3 = rows.filter((r) => Math.ceil(Number(r.m.slice(5)) / 3) === i); return { i, inv: ms3.reduce((s, r) => s + r.inv, 0), ivat: ms3.reduce((s, r) => s + r.ivat, 0), vat: ms3.reduce((s, r) => s + r.vat, 0), n: ms3.length }; }).filter((x) => x.n);
       return `<h2>ΦΠΑ: αποδείξεις & τιμολόγια</h2><div class="card" style="overflow-x:auto"><table class="t st"><tr><th></th><th class="r">ΦΠΑ εκρ.</th><th class="r">Τιμολ.</th><th class="r">ΦΠΑ εισρ.</th><th class="r">Διαφ.</th></tr>
       ${rows.slice().reverse().filter((r) => r.vat || r.ninv).map((r) => `<tr class="click" data-go="${L(r.m, 'inv')}"><td>${MSHORT[Number(r.m.slice(5)) - 1]}</td><td class="r">${k0(r.vat)}</td><td class="r">${k0(r.inv)}</td><td class="r">${k0(r.ivat)}</td><td class="r">${k0(r.vat - r.ivat)}</td></tr>`).join('')}
       ${q.map((x) => `<tr class="tot"><td>${x.i}ο τρίμ.</td><td class="r">${k0(x.vat)}</td><td class="r">${k0(x.inv)}</td><td class="r">${k0(x.ivat)}</td><td class="r">${k0(x.vat - x.ivat)}</td></tr>`).join('')}
       <tr class="tot click" data-go="${L(statY, 'inv')}"><td>${statY}</td><td class="r">${k0(Y.vat)}</td><td class="r">${k0(Y.inv)}</td><td class="r">${k0(Y.ivat)}</td><td class="r">${k0(Y.vat - Y.ivat)}</td></tr></table>
       <div class="small muted" style="margin-top:6px">ΦΠΑ εκρ. = ΦΠΑ των αποδείξεων, ό,τι χρέωσες στους πελάτες (εκροές). Τιμολ. = αγορές με τιμολόγιο. ΦΠΑ εισρ. = ο ΦΠΑ μέσα σε αυτά, ό,τι πλήρωσες σε αγορές με τιμολόγιο στο ΑΦΜ του γραφείου (εισροές), που συμψηφίζεται. Διαφορά ≈ ΦΠΑ προς απόδοση. Ενδεικτικά — τα τελικά τα βγάζει ο λογιστής.</div></div>`; })() : ''}
+    ${(() => { const ys = [statY - 3, statY - 2, statY - 1, statY].filter((y) => O.incomes().some((r) => (r.md || r.d).startsWith(String(y))) || y === statY);
+      const val = (x) => (cmpM === 'inc' ? x.inc : cmpM === 'exp' ? x.exp : x.inc - x.exp);
+      const lastM = statY === Number(t.slice(0, 4)) ? t.slice(5, 7) : '12';
+      const cell = (y, mm) => val(O.monthTotals(`${y}-${mm}`));
+      const mms = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+      return `<h2>Σύγκριση με προηγούμενα χρόνια</h2><div class="chips" style="margin-bottom:6px">${[['inc', 'Έσοδα'], ['exp', 'Έξοδα'], ['res', 'Κέρδος']].map(([k, l]) => `<button class="chip ${cmpM === k ? 'on' : ''}" data-cmp="${k}">${l}</button>`).join('')}</div>
+      <div class="card" style="overflow-x:auto"><table class="t st"><tr><th>Μήνας</th>${ys.map((y) => `<th class="r">${y}</th>`).join('')}</tr>
+      ${mms.map((mm) => `<tr><td>${MSHORT[Number(mm) - 1]}</td>${ys.map((y) => `<td class="r ${y === statY ? '' : 'muted'}">${`${y}-${mm}` > t.slice(0, 7) ? '' : k0(cell(y, mm))}</td>`).join('')}</tr>`).join('')}
+      <tr class="tot"><td>Ιαν–${MSHORT[Number(lastM) - 1]}</td>${ys.map((y) => `<td class="r">${k0(val(O.totals(`${y}-01-01`, `${y}-${lastM}-${statY === Number(t.slice(0, 4)) ? t.slice(8) : '31'}`)))}</td>`).join('')}</tr>
+      <tr class="tot"><td>Όλη η χρονιά</td>${ys.map((y) => `<td class="r">${k0(val(O.totals(`${y}-01-01`, `${y}-12-31`)))}</td>`).join('')}</tr></table>
+      <div class="small muted" style="margin-top:6px">«Ιαν–${MSHORT[Number(lastM) - 1]}» = το ίδιο διάστημα κάθε χρονιάς${statY === Number(t.slice(0, 4)) ? ' (ως σήμερα)' : ''}, για δίκαιη σύγκριση · Κέρδος = έσοδα − έξοδα (πριν τον μισθό)</div></div>`; })()}
     <h2>Ανά υπηρεσία</h2><div class="card">${bar(sv, Y.inc, 'svc') || '<span class="muted">—</span>'}</div>
     <h2>Έξοδα ανά κατηγορία</h2><div class="card">${bar(ct, Y.exp, 'cat') || '<span class="muted">—</span>'}</div>
     ${parts.length ? `<h2>Αμοιβές συνεργατών</h2><div class="card">${parts.map((x) => `<div class="row" style="margin:4px 0;cursor:pointer" data-go="${L(statY, 'part:' + x.p.id)}"><span class="grow">${esc(x.p.name)} <span class="small muted">${fmtPct(x.p.pct)}</span></span><b>${eur(x.v)}</b></div>`).join('')}</div>` : ''}
     <div class="row" style="margin:18px 2px 6px"><h2 class="grow" style="margin:0">Τρόπος πληρωμής</h2><button class="btn sm" data-pfee>💳 Προμήθειες ›</button></div><div class="card">${bar(pm, Y.inc, 'pay')}${Y.byCat.get(O.COMM_CAT) ? `<div class="small muted" style="margin-top:6px">Προμήθειες τραπεζών ${statY}: <b>${eur(Y.byCat.get(O.COMM_CAT))}</b> (${Object.entries(O.payFees()).map(([k, v]) => `${esc(k)} ${pctS(v.p) || 0}%${v.f ? ` + ${String(v.f).replace('.', ',')} €` : ''}`).join(' · ')})</div>` : ''}</div>
+    ${(() => { const nw = O.clients().filter((c) => c.n && c.first && c.first.startsWith(String(statY))); const m = new Map(); let unk = 0;
+      for (const c of nw) { const s = O.clientSource(c.name); if (!s) { unk++; continue; } const k = O.srcLabel(s); m.set(k, (m.get(k) || 0) + 1); }
+      const l = [...m.entries()].sort((a, b) => b[1] - a[1]); if (!nw.length) return '';
+      return `<h2>Πώς σε βρήκαν οι νέοι πελάτες ${statY}</h2><div class="card">${l.map(([k, v]) => `<div style="margin:6px 0"><div class="row"><span class="grow">${esc(k)}</span><b>${v}</b><span class="small muted" style="width:44px;text-align:right">${Math.round((v / nw.length) * 100)}%</span></div><div class="bar" style="margin-top:3px"><i style="width:${Math.round((v / l[0][1]) * 100)}%"></i></div></div>`).join('')}
+        <div class="small muted" style="margin-top:6px">${nw.length} νέοι πελάτες${unk ? ` · ${unk} χωρίς «από πού σε έμαθε» (το βάζεις στα «Στοιχεία» του πελάτη)` : ''}</div></div>`; })()}
     <h2>Κορυφαίοι πελάτες ${statY}</h2><div class="list">${top.map((c) => `<div class="item" data-go="#/office/c/${encodeURIComponent(c.name)}"><div class="grow"><div class="t">${esc(c.name)}</div></div><div class="amt">${eur(c.y)}</div></div>`).join('')}</div>`;
   },
   mount(root, p, ui) {
     bindCommon(root, ui);
     root.querySelectorAll('[data-y]').forEach((b) => b.addEventListener('click', () => { statY += Number(b.dataset.y); ui.render(); }));
+    root.querySelectorAll('[data-cmp]').forEach((b) => b.addEventListener('click', () => { cmpM = b.dataset.cmp; ui.render(); }));
   },
 };
 
@@ -336,7 +361,30 @@ const recView = {
   mount(root, p, ui) { bindCommon(root, ui); },
 };
 
-const PAGES = { list, clients: clientsView, c: clientView, partners: partnersView, stats: statsView, fixed: fixedView, rec: recView, in: entryView('in'), ex: entryView('ex') };
+const cashView = {
+  html() {
+    const bal = O.balance(); const pr = O.pref(); const sal = O.salaryDef(); const t = today();
+    const odebts = O.officeDebts().filter((x) => x.owed > 0.004);
+    const owed = O.partners().map((p) => ({ p, ...O.partnerStatus(p.id) })).filter((x) => Math.abs(x.owed) > 0.004);
+    return `<div class="top">${back('#/office')}<h1>Ταμείο & μισθός</h1></div>
+    <div class="card" data-goal style="cursor:pointer"><div class="row"><b class="grow">🏦 Ταμείο γραφείου</b><b class="${bal < 0 ? 'neg' : 'pos'}" style="font-size:20px">${eur(bal)}</b></div>
+      <div class="small muted" style="margin-top:4px">Πόσα χρήματα έχει η επιχείρηση${pr.asOf ? ` σήμερα: όσα είχε ο λογαριασμός στις ${dFull(pr.asOf)} + έσοδα − έξοδα − μισθοί από τότε` : ': όλα τα έσοδα − όλα τα έξοδα − οι μισθοί σου από την αρχή'}. Τα έξοδα που πλήρωσε άλλος για το γραφείο αφαιρούνται όταν του τα επιστρέψεις.</div>
+      ${pr.asOf ? '' : '<div class="small neg" style="margin-top:4px">⚠ Πάτα εδώ και γράψε πόσα έχει πραγματικά ο λογαριασμός του γραφείου σήμερα, για να είναι σωστό.</div>'}
+      ${pr.goal ? `<div class="bar" style="margin-top:8px"><i style="width:${Math.max(0, Math.min(100, Math.round((bal / pr.goal) * 100)))}%"></i></div><div class="small muted" style="margin-top:4px">Μαξιλάρι γραφείου: στόχος ${eur(pr.goal)} · ${bal >= pr.goal ? '✓ πέτυχε' : `λείπουν ${eur(pr.goal - bal)}`}</div>` : '<div class="small muted" style="margin-top:4px">Πάτα για στόχο «μαξιλάρι γραφείου»</div>'}</div>
+    ${odebts.length || owed.length ? `<div class="card"><b>Τι χρωστάει το γραφείο</b>
+      ${odebts.map((x) => `<div class="row small" style="margin-top:6px"><a class="grow" href="#/odebt/${encodeURIComponent(x.who)}" style="color:inherit">${x.who === 'Άλκης' ? 'Στον Άλκη' : 'Σε ' + esc(x.who)} <b class="neg">${eur(x.owed)}</b> (πλήρωσε έξοδα για το γραφείο) ›</a><button class="btn sm" data-orep="${esc(x.who)}">Τον πλήρωσα</button></div>`).join('')}
+      ${owed.map((x) => `<div class="small" style="margin-top:6px"><a href="#/office/partners">Σε ${esc(x.p.name)} <b class="neg">${eur(x.owed)}</b> (αμοιβές συνεργασίας) ›</a></div>`).join('')}</div>` : ''}
+    <div class="card" data-sal style="cursor:pointer"><div class="row"><span class="dot">👩‍⚕️</span><div class="grow"><div class="small muted">Μισθός σου (έξοδο του γραφείου → έσοδο στα προσωπικά σου)</div>
+      <div class="mid">${sal ? `${eur(sal.a)} τον μήνα · από ${dFull(sal.start)}` : 'Όρισε μισθό'}</div></div><span class="muted">›</span></div></div>`;
+  },
+  mount(root, p, ui) {
+    bindCommon(root, ui);
+    root.querySelector('[data-sal]').addEventListener('click', () => salarySheet(ui));
+    root.querySelector('[data-goal]').addEventListener('click', () => goalSheet(ui));
+    root.querySelectorAll('[data-orep]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); repaySheet(b.dataset.orep); }));
+  },
+};
+const PAGES = { cash: cashView, list, clients: clientsView, c: clientView, partners: partnersView, stats: statsView, fixed: fixedView, rec: recView, in: entryView('in'), ex: entryView('ex') };
 const denied = { html: () => '<div class="card">Το γραφείο φαίνεται μόνο στη Χαρά.</div>' };
 const pick = (p) => (!O.hasOffice() ? denied : PAGES[p[0]] || home);
 export default {

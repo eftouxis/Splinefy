@@ -88,7 +88,7 @@ export function render() {
   // inside Γραφείο: a second row just above the bar with its sections
   let sub = document.getElementById('subnav');
   const SUBS = {
-    office: hasOffice() && [['clients', '👥', 'Πελάτες', 'c'], ['partners', '🤝', 'Συνεργάτες'], ['stats', '📊', 'Στατιστικά'], ['list', '📄', 'Κινήσεις'], ['fixed', '📋', 'Πάγια'], ['rec', '↻', 'Επαναλ.']],
+    office: hasOffice() && [['clients', '👥', 'Πελάτες', 'c'], ['partners', '🤝', 'Συνεργάτες'], ['stats', '📊', 'Στατιστικά'], ['list', '📄', 'Κινήσεις'], ['cash', '🏦', 'Ταμείο'], ['fixed', '📋', 'Πάγια'], ['rec', '↻', 'Επαναλ.']],
     lessons: hasLessons() && [['sched', '🗓', 'Πρόγραμμα'], ['sal', '💼', 'Μισθοί'], ['stats', '📊', 'Στατιστικά'], ['hol', '🏖', 'Αργίες'], ['all', '👥', 'Μαθητές'], ['help', '❓', 'Οδηγίες']],
   };
   if (SUBS[key]) {

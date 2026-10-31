@@ -9,6 +9,16 @@ export const OSP = 'chara';
 export const hasOffice = () => state.user === 'Χαρά' && !!state.data[OSP];
 export const PAYS = ['Μετρητά', 'POS', 'IRIS', 'Εθνική', 'Revolut', 'IBAN'];
 export const ECATS = ['Πάγια έξοδα', 'Marketing', 'Αμοιβή συνεργασίας', 'Πληρωμή Συνεργάτη', 'Εξοπλισμός γραφείου', 'ΕΦΚΑ / Φόροι', 'Λογιστής', 'Αγορές', 'Άλλο'];
+/** expense categories (can be changed in the expense form → «✎ Κατηγορίες») */
+export const ecats = () => (Array.isArray(pref().ecats) && pref().ecats.length ? pref().ecats : ECATS);
+/** where a client heard about the office */
+export const SRCS = ['Συνεργαζόμενος χώρος', 'Instagram', 'Facebook', 'TikTok', 'Google / αναζήτηση', 'Ιστοσελίδα', 'Σύσταση από πελάτη', 'Φίλοι / γνωστοί', 'Γιατρός / φαρμακείο', 'Ομιλία / εκδήλωση', 'Άλλο'];
+/** a client's source: what the card says, otherwise the partner of their payments */
+export function clientSource(name) {
+  const c = clientCard(name); if (c?.src) return { src: c.src, part: c.srcPart || null, set: true };
+  const p = clientPays(name).find((r) => r.part); return p ? { src: 'Συνεργαζόμενος χώρος', part: p.part, set: false } : null;
+}
+export const srcLabel = (s) => (!s ? '' : s.src === 'Συνεργαζόμενος χώρος' && s.part ? `🤝 ${partner(s.part)?.name || 'συνεργάτης'}` : s.src);
 export const SALARY_CAT = 'Μισθός Χαράς';
 const SAL_NAME = 'Μισθός από γραφείο';
 export const COMM_CAT = 'Προμήθειες πληρωμών';

@@ -38,7 +38,7 @@ export function entryView(k) {
         st[k] = f; if (location.hash.includes('?')) history.replaceState(null, '', `#/office/${k}/${id}`);
       }
       const parts = O.partners().filter((p) => p.active !== false || p.id === f.part);
-      const top = `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${f.id ? 'Επεξεργασία' : k === 'in' ? 'Πληρωμή πελάτη' : 'Έξοδο γραφείου'}</h1></div>`;
+      const top = `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${f.id ? 'Επεξεργασία' : k === 'in' ? 'Έσοδο γραφείου' : 'Έξοδο γραφείου'}</h1></div>`;
       const amount = `<input class="amount" name="a" inputmode="decimal" placeholder="0,00 €" value="${esc(f.a)}" autocomplete="off">${calcHtml()}`;
       if (k === 'in') {
         const svcs = O.services().slice(0, 7);
@@ -46,6 +46,7 @@ export function entryView(k) {
         return `${top}<div class="card">
           <label class="f"><span>Πελάτης</span><span class="ac"><input name="cl" value="${esc(f.cl)}" autocomplete="off" placeholder="Όνομα πελάτη"><span class="ac-list" data-ac hidden></span></span></label>
           ${f.id ? '' : `<div class="note" data-newcl style="margin:-4px 0 12px;${!f.cl || O.clientCard(f.cl) || O.clientPays(f.cl).length ? 'display:none' : ''}"><div class="small" style="font-weight:700;margin-bottom:6px">🆕 Νέος πελάτης — στοιχεία (προαιρετικά)</div>
+            <label class="f" style="margin:0 0 8px"><span>Από πού σε έμαθε</span><select name="clSrc"><option value=""></option>${O.SRCS.map((x) => `<option ${f.clSrc === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
             <div class="grid2"><label class="f" style="margin:0"><span>Κινητό</span><input name="clPhone" inputmode="tel" value="${esc(f.clPhone || '')}"></label><label class="f" style="margin:0"><span>E-mail</span><input name="clEmail" inputmode="email" value="${esc(f.clEmail || '')}"></label></div></div>`}
           <label class="f"><span>Υπηρεσία</span>${chips('svc', svcs.map((s) => [s.name, s.name]), O.svcGroup(f.svc) === f.svc ? f.svc : '')}
             <input name="svc" value="${esc(f.svc)}" placeholder="ή γράψε (π.χ. πακέτο 4 φορές)" style="margin-top:6px"></label>
@@ -72,10 +73,11 @@ export function entryView(k) {
         <div class="grid2" style="margin-top:10px"><label class="f"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(f.d)}"></label>
           <label class="f"><span>Τρόπος πληρωμής</span><input name="pay" value="${esc(f.pay || '')}" placeholder="π.χ. Εθνική"></label></div>
         <label class="f"><span>Περιγραφή</span><span class="ac"><input name="desc" value="${esc(f.desc)}" autocomplete="off" placeholder="π.χ. NRG, Marweb Νοέμβριος"><span class="ac-list" data-ac hidden></span></span></label>
-        <label class="f"><span>Κατηγορία</span>${chips('cat', O.ECATS.map((c) => [c, c]), f.cat)}</label>
+        <label class="f"><span class="row"><span class="grow">Κατηγορία</span><button type="button" class="btn sm ghost" data-ecats style="padding:2px 8px">✎ Κατηγορίες</button></span>${chips('cat', [...new Set([...O.ecats(), ...(f.cat ? [f.cat] : [])])].map((c) => [c, c]), f.cat)}</label>
         ${f.cat === 'Αμοιβή συνεργασίας' ? `<label class="f"><span>Σε ποιον συνεργάτη</span>${chips('part', parts.map((p) => [p.id, p.name]), f.part)}</label>` : ''}
         <label class="row small" style="margin:0 2px 10px"><input type="checkbox" name="inv" style="width:auto" ${f.inv ? 'checked' : ''}> 📑 Με τιμολόγιο (στο ΑΦΜ του γραφείου)</label>
-        ${f.inv ? `<label class="f" style="margin-top:-4px"><span>ΦΠΑ μέσα στο τιμολόγιο (€)</span><input name="ivat" inputmode="decimal" value="${esc(f.ivat ?? '')}" placeholder="άδειο = ${cm(Math.round(((parseAmount(f.a) || 0) - (parseAmount(f.a) || 0) / (1 + O.vatRate())) * 100) / 100)} (${Math.round(O.vatRate() * 100)}%)"></label>` : ''}
+        ${f.inv ? `<label class="f" style="margin-top:-4px"><span>Ο ΦΠΑ που γράφει το τιμολόγιο, σε €</span><input name="ivat" inputmode="decimal" value="${esc(f.ivat ?? '')}" placeholder="π.χ. ${cm(Math.round(((parseAmount(f.a) || 0) - (parseAmount(f.a) || 0) / (1 + O.vatRate())) * 100) / 100) || '58,06'}"></label>
+          <div class="small muted" style="margin:-6px 2px 10px">Αν το αφήσεις κενό, μετράει ΦΠΑ ${Math.round(O.vatRate() * 100)}% μέσα στο ποσό${parseAmount(f.a) ? ` (= ${cm(Math.round(((parseAmount(f.a) || 0) - (parseAmount(f.a) || 0) / (1 + O.vatRate())) * 100) / 100)} € για ${cm(parseAmount(f.a))} €)` : ''}. Γράψε ποσό μόνο αν το τιμολόγιο έχει άλλο ΦΠΑ (π.χ. 6% ή 13%).</div>` : ''}
         <label class="f"><span>Σημείωση</span><input name="note" value="${esc(f.note || '')}"></label>
         ${f.id ? '' : `<label class="row small" style="margin:0 2px 4px;flex-wrap:wrap"><input type="checkbox" name="rep" style="width:auto" ${f.rep ? 'checked' : ''}> ↻ Επαναλαμβάνεται ${FQ.freqHtml('repf', { fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }, 'width:auto;padding:6px 8px;font-size:14px;margin-left:6px')}</label>`}
       </div>
@@ -127,6 +129,7 @@ export function entryView(k) {
         });
         root.querySelector('[data-freq]')?.addEventListener('change', () => { read(); f.rep = true; ui.render(); });
         root.querySelector('[name=inv]')?.addEventListener('change', () => { read(); ui.render(); });
+        root.querySelector('[data-ecats]')?.addEventListener('click', () => { read(); ecatsSheet(ui); });
         if (!f.id && !f.a) setTimeout(() => aI.focus(), 50);
       }
       const save = async (again) => {
@@ -150,7 +153,7 @@ export function entryView(k) {
           }
         }
         await store.put(O.OSP, f.id || null, rec);
-        if (k === 'in' && !f.id && (f.clPhone?.trim() || f.clEmail?.trim()) && !O.clientCard(rec.cl)) await store.put(O.OSP, null, { type: 'ocl', name: rec.cl, phone: f.clPhone?.trim() || null, email: f.clEmail?.trim() || null });
+        if (k === 'in' && !f.id && (f.clPhone?.trim() || f.clEmail?.trim() || f.clSrc) && !O.clientCard(rec.cl)) await store.put(O.OSP, null, { type: 'ocl', name: rec.cl, phone: f.clPhone?.trim() || null, email: f.clEmail?.trim() || null, src: f.clSrc || null, srcPart: f.clSrc === 'Συνεργαζόμενος χώρος' ? f.part || null : null });
         ui.toast('Καταχωρήθηκε ✓');
         if (again) { const d = f.d; st[k] = { ...blank(k), d, ...(k === 'in' ? { pay: f.pay } : {}) }; ui.render(); } else { st[k] = null; ui.go('#/office'); }
       };
@@ -159,4 +162,21 @@ export function entryView(k) {
       root.querySelector('[data-del]')?.addEventListener('click', async () => { if (!(await ui.confirm('Διαγραφή;', 'Διαγραφή'))) return; await store.del(O.OSP, f.id); st[k] = null; ui.back(); });
     },
   };
+}
+
+/** add / remove office expense categories (old expenses keep theirs) */
+function ecatsSheet(ui) {
+  let list = [...O.ecats()];
+  import('../lessons/ui.js').then(({ sheet: sh }) => sh(`<div class="mid">Κατηγορίες εξόδων γραφείου</div><div class="small muted">Οι παλιές κινήσεις κρατάνε την κατηγορία τους, ακόμα κι αν τη σβήσεις από εδώ.</div>
+    <div data-cl style="margin:10px 0"></div>
+    <div class="row" style="gap:6px"><input name="nc" placeholder="Νέα κατηγορία" style="flex:1;min-width:0"><button class="btn sm" data-add style="width:auto;flex:none">Προσθήκη</button></div>
+    <button class="btn primary" data-ok style="margin-top:10px">Αποθήκευση</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    const draw = () => { el.querySelector('[data-cl]').innerHTML = list.map((c, i) => `<div class="row" style="margin:4px 0"><span class="grow">${esc(c)}</span><button class="btn sm ghost" data-up="${i}" ${i ? '' : 'disabled'} style="width:auto">▲</button><button class="btn sm ghost" data-rm="${i}" style="width:auto;color:var(--red)">✕</button></div>`).join('');
+      el.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { list.splice(Number(b.dataset.rm), 1); draw(); });
+      el.querySelectorAll('[data-up]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.up); [list[i - 1], list[i]] = [list[i], list[i - 1]]; draw(); }); };
+    draw();
+    el.querySelector('[data-add]').onclick = () => { const v = el.querySelector('[name=nc]').value.trim(); if (v && !list.includes(v)) { list.push(v); el.querySelector('[name=nc]').value = ''; draw(); } };
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelector('[data-ok]').onclick = async () => { await store.put(O.OSP, 'office', { type: 'opref', ecats: list }); close(); ui.render(); };
+  }));
 }
