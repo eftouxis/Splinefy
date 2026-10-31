@@ -3,6 +3,7 @@ import * as store from '../store.js';
 import * as sync from '../sync.js';
 import { CONFIG } from '../config.js';
 import * as EX from '../export.js';
+import { VERSION, LOG } from './changelog.js';
 
 let signed = null;
 
@@ -23,6 +24,7 @@ export default {
       <a class="item" href="#/trips" style="text-decoration:none;color:inherit"><div class="dot">✈️</div><div class="grow t">Ταξίδια <span class="small muted">(ημερομηνίες, όνομα)</span></div><div class="muted">›</div></a>
       <a class="item" href="#/goals" style="text-decoration:none;color:inherit"><div class="dot">🎯</div><div class="grow t">Στόχοι <span class="small muted">(ξεχρέωμα, αποταμίευση)</span></div><div class="muted">›</div></a>
       <a class="item" href="#/names" style="text-decoration:none;color:inherit"><div class="dot">✏️</div><div class="grow t">Ενιαία ονόματα <span class="small muted">(ίδια γραφή για κάθε έξοδο)</span></div><div class="muted">›</div></a>
+      <a class="item" href="#/changelog" style="text-decoration:none;color:inherit"><div class="dot">📜</div><div class="grow t">Τι άλλαξε <span class="small muted">(έκδοση ${VERSION})</span></div><div class="muted">›</div></a>
       <a class="item" href="#/cats" style="text-decoration:none;color:inherit"><div class="dot">🏷️</div><div class="grow t">Κατηγορίες και «Είδος»</div><div class="muted">›</div></a>
       ${store.state.user === 'Άλκης' ? '<a class="item" href="#/lessons/help" style="text-decoration:none;color:inherit"><div class="dot">📚</div><div class="grow t">Μαθήματα: οδηγίες</div><div class="muted">›</div></a>' : ''}</div>
     <h2>Συγχρονισμός (OneDrive)</h2>
@@ -49,7 +51,7 @@ export default {
       <input type="file" accept=".json,application/json" multiple data-import></div>
     <h2>Εμφάνιση</h2>
     <div class="card"><div class="chips">${[['auto', 'Αυτόματο'], ['light', 'Φωτεινό'], ['dark', 'Σκούρο']].map(([v, l]) => `<button class="chip ${theme === v ? 'on' : ''}" data-theme="${v}">${l}</button>`).join('')}</div></div>
-    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · έκδοση 2.8.3 (31/10)</div>`;
+    <div class="small muted center" style="margin:16px 0">Συσκευή ${esc(S.device)} · <a href="#/changelog">έκδοση ${VERSION} (${LOG[0][1].slice(0, 5)}) · Τι άλλαξε ›</a></div>`;
   },
   mount(root, p, ui) {
     if (signed === null) sync.signedIn().then((s) => { signed = s; ui.render(); });

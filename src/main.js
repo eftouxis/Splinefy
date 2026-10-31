@@ -16,6 +16,7 @@ import tripsView from './views/trips.js';
 import philView from './views/philippos.js';
 import namesView from './views/names.js';
 import goalsView from './views/goals.js';
+import changelogView from './views/changelog.js';
 import debtsView from './views/debts.js';
 import coupleView from './views/couple.js';
 import officeView from './views/office/index.js';
@@ -30,7 +31,7 @@ const ROUTES = [
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
   [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'], [/^#\/cars(?:\/([\w-]+))?$/, carsView, 'stats'], [/^#\/people(?:\/([\w-]+))?$/, peopleView, 'debts'],
-  [/^#\/trips(?:\/(.+))?$/, tripsView, 'stats'], [/^#\/philippos$/, philView, 'debts'], [/^#\/names$/, namesView, 'settings'], [/^#\/goals$/, goalsView, 'debts'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
+  [/^#\/trips(?:\/(.+))?$/, tripsView, 'stats'], [/^#\/philippos$/, philView, 'debts'], [/^#\/names$/, namesView, 'settings'], [/^#\/changelog$/, changelogView, 'settings'], [/^#\/goals$/, goalsView, 'debts'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0 };
 

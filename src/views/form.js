@@ -20,6 +20,7 @@ function burdenHtml(f) {
   const oth = (f.oth || []).filter((o) => o.p && (o.a != null || o.f));
   const both = f.payer === 'Και οι 2' ? parseAmount(f.both) ?? (parseAmount(f.bothX) != null ? amt - parseAmount(f.bothX) : null) : null;
   const r = { kind: 'Έξοδο', d: '2000-01-01', a: amt, payer: f.payer === 'Και οι 2' ? 'Άλκης' : f.payer, for: f.for || 'Κοινό', both, share: f.for === 'Κοινό' ? parseAmount(f.share) : null, oth };
+  if (f.ofc && f.for === 'Χαρά' && f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' && (f.ooff ?? !f.id)) return `🏢 Έξοδο του γραφείου → <b>το γραφείο της Χαράς χρωστάει ${eur(amt)}</b> ${f.payer === 'Άλκης' ? 'στον Άλκη' : 'σε ' + esc(f.payer)} (η Χαρά προσωπικά δεν χρωστάει τίποτα).`;
   const x = fx(r, '9999-12-31');
   const othParts = oth.map((o) => [P.person(o.p)?.name || '—', o.a != null ? o.a : o.f * amt]);
   const parts = (x.O === 'Φίλιππος' ? [['Φίλιππος', x.N]] : [['Άλκης', x.Q], ['Χαρά', x.S]]).filter(([, v]) => Math.abs(v) > 0.004).concat(othParts);
@@ -160,7 +161,11 @@ export default {
         ${k === 'Έξοδο' && f.withOth ? `<div class="note" style="margin:-2px 0 10px"><div class="small" style="font-weight:700;margin-bottom:6px">Μοιράζεται και με άλλους (αδερφή, φίλοι…)</div>
           ${othHtml(f.oth)}
           <label class="f" style="margin:0"><span>Το υπόλοιπο είναι για</span>${seg('for', [[me, 'Εμένα'], ['Κοινό', 'Κοινό ½ με ' + (me === 'Άλκης' ? 'Χαρά' : 'Άλκη')], [me === 'Άλκης' ? 'Χαρά' : 'Άλκης', me === 'Άλκης' ? 'Χαρά' : 'Άλκη']], f.for)}</label></div>` : ''}
-        ${k === 'Έξοδο' && f.for === 'Χαρά' && !f.withOth ? `<label class="row small" style="margin:-4px 2px 10px"><input type="checkbox" name="ofc" style="width:auto" ${f.ofc ? 'checked' : ''}> 🏢 Έξοδο του γραφείου της Χαράς (μετράει στο γραφείο, όχι στα προσωπικά της)</label>` : ''}
+        ${k === 'Έξοδο' && f.for === 'Χαρά' && !f.withOth ? `<label class="row small" style="margin:-4px 2px 10px"><input type="checkbox" name="ofc" style="width:auto" ${f.ofc ? 'checked' : ''}> 🏢 Έξοδο του γραφείου της Χαράς (μετράει στο γραφείο, όχι στα προσωπικά της)</label>
+          ${f.ofc ? `<div class="note" style="margin:-4px 0 10px">
+            ${f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' ? `<label class="row small" style="margin:0 0 6px"><input type="checkbox" name="ooff" style="width:auto" ${(f.ooff ?? !f.id) ? 'checked' : ''}> <span>Το χρωστάει το γραφείο στον ${esc(f.payer === 'Άλκης' ? 'Άλκη' : f.payer)} (όχι η Χαρά)</span></label>` : ''}
+            <label class="row small" style="margin:0"><input type="checkbox" name="inv" style="width:auto" ${f.inv ? 'checked' : ''}> <span>📑 Κόπηκε τιμολόγιο στο ΑΦΜ του γραφείου</span></label>
+            ${f.inv ? `<label class="f" style="margin:6px 0 0"><span>ΦΠΑ μέσα στο τιμολόγιο (€)</span><input name="ivat" inputmode="decimal" value="${esc(f.ivat ?? '')}" placeholder="άδειο = ${String(Math.round(((parseAmount(f.a) || 0) - (parseAmount(f.a) || 0) / 1.24) * 100) / 100).replace('.', ',')} (24%)"></label>` : ''}</div>` : ''}` : ''}
         ${k === 'Έξοδο' ? `<div class="burden muted" data-burden>${burdenHtml(f)}</div>` : ''}`}
       ${k === 'Έξοδο' && f.trip && f.tripAuto && !f.tripTouched ? `<div class="note trip-on" style="margin-bottom:10px"><span class="grow">✈️ Μπαίνει στο ταξίδι <b>${esc(f.trip)}</b> (είσαι σε ταξίδι αυτές τις μέρες)</span><button type="button" class="btn sm" data-notrip>Όχι</button></div>` : ''}
       ${k === 'Έξοδο' && K.cars().length && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο' || f.car) ? (() => {
@@ -252,6 +257,7 @@ export default {
       ui.render();
     });
     root.querySelector('[name=toShared]')?.addEventListener('change', () => { read(); ui.render(); });
+    ['ofc', 'inv'].forEach((n) => root.querySelector(`[name=${n}]`)?.addEventListener('change', () => { read(); ui.render(); }));
     const bA = root.querySelector('[name=both]'), bX = root.querySelector('[name=bothX]'), aI = root.querySelector('[name=a]');
     const fill = (src, dst) => { const t = parseAmount(aI.value), v = parseAmount(src.value); if (t != null && v != null) dst.value = String(Math.round((t - v) * 100) / 100).replace('.', ','); };
     bA?.addEventListener('input', () => fill(bA, bX)); bX?.addEventListener('input', () => fill(bX, bA));
@@ -305,6 +311,8 @@ export default {
         ft: f.car && f.cat !== 'Αυτοκίνητο' && K.isFuelText(f.desc) ? ftOf(f) : null,
         oth: f.kind === 'Έξοδο' && f.withOth ? readOth(root) : null,
         ofc: f.kind === 'Έξοδο' && f.for === 'Χαρά' && (f.ofc === true || f.ofc === 'on') ? 1 : null };
+      rec.ooff = rec.ofc && f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' && (f.ooff ?? !f.id) ? 1 : null;
+      rec.inv = rec.ofc && f.inv ? 1 : null; rec.ivat = rec.inv ? parseAmount(String(f.ivat ?? '')) : null;
       if (f.kind === 'Έσοδο' && (f.cat === 'Μισθός' || f.cat === 'Ιδιαίτερα')) {
         const mm = f.mm || monthFromText(`${f.desc} ${f.note || ''}`, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);
         rec.md = mm < dm ? eomOf(mm) : mm > dm ? `${mm}-01` : null;

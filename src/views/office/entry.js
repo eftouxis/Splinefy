@@ -72,6 +72,8 @@ export function entryView(k) {
         <label class="f"><span>Περιγραφή</span><span class="ac"><input name="desc" value="${esc(f.desc)}" autocomplete="off" placeholder="π.χ. NRG, Marweb Νοέμβριος"><span class="ac-list" data-ac hidden></span></span></label>
         <label class="f"><span>Κατηγορία</span>${chips('cat', O.ECATS.map((c) => [c, c]), f.cat)}</label>
         ${f.cat === 'Αμοιβή συνεργασίας' ? `<label class="f"><span>Σε ποιον συνεργάτη</span>${chips('part', parts.map((p) => [p.id, p.name]), f.part)}</label>` : ''}
+        <label class="row small" style="margin:0 2px 10px"><input type="checkbox" name="inv" style="width:auto" ${f.inv ? 'checked' : ''}> 📑 Με τιμολόγιο (στο ΑΦΜ του γραφείου)</label>
+        ${f.inv ? `<label class="f" style="margin-top:-4px"><span>ΦΠΑ μέσα στο τιμολόγιο (€)</span><input name="ivat" inputmode="decimal" value="${esc(f.ivat ?? '')}" placeholder="άδειο = ${cm(Math.round(((parseAmount(f.a) || 0) - (parseAmount(f.a) || 0) / (1 + O.vatRate())) * 100) / 100)} (${Math.round(O.vatRate() * 100)}%)"></label>` : ''}
         <label class="f"><span>Σημείωση</span><input name="note" value="${esc(f.note || '')}"></label>
         ${f.id ? '' : `<label class="row small" style="margin:0 2px 4px;flex-wrap:wrap"><input type="checkbox" name="rep" style="width:auto" ${f.rep ? 'checked' : ''}> ↻ Επαναλαμβάνεται ${FQ.freqHtml('repf', { fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }, 'width:auto;padding:6px 8px;font-size:14px;margin-left:6px')}</label>`}
       </div>
@@ -120,6 +122,7 @@ export function entryView(k) {
           ui.render();
         });
         root.querySelector('[data-freq]')?.addEventListener('change', () => { read(); f.rep = true; ui.render(); });
+        root.querySelector('[name=inv]')?.addEventListener('change', () => { read(); ui.render(); });
         if (!f.id && !f.a) setTimeout(() => aI.focus(), 50);
       }
       const save = async (again) => {
@@ -135,7 +138,7 @@ export function entryView(k) {
         } else {
           if (!f.cat) { ui.toast('Διάλεξε κατηγορία'); return; }
           if (f.cat === 'Αμοιβή συνεργασίας' && !f.part) { ui.toast('Διάλεξε συνεργάτη'); return; }
-          rec = { type: TYPE, d: f.d || today(), desc: f.desc.trim() || f.cat, cat: f.cat, a, pay: f.pay?.trim() || null, part: f.cat === 'Αμοιβή συνεργασίας' ? f.part : null, note: f.note?.trim() || null };
+          rec = { type: TYPE, d: f.d || today(), desc: f.desc.trim() || f.cat, cat: f.cat, a, pay: f.pay?.trim() || null, part: f.cat === 'Αμοιβή συνεργασίας' ? f.part : null, note: f.note?.trim() || null, inv: f.inv ? 1 : null, ivat: f.inv ? parseAmount(String(f.ivat ?? '')) : null };
           if (!f.id && f.rep) {
             const fr = FQ.toRec({ fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }) || { unit: 'm', every: 1 };
             await store.put(O.OSP, null, { type: 'rec', biz: 1, name: rec.desc, a, cat: rec.cat, kind: 'Έξοδο', payer: 'Χαρά', for: 'Χαρά', unit: fr.unit, every: fr.every, start: rec.d });

@@ -32,6 +32,21 @@ export function svcGroup(s) {
   return s.trim();
 }
 const ym = (d) => d.slice(0, 7);
+/** expenses marked «🏢 για το γραφείο» in the household money (tx + recurring), as office expenses */
+function viaSharedList() {
+  const m = (r, rec) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat, a: r.a, pay: r.payer !== 'Χαρά' ? `πλήρωσε ${r.payer}` : null, payer: r.payer, ooff: r.ooff && r.payer !== 'Χαρά' ? 1 : null, inv: r.inv || null, ivat: r.ivat ?? null, rec, _sp: r._sp, ext: true });
+  return records('tx').filter((r) => r.ofc && r.kind === 'Έξοδο').map((r) => m(r, undefined))
+    .concat(recurringMovements('2100-01-01', false).filter((r) => r.ofc && !r.skipped && r.kind === 'Έξοδο').map((r) => m(r, r.rec)));
+}
+/** VAT inside an invoice: what was written, else computed from the total */
+export const invVat = (r) => (r.ivat != null ? r.ivat : (r.a || 0) - (r.a || 0) / (1 + vatRate()));
+/** what the office owes to people who paid office expenses for it («το χρωστάει το γραφείο») minus repayments — visible to both */
+export function officeDebts(t = today()) {
+  const m = new Map(); const add = (p, k, v) => { const x = m.get(p) || { who: p, spent: 0, paid: 0, items: [], reps: [] }; x[k] += v; m.set(p, x); return x; };
+  for (const r of viaSharedList()) if (r.ooff && r.d <= t) add(r.payer, 'spent', r.a || 0).items.push(r);
+  for (const r of records('orep')) if (r.d <= t) add(r.to, 'paid', r.a || 0).reps.push(r);
+  return [...m.values()].map((x) => ({ ...x, owed: Math.round((x.spent - x.paid) * 100) / 100 }));
+}
 let C = { v: -1 };
 function build() {
   if (C.v === state.version) return C;
@@ -43,8 +58,7 @@ function build() {
   const recEx = recurringMovements('2100-01-01', true).filter((r) => !r.skipped).map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat, a: r.a, rec: r.rec, _sp: r._sp, part: null }));
   const salary = recurringMovements('2100-01-01', false).filter((r) => r.salary && !r.skipped && r._sp === OSP).map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: 'Μισθός Χαράς', cat: SALARY_CAT, a: r.a, rec: r.rec, _sp: r._sp, sal: true }));
   // expenses marked «🏢 για το γραφείο» in the shared/personal money (e.g. Cosmote paid by Άλκης for Χαρά)
-  const viaShared = records('tx').filter((r) => r.ofc && r.kind === 'Έξοδο').map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat === 'Πάγια έξοδα' ? 'Πάγια έξοδα' : r.cat, a: r.a, pay: r.payer !== 'Χαρά' ? `πλήρωσε ${r.payer}` : null, _sp: r._sp, ext: true }))
-    .concat(recurringMovements('2100-01-01', false).filter((r) => r.ofc && !r.skipped && r.kind === 'Έξοδο').map((r) => ({ id: r.id, type: 'oex', d: r.d, desc: r.desc, cat: r.cat, a: r.a, pay: r.payer !== 'Χαρά' ? `πλήρωσε ${r.payer}` : null, rec: r.rec, _sp: r._sp, ext: true })));
+  const viaShared = viaSharedList();
   // card / IRIS commissions: one computed expense per month and method, from the rates in the office settings
   const hist = feeHistory(records('opref', sp).find((r) => r.id === 'office')); const comm = new Map();
   for (const r of inc) {
@@ -72,7 +86,7 @@ export { SAL_NAME };
 
 /** totals for a date range */
 export function totals(from, to) {
-  let inc = 0, rcpt = 0, exp = 0, sal = 0, fee = 0, n = 0, net = 0, vat = 0, disc = 0; const rate = vatRate(); const bySvc = new Map(), byCat = new Map(), byPay = new Map();
+  let inc = 0, rcpt = 0, exp = 0, sal = 0, fee = 0, n = 0, net = 0, vat = 0, disc = 0, inv = 0, ivat = 0, ninv = 0; const rate = vatRate(); const bySvc = new Map(), byCat = new Map(), byPay = new Map();
   for (const r of incomes()) {
     const d = r.md || r.d; if (d < from || d > to) continue;
     inc += r.a || 0; n++; if (r.rcpt) rcpt += r.a || 0; fee += r.fee || 0; disc += r.disc || 0;
@@ -83,14 +97,17 @@ export function totals(from, to) {
   for (const r of expenses()) {
     if (r.d < from || r.d > to) continue;
     if (r.sal) { sal += r.a || 0; continue; }
+    if (r.inv) { inv += r.a || 0; ivat += invVat(r); ninv++; }
     exp += r.a || 0; byCat.set(r.cat || 'Άλλο', (byCat.get(r.cat || 'Άλλο') || 0) + (r.a || 0));
   }
-  return { inc, rcpt, exp, sal, fee, n, net, vat, disc, res: inc - exp - sal, bySvc, byCat, byPay };
+  return { inc, rcpt, exp, sal, fee, n, net, vat, disc, inv, ivat, ninv, res: inc - exp - sal, bySvc, byCat, byPay };
 }
 /** money of the office now: opening + all income − all expenses − salaries */
 export function balance() {
   const p = pref(); const from = p.asOf ? addDaysS(p.asOf, 1) : '2000-01-01';
-  return (p.open || 0) + totals(from, today()).res;
+  // cash: expenses that someone else paid «for the office» leave the account only when the office pays them back
+  const owed = officeDebts().reduce((s, x) => s + x.items.filter((r) => r.d >= from).reduce((a, r) => a + (r.a || 0), 0) - x.reps.filter((r) => r.d >= from).reduce((a, r) => a + (r.a || 0), 0), 0);
+  return (p.open || 0) + totals(from, today()).res + owed;
 }
 const addDaysS = (s, n) => { const d = new Date(s + 'T12:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 /** what is owed to each partner: fees from their clients − what was paid to them */
@@ -138,6 +155,7 @@ export function filtered(period, f = '') {
   let inc = incomes(true).filter((r) => inP(r.md || r.d)), exp = expenses(true).filter((r) => inP(r.d));
   if (k === 'in') exp = [];
   else if (k === 'ex') { inc = []; exp = exp.filter((r) => !r.sal); }
+  else if (k === 'inv') { inc = []; exp = exp.filter((r) => r.inv); }
   else if (k === 'rcpt') { inc = inc.filter((r) => r.rcpt); exp = []; }
   else if (k === 'sal') { inc = []; exp = exp.filter((r) => r.sal); }
   else if (k === 'svc') { inc = inc.filter((r) => svcGroup(r.svc) === v); exp = []; }
@@ -146,4 +164,4 @@ export function filtered(period, f = '') {
   else if (k === 'cat') { inc = []; exp = exp.filter((r) => !r.sal && (r.cat || 'Άλλο') === v); }
   return { inc, exp };
 }
-export const FILTER_LABEL = (f) => { const [k, ...r] = (f || '').split(':'); const v = r.join(':'); return ({ in: 'Μόνο έσοδα', ex: 'Μόνο έξοδα', rcpt: '🧾 Μόνο με απόδειξη', sal: 'Μόνο μισθός', svc: `Υπηρεσία: ${v}`, pay: `Τρόπος: ${v}`, part: `Συνεργάτης: ${partner(v)?.name || ''}`, cat: `Κατηγορία: ${v}` })[k] || ''; };
+export const FILTER_LABEL = (f) => { const [k, ...r] = (f || '').split(':'); const v = r.join(':'); return ({ in: 'Μόνο έσοδα', ex: 'Μόνο έξοδα', rcpt: '🧾 Μόνο με απόδειξη', inv: '📑 Αγορές με τιμολόγιο', sal: 'Μόνο μισθός', svc: `Υπηρεσία: ${v}`, pay: `Τρόπος: ${v}`, part: `Συνεργάτης: ${partner(v)?.name || ''}`, cat: `Κατηγορία: ${v}` })[k] || ''; };

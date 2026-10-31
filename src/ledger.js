@@ -27,6 +27,8 @@ export function fx(r, t = today()) {
   const W = O === 'Κοινό' && k !== 'Μεταφορά' ? N : 0;          // shared expenses and shared income (e.g. rent)
   const X = O === 'Φίλιππος' && k !== 'Μεταφορά' ? N : 0;
   // «🏢 για το γραφείο»: still counts in who owes whom, but it is an expense of Χαρά's office, not of her personal money
+  // … unless «το χρωστάει το γραφείο»: then it is between the payer and the office, not between Άλκης and Χαρά
+  if (r.ofc && r.ooff && k === 'Έξοδο' && p !== 'Χαρά') return { N, O, P: 0, Q: 0, R: 0, S: 0, T, U: 0, V: 0, W, X };
   return { N, O, P, Q, R, S, T, U, V: r.ofc && k === 'Έξοδο' ? 0 : V, W, X };
 }
 export const VIEWS = [['Άλκης', 'U'], ['Χαρά', 'V'], ['Κοινά', 'W'], ['Φίλιππος', 'X']];
@@ -46,7 +48,7 @@ export function recurringMovements(until = addDays(today(), 60), biz = false) {
       const oid = `${def.id}@${d}`; const ov = overrides.get(oid) || {};
       if (ov.skip) { out.push({ id: oid, type: 'tx', d, a: 0, desc: def.name, cat: def.cat, kind: def.kind, payer: def.payer, for: def.for, rec: def.id, skipped: true, _sp: def._sp }); continue; }
       out.push({ id: oid, type: 'tx', d, a: ov.a ?? def.a, desc: def.name, cat: def.cat, kind: def.kind, payer: ov.payer || def.payer,
-                 for: ov.for ?? def.for, rec: def.id, bill: def.bill, oth: def.oth, _sp: def._sp, ofc: def.ofc || null, salary: def.salary || null, biz: def.biz || null, note: ov.note || null });
+                 for: ov.for ?? def.for, rec: def.id, bill: def.bill, oth: def.oth, _sp: def._sp, ofc: def.ofc || null, ooff: def.ooff || null, salary: def.salary || null, biz: def.biz || null, note: ov.note || null });
     }
   }
   return out;

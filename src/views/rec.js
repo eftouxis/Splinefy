@@ -82,7 +82,8 @@ const formView = {
       <label class="f"><span>${f.kind === 'Έσοδο' ? 'Τα παίρνει' : 'Πληρώνει'}</span>${seg('payer', [['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά']], f.payer)}</label>
       ${f.kind === 'Έξοδο' ? `<label class="f"><span>Για ποιον</span>${seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>`
         : `<label class="f"><span>Για ποιον</span>${seg('for', [['', 'Μόνο γι’ αυτόν/ή'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for || '')}</label>`}
-      ${f.kind === 'Έξοδο' && f.for === 'Χαρά' ? `<label class="row small" style="margin:-4px 2px 10px"><input type="checkbox" name="ofc" style="width:auto" ${f.ofc && f.ofc !== 'false' ? 'checked' : ''}> 🏢 Έξοδο του γραφείου της Χαράς</label>` : ''}
+      ${f.kind === 'Έξοδο' && f.for === 'Χαρά' ? `<label class="row small" style="margin:-4px 2px 10px"><input type="checkbox" name="ofc" style="width:auto" ${f.ofc && f.ofc !== 'false' ? 'checked' : ''}> 🏢 Έξοδο του γραφείου της Χαράς</label>
+        ${f.payer && f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' ? `<label class="row small" style="margin:-6px 2px 10px 26px"><input type="checkbox" name="ooff" style="width:auto" ${f.ooff && f.ooff !== 'false' ? 'checked' : ''}> …και το χρωστάει το γραφείο (όχι η Χαρά)</label>` : ''}` : ''}
       ${f.kind === 'Έξοδο' ? `<div class="small" style="font-weight:700;margin:4px 2px 6px">Μέρος το πληρώνουν άλλοι (αδερφή, φίλοι…) — προαιρετικά</div>${othHtml(f.oth)}` : ''}
       <div class="grid2"><label class="f"><span>${past ? 'Πρώτη φορά (μην το αλλάζεις)' : 'Πρώτη φορά'}</span><input type="date" name="start" value="${esc(f.start || '')}"></label>
       <label class="f"><span>Τελευταία φορά (κενό = συνεχίζει)</span><input type="date" name="end" value="${esc(f.end || '')}"></label></div>
@@ -117,10 +118,11 @@ const formView = {
       const fr = FQ.toRec({ fq: f.fq, cn: f.fqn, cu: f.fqu }); if (!fr) { ui.toast('Γράψε κάθε πόσο'); return; }
       const { unit, every } = fr;
       const rec = { type: 'rec', name: f.name.trim(), a, cat: f.cat, kind: f.kind, payer: f.payer, for: f.kind === 'Έσοδο' ? f.for || '' : f.for, unit, every, start: f.start || null, end: f.end || null, oth: f.kind === 'Έξοδο' && f.oth && f.oth.length ? f.oth : null, biz: cur?.biz || null, salary: cur?.salary || null, ofc: f.kind === 'Έξοδο' && f.for === 'Χαρά' && f.ofc && f.ofc !== 'false' ? 1 : null };
+      rec.ooff = rec.ofc && f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' && f.ooff && f.ooff !== 'false' ? 1 : null;
       const personal = personalSpace();
       const target = personal && f.payer === store.state.user && (rec.for === store.state.user || (f.kind === 'Έσοδο' && !rec.for)) ? personal.id : 'shared';
       if (!cur) { await store.put(target, null, rec); f = null; ui.toast('Προστέθηκε ✓'); ui.go('#/rec'); return; }
-      const money = ['a', 'payer', 'for', 'unit', 'every', 'kind', 'ofc'].some((k) => String(cur[k] ?? '') !== String(rec[k] ?? '')) || JSON.stringify(cur.oth || null) !== JSON.stringify(rec.oth || null);
+      const money = ['a', 'payer', 'for', 'unit', 'every', 'kind', 'ofc', 'ooff'].some((k) => String(cur[k] ?? '') !== String(rec[k] ?? '')) || JSON.stringify(cur.oth || null) !== JSON.stringify(rec.oth || null);
       const from = f.from || today();
       if (cur.start && cur.start < from && money) {
         // keep the past: old one ends the day before, the new one starts at the next occurrence on/after «from»
