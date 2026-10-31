@@ -22,9 +22,11 @@ function burdenHtml(f) {
   const r = { kind: 'Έξοδο', d: '2000-01-01', a: amt, payer: f.payer === 'Και οι 2' ? 'Άλκης' : f.payer, for: f.for || 'Κοινό', both, share: f.for === 'Κοινό' ? parseAmount(f.share) : null, oth };
   if (f.ofc && f.for === 'Χαρά' && f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' && (f.ooff ?? !f.id)) return `🏢 Έξοδο του γραφείου → <b>το γραφείο της Χαράς χρωστάει ${eur(amt)}</b> ${f.payer === 'Άλκης' ? 'στον Άλκη' : 'σε ' + esc(f.payer)} (η Χαρά προσωπικά δεν χρωστάει τίποτα).`;
   const x = fx(r, '9999-12-31');
+  const credLine = (() => { if (!f.cred) return ''; const c = P.credits(f.id, f.cred).find((z) => z.id === f.cred); if (!c) return ''; const used = Math.min(amt, Math.max(0, c.avail)), rest = amt - used;
+    return `💳 Από το πιστωτικό ${esc(c.name)}: <b>${eur(used)}</b>${rest > 0.004 ? ` · τα υπόλοιπα <b>${eur(rest)}</b> τα πληρώνει όποιος διάλεξες στο «Πλήρωσε»` : ` · μένει πιστωτικό ${eur(c.avail - used)}`}`; })();
   const othParts = oth.map((o) => [P.person(o.p)?.name || '—', o.a != null ? o.a : o.f * amt]);
   const parts = (x.O === 'Φίλιππος' ? [['Φίλιππος', x.N]] : [['Άλκης', x.Q], ['Χαρά', x.S]]).filter(([, v]) => Math.abs(v) > 0.004).concat(othParts);
-  const lines = [`Τελικά το επιβαρύνονται: ${parts.map(([n, v]) => `${esc(n)} <b>${eur(v)}</b>`).join(' · ') || '—'}`];
+  const lines = [...(credLine ? [credLine] : []), `Τελικά το επιβαρύνονται: ${parts.map(([n, v]) => `${esc(n)} <b>${eur(v)}</b>`).join(' · ') || '—'}`];
   if (x.O === 'Φίλιππος') lines.push('Βγαίνει από τα χρήματα του Φιλίππου (πορτοφόλι του).');
   else { const net = x.P - x.Q; if (Math.abs(net) > 0.004) lines.push(net > 0 ? `→ Η Χαρά χρωστάει στον Άλκη <b>${eur(net)}</b> από αυτό` : `→ Ο Άλκης χρωστάει στη Χαρά <b>${eur(-net)}</b> από αυτό`); }
   if (othParts.length) lines.push(r.payer === store.state.user ? `→ ${othParts.map(([n, v]) => `${esc(n)} <b>${eur(v)}</b>`).join(', ')} στα Χρωστούμενα (σου τα χρωστάνε)` : '→ Τα Χρωστούμενα μετράνε μόνο όταν πλήρωσες εσύ.');
@@ -153,6 +155,8 @@ export default {
         <label class="f"><span>Πήρε</span>${seg('for', [...people, 'Φίλιππος'].map((p) => [p, p]), f.for)}</label>
         <div class="note small">Φίλιππος = ο λογαριασμός του (κατάθεση ή ανάληψη).<br>Με άλλους (μαμά, αδερφή, φίλοι): <a href="#/debts">Οφειλές</a> → το άτομο → «Μου έδωσε» / «Της έδωσα».</div>`
       : `<label class="f"><span>${k === 'Έσοδο' ? 'Πήρε' : 'Πλήρωσε'}</span>${seg('payer', (k === 'Έξοδο' ? [...people, 'Και οι 2'] : people).map((p) => [p, p]), f.payer)}</label>
+        ${(() => { if (k !== 'Έξοδο' || f.occ) return ''; const cl = P.credits(f.id, f.cred); if (!cl.length) return '';
+          return `<label class="f"><span>💳 Πληρωμή από πιστωτικό</span>${seg('cred', [['', 'Όχι'], ...cl.map((c) => [c.id, `${c.name} · ${eur(c.avail)}`])], f.cred || '')}</label>`; })()}
         ${k === 'Έξοδο' && f.payer === 'Και οι 2' ? `<div class="grid2"><label class="f"><span>Έδωσε ο Άλκης (€)</span><input name="both" inputmode="decimal" value="${esc(f.both)}"></label>
           <label class="f"><span>Έδωσε η Χαρά (€)</span><input name="bothX" inputmode="decimal" value="${esc(f.bothX ?? '')}"></label></div>` : ''}
         <label class="f"><span>Για ποιον</span>${k === 'Έσοδο'
@@ -312,6 +316,7 @@ export default {
         oth: f.kind === 'Έξοδο' && f.withOth ? readOth(root) : null,
         ofc: f.kind === 'Έξοδο' && f.for === 'Χαρά' && (f.ofc === true || f.ofc === 'on') ? 1 : null };
       rec.ooff = rec.ofc && f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' && (f.ooff ?? !f.id) ? 1 : null;
+      if (rec.kind === 'Έξοδο' && f.cred) { const c = P.credits(f.id, f.cred).find((z) => z.id === f.cred); rec.cred = f.cred; rec.credA = c ? Math.round(Math.min(amt, Math.max(0, c.avail)) * 100) / 100 : null; } else { rec.cred = null; rec.credA = null; }
       rec.inv = rec.ofc && f.inv ? 1 : null; rec.ivat = rec.inv ? parseAmount(String(f.ivat ?? '')) : null;
       if (f.kind === 'Έσοδο' && (f.cat === 'Μισθός' || f.cat === 'Ιδιαίτερα')) {
         const mm = f.mm || monthFromText(`${f.desc} ${f.note || ''}`, f.d) || f.d.slice(0, 7); const dm = f.d.slice(0, 7);

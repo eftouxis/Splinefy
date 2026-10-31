@@ -19,6 +19,8 @@ export const person = (id) => people().find((p) => p.id === id);
 export function entries(pid) {
   const t = today(); const out = [];
   for (const r of movements()) {
+    // an expense paid from the credit we have with them (e.g. common charges from the building's credit)
+    if (r.cred === pid && r.credA && r.d <= t && !r.skipped) out.push({ d: r.d, a: -r.credA, what: `${r.desc || r.cat} (από το πιστωτικό)`, tx: r });
     if (!r.oth || r.d > t || r.skipped) continue;
     for (const o of r.oth) {
       if (o.p !== pid) continue;
@@ -35,4 +37,9 @@ export function entries(pid) {
 }
 const fmtShare = (o, r) => (o.a != null ? `μερίδιο ${String(Math.round(o.a * 100) / 100).replace('.', ',')} €` : o.f === 0.5 ? 'μισό' : `${Math.round(o.f * 100)}%`);
 export const balance = (pid) => entries(pid).reduce((s, e) => s + e.a, 0);
+/** people who owe us money that can pay an expense («πιστωτικό»), with what is available (not counting the movement being edited) */
+export function credits(exceptTx = null, keep = null) {
+  return people().map((p) => ({ id: p.id, name: p.name, avail: Math.round(entries(p.id).filter((e) => !(exceptTx && e.tx?.id === exceptTx)).reduce((s, e) => s + e.a, 0) * 100) / 100 }))
+    .filter((c) => c.avail > 0.004 || c.id === keep);
+}
 export { othSum };
