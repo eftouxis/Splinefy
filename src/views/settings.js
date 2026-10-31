@@ -4,6 +4,9 @@ import * as sync from '../sync.js';
 import { CONFIG } from '../config.js';
 import * as EX from '../export.js';
 import { VERSION, LOG } from './changelog.js';
+import * as BK from '../backup.js';
+import { sheet } from './lessons/ui.js';
+let bkInfo = null;
 
 let signed = null;
 
@@ -44,7 +47,10 @@ export default {
       <button class="btn sm" data-savefolders>Αποθήκευση φακέλων</button>
     </div>
     <h2>Αντίγραφο ασφαλείας</h2>
-    <div class="card"><div class="small muted" style="margin-bottom:8px">Όλα σου τα δεδομένα σε αρχείο, όποτε θέλεις. Τα δεδομένα είναι πάντα και στο OneDrive· αυτό είναι επιπλέον.</div>
+    <div class="card"><div class="small muted" style="margin-bottom:8px">🛟 <b>Αυτόματα</b>: κάθε μέρα, μετά τον συγχρονισμό, μπαίνει ένα πλήρες αντίγραφο στο OneDrive (φάκελος «${BK.BK_FOLDER}» μέσα στον φάκελο κάθε χώρου) και τα 3 τελευταία μένουν και σε αυτή τη συσκευή. Κρατιούνται: κάθε μέρα για 2 εβδομάδες, ένα την εβδομάδα για 3 μήνες, ένα τον μήνα για πάντα.</div>
+      <div class="small" style="margin-bottom:8px">${bkInfo ? store.visibleSpaces().map((sp) => `${esc(sp.name)}: ${bkInfo[sp.id] ? 'τελευταίο ' + bkInfo[sp.id].split('-').reverse().join('/') : '<span class="muted">όχι ακόμα (μετά τον επόμενο συγχρονισμό)</span>'}`).join('<br>') : '…'}</div>
+      <button class="btn" style="width:100%;margin-bottom:8px" data-restore>↺ Επαναφορά από αντίγραφο…</button>
+      <div class="small muted" style="margin-bottom:8px">Και χειροκίνητα, σε αρχείο:</div>
       <div class="grid2"><button class="btn" data-xlsx>⬇ Excel</button><button class="btn" data-json>⬇ Πλήρες αντίγραφο</button></div></div>
     <h2>Εισαγωγή</h2>
     <div class="card"><div class="small muted" style="margin-bottom:8px">Αρχεία που φτιάχτηκαν από τα Excel (οικονομικά ή μαθήματα). Μετά ανεβαίνουν μόνα τους στο OneDrive.</div>
@@ -55,6 +61,8 @@ export default {
   },
   mount(root, p, ui) {
     if (signed === null) sync.signedIn().then((s) => { signed = s; ui.render(); });
+    if (!bkInfo || Date.now() - (bkInfo._at || 0) > 60000) Promise.all(store.visibleSpaces().map(async (sp) => [sp.id, await BK.lastBackup(sp.id)])).then((l) => { const n = { ...Object.fromEntries(l), _at: Date.now() }; const ch = JSON.stringify({ ...n, _at: 0 }) !== JSON.stringify({ ...(bkInfo || {}), _at: 0 }); bkInfo = n; if (ch) ui.render(); });
+    root.querySelector('[data-restore]')?.addEventListener('click', () => restoreSheet(ui));
     root.querySelectorAll('[data-user]').forEach((b) => b.addEventListener('click', async () => { await store.setUser(b.dataset.user); ui.render(); }));
     root.querySelector('[data-signin]')?.addEventListener('click', () => sync.signIn());
     root.querySelector('[data-signout]')?.addEventListener('click', async () => { await sync.signOut(); signed = false; ui.render(); });
@@ -110,4 +118,42 @@ export default {
 function syncLine() {
   const s = window.__ui?.sync?.() || {};
   return s.err ? `Τελευταίο πρόβλημα: ${s.err}` : s.last ? `Τελευταίος συγχρονισμός: ${new Date(s.last).toLocaleString('el-GR')}` : 'Δεν έχει γίνει ακόμα συγχρονισμός';
+}
+
+/** pick a backup (this device or OneDrive) → see what changes → restore (synced to every device) */
+function restoreSheet(ui) {
+  const sps = store.visibleSpaces();
+  sheet(`<div class="mid">↺ Επαναφορά από αντίγραφο</div><div class="small muted">Διάλεξε χώρο και ημερομηνία. Πριν αλλάξει οτιδήποτε θα δεις τι θα αλλάξει. Η επαναφορά περνάει σε όλες τις συσκευές.</div>
+    <div class="chips" style="margin:10px 0" data-sps>${sps.map((sp, i) => `<button class="chip ${i ? '' : 'on'}" data-sp="${esc(sp.id)}">${esc(sp.name)}</button>`).join('')}</div>
+    <div data-bklist class="list" style="max-height:45vh;overflow:auto"><div class="item muted">…</div></div>
+    <label class="small" style="display:block;margin:10px 2px">ή από αρχείο (Αντίγραφα/…json): <input type="file" accept=".json,application/json" data-bkfile></label>
+    <button class="btn ghost" data-no>Κλείσιμο</button>`, (el, close) => {
+    el.querySelector('[data-no]').onclick = close;
+    let cur = sps[0]?.id;
+    const ask = async (snap, label) => {
+      let x; try { x = BK.diff(snap); } catch (e) { ui.toast(e.message, 4000); return; }
+      if (!x.ch.length) { ui.toast('Ίδιο με τώρα — τίποτα να αλλάξει'); return; }
+      const ok = await ui.confirm(`Επαναφορά «${snap.space.name}» στο αντίγραφο ${label};\n${x.add} θα ξαναμπούν · ${x.upd} θα αλλάξουν · ${x.del} θα σβηστούν (όσα μπήκαν μετά).`, 'Επαναφορά', true);
+      if (!ok) return;
+      await BK.restore(snap); close(); ui.toast('Έγινε η επαναφορά ✓ — συγχρονίζεται', 4000); ui.syncNow?.(true);
+    };
+    const load = async () => {
+      el.querySelectorAll('[data-sp]').forEach((b) => b.classList.toggle('on', b.dataset.sp === cur));
+      const box = el.querySelector('[data-bklist]'); box.innerHTML = '<div class="item muted">…</div>';
+      const sp = store.spaceById(cur); const loc = await BK.localBackups(cur);
+      let drv = null; try { drv = await BK.driveBackups(sync.provider(), sp); } catch (e) { drv = { err: e.message }; }
+      const fmt = (d) => d.split('-').reverse().join('/');
+      box.innerHTML = loc.map((b, i) => `<div class="item" data-loc="${i}"><div class="dot">📱</div><div class="grow"><div class="t">${fmt(b.date)}</div><div class="s">σε αυτή τη συσκευή · ${b.n} εγγραφές</div></div><span class="muted">›</span></div>`).join('')
+        + (drv.err ? `<div class="item muted small">OneDrive: ${esc(drv.err)}</div>` : drv.list.map((x) => `<div class="item" data-drv="${esc(x.name)}"><div class="dot">☁️</div><div class="grow"><div class="t">${fmt(x.name.slice(0, 10))}</div><div class="s">OneDrive · ${Math.round((x.size || 0) / 1024)} KB</div></div><span class="muted">›</span></div>`).join(''))
+        || '<div class="item muted">Κανένα αντίγραφο ακόμα</div>';
+      box.querySelectorAll('[data-loc]').forEach((b) => b.addEventListener('click', () => { const x = loc[Number(b.dataset.loc)]; ask(x.snap, fmt(x.date)); }));
+      box.querySelectorAll('[data-drv]').forEach((b) => b.addEventListener('click', async () => { const snap = await sync.provider().get(drv.f, b.dataset.drv); if (snap) ask(snap, fmt(b.dataset.drv.slice(0, 10))); }));
+    };
+    el.querySelectorAll('[data-sp]').forEach((b) => b.addEventListener('click', () => { cur = b.dataset.sp; load(); }));
+    el.querySelector('[data-bkfile]').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { const snap = JSON.parse(await f.text()); if (snap.format !== 1 || !snap.records) throw new Error('δεν είναι αντίγραφο'); ask(snap, f.name); } catch (err) { ui.toast(err.message, 4000); }
+    });
+    load();
+  });
 }

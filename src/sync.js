@@ -1,6 +1,7 @@
 // Sync: every device writes only its own files (ops/<device>-<time>.json) and reads everybody else's.
 import * as store from './store.js';
 import { CONFIG } from './config.js';
+import { autoBackup } from './backup.js';
 
 // ---------- Microsoft sign-in (OAuth 2.0 + PKCE, personal accounts) ----------
 const AUTH = 'https://login.microsoftonline.com/consumers/oauth2/v2.0';
@@ -92,6 +93,7 @@ export const OneDrive = {
     return out;
   },
   async get(f, name) { const r = await g(`/drives/${f.drive}/items/${f.item}:/${enc(name)}:/content`); return r ? r.json() : null; },
+  async del(f, name) { await g(`/drives/${f.drive}/items/${f.item}:/${enc(name)}`, { method: 'DELETE' }); },
   async put(f, name, data) {
     const body = JSON.stringify(data);
     if (body.length < 3.5e6) {
@@ -139,7 +141,7 @@ export async function syncAll(onStatus = () => {}) {
         const pend = await store.pendingOps(sp.id);
         if (pend.length) {
           const name = `${store.state.device}-${Date.now().toString(36)}.json`;
-          await P.put(opsF, name, { device: store.state.device, user: store.state.user, ops: pend.map(({ i, r, s, x, u }) => ({ i, r, s, x, u })) });
+          await P.put(opsF, name, { device: store.state.device, user: store.state.user, ops: pend.map(({ i, r, s, x, u, ux }) => ({ i, r, s, x, u, ...(ux ? { ux } : {}) })) });
           await store.markSynced(pend, name); res.up += pend.length;
         }
         // download everybody else's
@@ -151,6 +153,7 @@ export async function syncAll(onStatus = () => {}) {
           seen.add(fl.name);
         }
         await store.kv.set(`seen:${sp.id}`, [...seen]);
+        try { await autoBackup(P, sp); } catch (e) { console.warn('backup', e); }
       } catch (e) { res.errors.push(`${sp.name}: ${e.message}`); if (e.code === 'signin') { res.signin = true; break; } }
     }
     await store.kv.set('lastSync', Date.now());

@@ -20,6 +20,7 @@ function applyOp(sp, op) {
   observe(op.i);
   let r = sp.recs.get(op.r);
   if (!r) { r = { id: op.r, _t: {} }; sp.recs.set(op.r, r); }
+  if (op.ux && r._x && op.i > r._x) { delete r._x; r._u = op.u; r._m = op.i; }     // undelete (restore from a backup)
   if (op.s) {
     for (const [f, v] of Object.entries(op.s)) {
       const ft = r._t[f] || '0';
@@ -95,6 +96,7 @@ export async function putMany(spaceId, changes) {
   for (const ch of changes) {
     const k = `${spaceId}|${tick(S.device)}`;
     const op = { k, sp: spaceId, r: ch.id || uid(), u: S.user, synced: 0, i: k.split('|')[1] };
+    if (ch.undel) op.ux = 1;
     if (ch.del) op.x = 1; else op.s = Object.fromEntries(Object.entries(ch.set).map(([f, v]) => [f, v === '' || v === undefined ? null : v]));
     ops.push(op);
   }
