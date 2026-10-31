@@ -45,6 +45,8 @@ export function entryView(k) {
         const prevDue = f.cl ? (O.clientPays(f.cl).find((r) => r.id !== f.id && (!f.id || r.d <= f.d))?.due || 0) : 0;
         return `${top}<div class="card">
           <label class="f"><span>Πελάτης</span><span class="ac"><input name="cl" value="${esc(f.cl)}" autocomplete="off" placeholder="Όνομα πελάτη"><span class="ac-list" data-ac hidden></span></span></label>
+          ${f.id ? '' : `<div class="note" data-newcl style="margin:-4px 0 12px;${!f.cl || O.clientCard(f.cl) || O.clientPays(f.cl).length ? 'display:none' : ''}"><div class="small" style="font-weight:700;margin-bottom:6px">🆕 Νέος πελάτης — στοιχεία (προαιρετικά)</div>
+            <div class="grid2"><label class="f" style="margin:0"><span>Κινητό</span><input name="clPhone" inputmode="tel" value="${esc(f.clPhone || '')}"></label><label class="f" style="margin:0"><span>E-mail</span><input name="clEmail" inputmode="email" value="${esc(f.clEmail || '')}"></label></div></div>`}
           <label class="f"><span>Υπηρεσία</span>${chips('svc', svcs.map((s) => [s.name, s.name]), O.svcGroup(f.svc) === f.svc ? f.svc : '')}
             <input name="svc" value="${esc(f.svc)}" placeholder="ή γράψε (π.χ. πακέτο 4 φορές)" style="margin-top:6px"></label>
           ${amount}
@@ -115,6 +117,8 @@ export function entryView(k) {
           ui.render();
         });
         if (!f.id && !f.cl) setTimeout(() => clI.focus(), 50);
+        const nb = root.querySelector('[data-newcl]');
+        if (nb) clI.addEventListener('input', () => { const v = clI.value.trim(); nb.style.display = v.length > 2 && !O.clientCard(v) && !O.clientPays(v).length ? '' : 'none'; });
       } else {
         const dI = root.querySelector('[name=desc]');
         ac(root, dI, () => { const m = new Map(); for (const r of O.expenses(true)) { if (!r.desc || r.sal) continue; const x = m.get(norm(r.desc)) || { v: r.desc, s: r.cat, n: 0, a: r.a, cat: r.cat, pay: r.pay }; x.n++; m.set(norm(r.desc), x); } return [...m.values()].sort((a, b) => b.n - a.n); }, (v) => {
@@ -146,6 +150,7 @@ export function entryView(k) {
           }
         }
         await store.put(O.OSP, f.id || null, rec);
+        if (k === 'in' && !f.id && (f.clPhone?.trim() || f.clEmail?.trim()) && !O.clientCard(rec.cl)) await store.put(O.OSP, null, { type: 'ocl', name: rec.cl, phone: f.clPhone?.trim() || null, email: f.clEmail?.trim() || null });
         ui.toast('Καταχωρήθηκε ✓');
         if (again) { const d = f.d; st[k] = { ...blank(k), d, ...(k === 'in' ? { pay: f.pay } : {}) }; ui.render(); } else { st[k] = null; ui.go('#/office'); }
       };

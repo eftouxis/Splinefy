@@ -155,7 +155,7 @@ export default {
         <label class="f"><span>Πήρε</span>${seg('for', [...people, 'Φίλιππος'].map((p) => [p, p]), f.for)}</label>
         <div class="note small">Φίλιππος = ο λογαριασμός του (κατάθεση ή ανάληψη).<br>Με άλλους (μαμά, αδερφή, φίλοι): <a href="#/debts">Οφειλές</a> → το άτομο → «Μου έδωσε» / «Της έδωσα».</div>`
       : `<label class="f"><span>${k === 'Έσοδο' ? 'Πήρε' : 'Πλήρωσε'}</span>${seg('payer', (k === 'Έξοδο' ? [...people, 'Και οι 2'] : people).map((p) => [p, p]), f.payer)}</label>
-        ${(() => { if (k !== 'Έξοδο' || f.occ) return ''; const cl = P.credits(f.id, f.cred); if (!cl.length) return '';
+        ${(() => { if (k !== 'Έξοδο' || f.occ) return ''; if (!f.cred && !norm(`${f.desc || ''} ${f.cat || ''}`).includes('κοινοχρηστ')) return ''; const cl = P.credits(f.id, f.cred); if (!cl.length) return '';
           return `<label class="f"><span>💳 Πληρωμή από πιστωτικό</span>${seg('cred', [['', 'Όχι'], ...cl.map((c) => [c.id, `${c.name} · ${eur(c.avail)}`])], f.cred || '')}</label>`; })()}
         ${k === 'Έξοδο' && f.payer === 'Και οι 2' ? `<div class="grid2"><label class="f"><span>Έδωσε ο Άλκης (€)</span><input name="both" inputmode="decimal" value="${esc(f.both)}"></label>
           <label class="f"><span>Έδωσε η Χαρά (€)</span><input name="bothX" inputmode="decimal" value="${esc(f.bothX ?? '')}"></label></div>` : ''}
