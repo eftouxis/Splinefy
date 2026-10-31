@@ -126,8 +126,16 @@ export function clients() {
     x.n++; x.sum += r.a || 0; if (r.d < x.first) x.first = r.d; if (r.d >= x.last) { x.last = r.d; x.name = r.cl.trim(); x.lastSvc = r.svc || ''; x.lastA = r.a || 0; }
     m.set(k, x);
   }
+  // the client list (cards with phone / e-mail, also people who never paid through the app yet)
+  for (const c of records('ocl', [OSP])) {
+    const k = norm(c.name).trim(); const rev = k.split(/\s+/).reverse().join(' ');
+    const x = m.get(k) || m.get(rev);
+    if (x) x.card = c; else m.set(k, { name: c.name.trim(), n: 0, sum: 0, first: '', last: '', lastSvc: '', lastA: 0, card: c });
+  }
   return [...m.values()];
 }
+/** a client's card by name (also with first/last name the other way round) */
+export function clientCard(name) { const k = norm(name).trim(), rev = k.split(/\s+/).reverse().join(' '); return records('ocl', [OSP]).find((c) => { const n = norm(c.name).trim(); return n === k || n === rev; }) || null; }
 export const clientPays = (name) => { const k = norm(name).trim(); return incomes(true).filter((r) => norm(r.cl || '').trim() === k); };
 /** most used services (as written) and the usual price of each */
 export function services() {

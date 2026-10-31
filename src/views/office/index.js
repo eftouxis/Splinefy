@@ -100,7 +100,7 @@ const home = {
     const fi = root.querySelector('[name=find]'), box = root.querySelector('[data-ac]');
     const showF = () => { const q = norm(fi.value).trim(); if (!q) { box.hidden = true; return; }
       const hits = O.clients().filter((c) => norm(c.name).includes(q)).sort((a, b) => (norm(a.name).startsWith(q) ? 0 : 1) - (norm(b.name).startsWith(q) ? 0 : 1) || (a.last < b.last ? 1 : -1)).slice(0, 8);
-      box.innerHTML = hits.map((c) => `<button type="button" data-acv="${esc(c.name)}"><b>${esc(c.name)}</b><span class="small muted">${c.n}× · ${dFull(c.last)}</span></button>`).join('') || '<button type="button" disabled><span class="muted">Κανένας πελάτης</span></button>'; box.hidden = false; };
+      box.innerHTML = hits.map((c) => `<button type="button" data-acv="${esc(c.name)}"><b>${esc(c.name)}</b><span class="small muted">${c.n ? `${c.n}× · ${dFull(c.last)}` : 'χωρίς πληρωμές ακόμα'}</span></button>`).join('') || '<button type="button" disabled><span class="muted">Κανένας πελάτης</span></button>'; box.hidden = false; };
     fi.addEventListener('input', showF); fi.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 150));
     box.addEventListener('pointerdown', (e) => e.preventDefault());
     box.addEventListener('click', (e) => { const b = e.target.closest('[data-acv]'); if (b) ui.go(`#/office/c/${encodeURIComponent(b.dataset.acv)}`); });
@@ -176,25 +176,27 @@ let clQ = '';
 const clientsView = {
   html() {
     const n = norm(clQ).trim(); const t = today();
-    const cs = O.clients().filter((c) => !n || norm(c.name).includes(n)).sort((a, b) => (a.last < b.last ? 1 : -1));
-    const act = cs.filter((c) => c.last >= addMonths(t, -2));
-    return `<div class="top">${back('#/office')}<h1>Πελάτες</h1></div>
-    <input type="search" name="q" placeholder="🔍 Όνομα" value="${esc(clQ)}" style="margin-bottom:8px">
-    <div class="small muted" style="margin:0 4px 8px">${cs.length} πελάτες · ${act.length} με επίσκεψη τους τελευταίους 2 μήνες</div>
+    const all = O.clients(); const cs = all.filter((c) => !n || norm(c.name).includes(n) || (c.card?.phone || '').includes(n)).sort((a, b) => (a.last < b.last ? 1 : a.last > b.last ? -1 : a.name.localeCompare(b.name, 'el')));
+    const act = cs.filter((c) => c.last && c.last >= addMonths(t, -2)); const noPay = all.filter((c) => !c.n).length;
+    return `<div class="top">${back('#/office')}<h1>Πελάτες</h1><button class="btn sm primary" data-newcl>+ Πελάτης</button></div>
+    <input type="search" name="q" placeholder="🔍 Όνομα ή τηλέφωνο" value="${esc(clQ)}" style="margin-bottom:8px">
+    <div class="small muted" style="margin:0 4px 8px">${cs.length} πελάτες · ${act.length} με επίσκεψη τους τελευταίους 2 μήνες${noPay && !n ? ` · ${noPay} χωρίς πληρωμές (από τη λίστα πελατών)` : ''}</div>
     <div class="list">${cs.slice(0, 300).map((c) => `<div class="item" data-go="#/office/c/${encodeURIComponent(c.name)}"><div class="dot">${esc(c.name.slice(0, 1))}</div>
-      <div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${c.n} ${c.n === 1 ? 'πληρωμή' : 'πληρωμές'} · τελευταία ${dFull(c.last)}${c.lastSvc ? ' · ' + esc(c.lastSvc) : ''}</div></div>
-      <div class="amt">${eur(c.sum)}</div></div>`).join('') || '<div class="item muted">Κανένας</div>'}</div>`;
+      <div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${c.n ? `${c.n} ${c.n === 1 ? 'πληρωμή' : 'πληρωμές'} · τελευταία ${dFull(c.last)}${c.lastSvc ? ' · ' + esc(c.lastSvc) : ''}` : `ανενεργός${c.card?.phone ? ' · ' + esc(c.card.phone) : ''}`}</div></div>
+      <div class="amt ${c.n ? '' : 'muted'}">${c.n ? eur(c.sum) : '—'}</div></div>`).join('') || '<div class="item muted">Κανένας</div>'}</div>`;
   },
   mount(root, p, ui) {
     bindCommon(root, ui);
+    root.querySelector('[data-newcl]').addEventListener('click', () => clientSheet(ui, null, clQ));
     const qi = root.querySelector('[name=q]');
     qi.addEventListener('input', () => { clQ = qi.value; clearTimeout(qi._t); qi._t = setTimeout(() => { ui.render(); const x = document.querySelector('[name=q]'); x.focus(); x.setSelectionRange(x.value.length, x.value.length); }, 250); });
   },
 };
 const clientView = {
   html([name]) {
-    const ps = O.clientPays(name); const sum = ps.reduce((s, r) => s + (r.a || 0), 0); const due = O.clientDue(name);
-    return `<div class="top">${back()}<h1>${esc(name)}</h1></div>
+    const ps = O.clientPays(name); const sum = ps.reduce((s, r) => s + (r.a || 0), 0); const due = O.clientDue(name); const cd = O.clientCard(name);
+    return `<div class="top">${back()}<h1>${esc(name)}</h1><button class="btn sm" data-card>${cd ? 'Στοιχεία' : '+ Στοιχεία'}</button></div>
+    ${cd && (cd.phone || cd.email || cd.note) ? `<div class="card small">${cd.phone ? `📞 <a href="tel:${esc(cd.phone.replace(/[^\d+]/g, ''))}">${esc(cd.phone)}</a>` : ''}${cd.phone && cd.email ? ' · ' : ''}${cd.email ? `✉️ <a href="mailto:${esc(cd.email)}">${esc(cd.email)}</a>` : ''}${cd.note ? `<div class="muted" style="margin-top:4px">${esc(cd.note)}</div>` : ''}</div>` : ''}
     ${due ? `<div class="card kpi"><div class="label">${due > 0 ? 'Σου χρωστάει' : 'Του/της χρωστάς'}</div><div class="big ${due > 0 ? 'pos' : 'neg'}">${eur(Math.abs(due))}</div><div class="small muted">από την τελευταία πληρωμή — διορθώνεται εκεί</div></div>` : ''}
     <div class="grid3"><div class="card kpi"><div class="label">Σύνολο</div><div class="mid">${eur(sum)}</div></div>
       <div class="card kpi"><div class="label">Πληρωμές</div><div class="mid">${ps.length}</div></div>
@@ -202,8 +204,24 @@ const clientView = {
     <a class="btn green" style="width:100%;margin-bottom:12px" href="#/office/in/new?cl=${encodeURIComponent(name)}">+ Πληρωμή από ${esc(name.split(' ')[0])}</a>
     <div class="list">${ps.map(payRow).join('')}</div>`;
   },
-  mount(root, p, ui) { bindCommon(root, ui); },
+  mount(root, [name], ui) { bindCommon(root, ui); root.querySelector('[data-card]').addEventListener('click', () => clientSheet(ui, O.clientCard(decodeURIComponent(name)), decodeURIComponent(name))); },
 };
+/** a client's card: name, phone, e-mail, note (renaming the card does not touch past payments) */
+function clientSheet(ui, c, name = '') {
+  sheet(`<div class="mid">${c ? 'Στοιχεία πελάτη' : 'Νέος πελάτης'}</div>
+    <label class="f" style="margin-top:10px"><span>Ονοματεπώνυμο</span><input name="name" value="${esc(c?.name || name || '')}"></label>
+    <div class="grid2"><label class="f"><span>Κινητό</span><input name="phone" inputmode="tel" value="${esc(c?.phone || '')}"></label><label class="f"><span>E-mail</span><input name="email" inputmode="email" value="${esc(c?.email || '')}"></label></div>
+    <label class="f"><span>Σημείωση</span><input name="note" value="${esc(c?.note || '')}"></label>
+    <button class="btn primary" data-ok>Αποθήκευση</button>${c ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή στοιχείων</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelector('[data-del]')?.addEventListener('click', async () => { await store.del(c._sp, c.id); close(); });
+    el.querySelector('[data-ok]').onclick = async () => {
+      const v = (k) => el.querySelector(`[name=${k}]`).value.trim() || null; const nm = v('name'); if (!nm) return;
+      await store.put(O.OSP, c?.id || null, { type: 'ocl', name: nm, phone: v('phone'), email: v('email'), note: v('note') }); close();
+      if (!c) ui.go(`#/office/c/${encodeURIComponent(nm)}`);
+    };
+  });
+}
 
 const partnersView = {
   html() {
