@@ -164,3 +164,7 @@ mark { background: #ffe58a; color: inherit; border-radius: 3px; } :root[data-the
 .sw.l .sw-bg span:last-child, .sw.r .sw-bg span:first-child { opacity: 1; }
 .sw.l.go .sw-bg { background: #2f9e57; } .sw.r.go .sw-bg { background: #5b6b84; }
 .sw.go .sw-bg span { transform: scale(1.12); }
+/* the active section is always visible: a grey pill behind its icon; Αρχική is dark only when it is the active one */
+nav.bottom a.plus:not(.on) .i { background: var(--chip); color: var(--muted); }
+nav.bottom a.on:not(.plus) .i { background: var(--chip); border-radius: 10px; padding: 3px 14px; }
+@media (min-width: 900px) { nav.bottom a.on:not(.plus) .i { background: none; padding: 0; } }

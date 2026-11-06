@@ -13,6 +13,35 @@ function blank(k) {
   if (k === 'in') return { id: null, d: today(), cl: q.get('cl') || '', svc: '', a: '', pay: 'Μετρητά', rcpt: false, part: '', note: '' };
   return { id: null, d: today(), desc: '', cat: q.get('part') ? 'Αμοιβή συνεργασίας' : '', a: q.get('a') || '', pay: '', part: q.get('part') || '', note: '', rep: false, repf: 'm1' };
 }
+/** the options of «Από πού σε έμαθε» (the partner choice also covers any business that recommended her) */
+export const srcOptions = (cur) => O.SRCS.map((x) => `<option value="${esc(x)}" ${cur === x ? 'selected' : ''}>${esc(x === 'Συνεργαζόμενος χώρος' ? 'Συνεργαζόμενος χώρος / επιχείρηση' : x)}</option>`).join('');
+/** the partner list with «＋ Νέος χώρος…» and the box to add one by name */
+export function partPickHtml(nm, cur) {
+  const ps = O.partners().filter((p) => p.active !== false || p.id === cur);
+  return `<select name="${nm}"><option value=""></option>${ps.map((p) => `<option value="${esc(p.id)}" ${cur === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}<option value="__new">＋ Νέος χώρος / επιχείρηση…</option></select>
+    <div data-newpart="${nm}" class="row" style="display:none;gap:6px;margin-top:6px"><input name="${nm}N" placeholder="Όνομα (π.χ. Fit Zone, Φαρμακείο Παπαδάκη)" style="flex:1;min-width:0"><button type="button" class="btn sm" data-addpart="${nm}" style="width:auto;flex:none">Προσθήκη</button></div>
+    <div class="small muted" data-newparth="${nm}" style="display:none;margin-top:4px">Μπαίνει στους Συνεργάτες χωρίς αμοιβή και με έκπτωση πελάτη ${Math.round(O.NEW_PART_DISC * 100)}% (αλλάζει από εκεί).</div>`;
+}
+/** «＋ Νέος…» chosen but «Προσθήκη» not pressed: create it on save from the typed name */
+export async function resolvePart(val, name) {
+  if (val !== '__new') return val || null; name = (name || '').trim(); if (!name) return null;
+  const ex = O.partners().find((p) => norm(p.name).trim() === norm(name).trim());
+  return ex ? ex.id : store.put(O.OSP, null, { type: 'opart', name, pct: 0, disc: O.NEW_PART_DISC, active: true });
+}
+/** wire the partner list: «＋ Νέος…» shows the name box; «Προσθήκη» creates the partner and selects it */
+export function bindPartPick(el, nm, onPick) {
+  const sel = el.querySelector(`[name=${nm}]`); if (!sel) return;
+  const box = el.querySelector(`[data-newpart="${nm}"]`), hint = el.querySelector(`[data-newparth="${nm}"]`);
+  sel.addEventListener('change', () => { const on = sel.value === '__new'; box.style.display = on ? '' : 'none'; hint.style.display = on ? '' : 'none'; if (on) box.querySelector('input').focus(); else onPick?.(sel.value); });
+  el.querySelector(`[data-addpart="${nm}"]`).addEventListener('click', async () => {
+    const name = el.querySelector(`[name=${nm}N]`).value.trim(); if (!name) return;
+    const ex = O.partners().find((p) => norm(p.name).trim() === norm(name).trim());
+    const id = ex ? ex.id : await store.put(O.OSP, null, { type: 'opart', name, pct: 0, disc: O.NEW_PART_DISC, active: true });
+    const pid = typeof id === 'string' ? id : O.partners().find((p) => p.name === name)?.id;
+    if (!sel.querySelector(`option[value="${pid}"]`)) sel.insertAdjacentHTML('afterbegin', `<option value="${esc(pid)}">${esc(name)}</option>`);
+    sel.value = pid; box.style.display = 'none'; hint.style.display = 'none'; onPick?.(pid);
+  });
+}
 /** «ποιος / ποιο;» under «Από πού σε έμαθε» (free text with suggestions; hidden for no source and for partners, which have their own list) */
 const whoLabel = (s) => { const t = O.SRC_WHO[s] || 'ποιος / ποιο'; return `${t[0].toUpperCase()}${t.slice(1)};`; };
 export function srcWhoHtml(src, who, nm = 'srcWho') {
@@ -63,8 +92,8 @@ export function entryView(k) {
         return `${top}<div class="card">
           <label class="f"><span>Πελάτης</span><span class="ac"><input name="cl" value="${esc(f.cl)}" autocomplete="off" placeholder="Όνομα πελάτη"><span class="ac-list" data-ac hidden></span></span></label>
           ${f.id ? '' : `<div class="note" data-newcl style="margin:-4px 0 12px;${!f.cl || O.clientCard(f.cl) || O.clientPays(f.cl).length ? 'display:none' : ''}"><div class="small" style="font-weight:700;margin-bottom:6px">🆕 Νέος πελάτης — στοιχεία (προαιρετικά)</div>
-            <label class="f" style="margin:0 0 8px"><span>Από πού σε έμαθε</span><select name="clSrc"><option value=""></option>${O.SRCS.map((x) => `<option ${f.clSrc === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
-            <label class="f" data-clpart style="margin:0 0 8px;${f.clSrc === 'Συνεργαζόμενος χώρος' ? '' : 'display:none'}"><span>Ποιος συνεργαζόμενος χώρος</span><select name="clSrcPart"><option value=""></option>${O.partners().filter((p) => p.active !== false || p.id === (f.clSrcPart || f.part)).map((p) => `<option value="${esc(p.id)}" ${(f.clSrcPart || f.part) === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
+            <label class="f" style="margin:0 0 8px"><span>Από πού σε έμαθε</span><select name="clSrc"><option value=""></option>${srcOptions(f.clSrc)}</select></label>
+            <label class="f" data-clpart style="margin:0 0 8px;${f.clSrc === 'Συνεργαζόμενος χώρος' ? '' : 'display:none'}"><span>Ποιος χώρος / επιχείρηση σε σύστησε</span>${partPickHtml('clSrcPart', f.clSrcPart || f.part)}</label>
             ${srcWhoHtml(f.clSrc, f.clSrcWho, 'clSrcWho')}
             <div class="grid2"><label class="f" style="margin:0"><span>Κινητό</span><input name="clPhone" inputmode="tel" value="${esc(f.clPhone || '')}"></label><label class="f" style="margin:0"><span>E-mail</span><input name="clEmail" inputmode="email" value="${esc(f.clEmail || '')}"></label></div></div>`}
           <label class="f"><span>Υπηρεσία</span>${chips('svc', svcs.map((s) => [s.name, s.name]), O.svcGroup(f.svc) === f.svc ? f.svc : '')}
@@ -78,7 +107,7 @@ export function entryView(k) {
           ${parts.length ? `<label class="f"><span>Ήρθε μέσω συνεργάτη</span>${chips('part', [['', 'Κανένας'], ...parts.map((p) => [p.id, p.name])], f.part)}</label>
             ${f.part ? `<div class="small muted" data-fee style="margin:-4px 2px 10px"></div>` : ''}
             ${f.part && O.partner(f.part)?.disc ? `<div class="note small" style="margin:-4px 0 12px">🏷 Πελάτης από ${esc(O.partner(f.part).name)}: έκπτωση ${Math.round(O.partner(f.part).disc * 100)}%.
-              <div class="row" style="margin-top:6px;gap:6px"><span>Κανονική τιμή</span><input name="list" inputmode="decimal" value="${esc(f.list || cm(O.services().find((x) => x.name === O.svcGroup(f.svc))?.price || ''))}" style="width:90px;padding:6px 8px"><span data-discv class="grow"></span><button type="button" class="btn sm" data-applyd>Βάλε το</button></div></div>` : ''}` : ''}
+              <div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap"><span>Κανονική τιμή</span><input name="list" inputmode="decimal" value="${esc(f.list || cm(O.services().find((x) => x.name === O.svcGroup(f.svc))?.price || '') || f.a || '')}" style="width:90px;padding:6px 8px"><span data-discv class="grow" style="white-space:nowrap"></span><button type="button" class="btn sm" data-applyd style="width:100%;margin:2px 0 0">Έκπτωση −${String(Math.round(O.partner(f.part).disc * 1000) / 10).replace('.', ',')}%</button></div></div>` : ''}` : ''}
           <label class="f"><span>Μετά από αυτή την πληρωμή</span>${chips('dueK', [['', 'Εντάξει'], ['owes', 'Μου χρωστάει'], ['iowe', 'Του/της χρωστάω']], f.dueK)}
             ${f.dueK ? `<input name="dueA" inputmode="decimal" value="${esc(f.dueA || '')}" placeholder="πόσα €" style="margin-top:6px">` : ''}
             ${prevDue ? `<div class="small ${prevDue > 0 ? 'pos' : 'neg'}" style="margin-top:4px">Από την προηγούμενη φορά: ${prevDue > 0 ? 'σου χρωστούσε' : 'του/της χρωστούσες'} ${eur(Math.abs(prevDue))}</div>` : ''}</label>
@@ -130,7 +159,11 @@ export function entryView(k) {
       const lI = root.querySelector('[name=list]'), dv = root.querySelector('[data-discv]');
       const pD = O.partner(f.part)?.disc || 0;
       const upD = () => { if (!lI) return; const l = parseAmount(lI.value) || 0; dv.innerHTML = l ? `→ πληρώνει <b>${eur(l * (1 - pD))}</b>` : ''; };
-      if (lI) { upD(); lI.addEventListener('input', upD); root.querySelector('[data-applyd]').addEventListener('click', () => { const l = parseAmount(lI.value) || 0; if (!l) return; f.list = lI.value; aI.value = cm(Math.round(l * (1 - pD) * 100) / 100); aI.dispatchEvent(new Event('input')); }); }
+      if (lI) { upD(); lI.addEventListener('input', upD); const bD = root.querySelector('[data-applyd]'), lbl = bD.textContent;
+        const disc = () => { const l = parseAmount(lI.value) || 0; return l && Math.abs((parseAmount(aI.value) || 0) - Math.round(l * (1 - pD) * 100) / 100) < 0.005; };
+        const upB = () => { bD.textContent = disc() ? '✓ Με έκπτωση · αναίρεση' : lbl; };
+        upB(); aI.addEventListener('input', upB); lI.addEventListener('input', upB);
+        bD.addEventListener('click', () => { const l = parseAmount(lI.value) || 0; if (!l) return; f.list = lI.value; aI.value = cm(disc() ? l : Math.round(l * (1 - pD) * 100) / 100); aI.dispatchEvent(new Event('input')); upB(); }); }
       if (k === 'in') {
         const clI = root.querySelector('[name=cl]');
         ac(root, clI, () => O.clients().sort((a, b) => (a.last < b.last ? 1 : -1)).map((c) => ({ v: c.name, s: `${c.n}× · ${c.lastSvc || ''}` })), (v) => {
@@ -143,7 +176,7 @@ export function entryView(k) {
         const nb = root.querySelector('[data-newcl]');
         bindSrcWho(root, 'clSrc', 'clSrcWho', (s) => { const b = root.querySelector('[data-clpart]'); if (b) b.style.display = s === 'Συνεργαζόμενος χώρος' ? '' : 'none'; });
         // the partner the client came from is also the payment's partner (discount, fee) unless another one is already chosen
-        root.querySelector('[name=clSrcPart]')?.addEventListener('change', (e) => { read(); if (e.target.value && !f.part) { f.part = e.target.value; ui.render(); } });
+        bindPartPick(root, 'clSrcPart', (id) => { read(); f.clSrcPart = id; if (id && (!f.part || f.part === f._autoPart)) { f.part = id; f._autoPart = id; } ui.render(); });
         if (nb) clI.addEventListener('input', () => { const v = clI.value.trim(); nb.style.display = v.length > 2 && !O.clientCard(v) && !O.clientPays(v).length ? '' : 'none'; });
       } else {
         const dI = root.querySelector('[name=desc]');
@@ -177,7 +210,7 @@ export function entryView(k) {
           }
         }
         await store.put(O.OSP, f.id || null, rec);
-        if (k === 'in' && !f.id && (f.clPhone?.trim() || f.clEmail?.trim() || f.clSrc) && !O.clientCard(rec.cl)) await store.put(O.OSP, null, { type: 'ocl', name: rec.cl, phone: f.clPhone?.trim() || null, email: f.clEmail?.trim() || null, src: f.clSrc || null, srcWho: f.clSrc && f.clSrc !== 'Συνεργαζόμενος χώρος' ? f.clSrcWho?.trim() || null : null, srcPart: f.clSrc === 'Συνεργαζόμενος χώρος' ? f.clSrcPart || f.part || null : null });
+        if (k === 'in' && !f.id && (f.clPhone?.trim() || f.clEmail?.trim() || f.clSrc) && !O.clientCard(rec.cl)) await store.put(O.OSP, null, { type: 'ocl', name: rec.cl, phone: f.clPhone?.trim() || null, email: f.clEmail?.trim() || null, src: f.clSrc || null, srcWho: f.clSrc && f.clSrc !== 'Συνεργαζόμενος χώρος' ? f.clSrcWho?.trim() || null : null, srcPart: f.clSrc === 'Συνεργαζόμενος χώρος' ? (await resolvePart(f.clSrcPart, f.clSrcPartN)) || f.part || null : null });
         ui.toast('Καταχωρήθηκε ✓');
         if (again) { const d = f.d; st[k] = { ...blank(k), d, ...(k === 'in' ? { pay: f.pay } : {}) }; ui.render(); } else { st[k] = null; ui.go('#/office'); }
       };

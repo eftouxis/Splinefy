@@ -161,6 +161,17 @@ export function partnerStatus(id) {
   const n = incomes().filter((r) => r.part === id).length;
   return { fees, paid, owed: fees - paid, n };
 }
+/** a partner's clients (their source is this place, from the card or from payments through it) and what came through it */
+export function partnerClients(id) {
+  const t = today(), y = t.slice(0, 4); const list = [];
+  for (const c of clients()) { if (!c.n) continue; const s = clientSource(c.name); if (s?.src !== 'Συνεργαζόμενος χώρος' || s.part !== id) continue;
+    const ps = clientPays(c.name).filter((r) => r.d <= t); list.push({ name: c.name, first: c.first, n: ps.length, sum: ps.reduce((a, r) => a + (r.a || 0), 0) }); }
+  const via = incomes().filter((r) => r.part === id);
+  return { list: list.sort((a, b) => (a.first < b.first ? 1 : -1)), n: list.length, ny: list.filter((c) => c.first.startsWith(y)).length, sum: list.reduce((a, c) => a + c.sum, 0),
+    back: list.filter((c) => c.n > 1).length, pays: via.length, viaSum: via.reduce((a, r) => a + (r.a || 0), 0), disc: via.reduce((a, r) => a + (r.disc || 0), 0), fees: via.reduce((a, r) => a + (r.fee || 0), 0) };
+}
+/** a new place that recommended a client: no fee, the usual client discount (15%) */
+export const NEW_PART_DISC = 0.15;
 /** clients: name → {name, n, sum, first, last, svc} */
 export function clients() {
   const m = new Map();

@@ -5,7 +5,7 @@ import * as store from '../../store.js';
 import * as O from '../../office.js';
 import { syncBadge } from '../../main.js';
 import { sheet } from '../lessons/ui.js';
-import { entryView, srcWhoHtml, bindSrcWho } from './entry.js';
+import { entryView, srcWhoHtml, bindSrcWho, srcOptions, partPickHtml, bindPartPick, resolvePart } from './entry.js';
 
 const k0 = (x) => `${Math.round(x || 0).toLocaleString('el-GR')} €`;
 let cmpM = 'inc';
@@ -224,17 +224,18 @@ function clientSheet(ui, c, name = '') {
     <label class="f" style="margin-top:10px"><span>Ονοματεπώνυμο</span><input name="name" value="${esc(c?.name || name || '')}"></label>
     <div class="grid2"><label class="f"><span>Κινητό</span><input name="phone" inputmode="tel" value="${esc(c?.phone || '')}"></label><label class="f"><span>E-mail</span><input name="email" inputmode="email" value="${esc(c?.email || '')}"></label></div>
     ${(() => { const cur = c?.src ? { src: c.src, part: c.srcPart, who: c.srcWho } : (name ? O.clientSource(name) : null); const parts = O.partners();
-      return `<label class="f"><span>Από πού σε έμαθε</span><select name="src"><option value=""></option>${O.SRCS.map((x) => `<option ${cur?.src === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
-      <label class="f" data-srcpart style="${cur?.src === 'Συνεργαζόμενος χώρος' ? '' : 'display:none'}"><span>Ποιος συνεργαζόμενος χώρος</span><select name="srcPart"><option value=""></option>${parts.map((x) => `<option value="${esc(x.id)}" ${cur?.part === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
+      return `<label class="f"><span>Από πού σε έμαθε</span><select name="src"><option value=""></option>${srcOptions(cur?.src)}</select></label>
+      <label class="f" data-srcpart style="${cur?.src === 'Συνεργαζόμενος χώρος' ? '' : 'display:none'}"><span>Ποιος χώρος / επιχείρηση σε σύστησε</span>${partPickHtml('srcPart', cur?.part)}</label>
       ${srcWhoHtml(cur?.src, cur?.who)}`; })()}
     <label class="f"><span>Σημείωση</span><input name="note" value="${esc(c?.note || '')}"></label>
     <button class="btn primary" data-ok>Αποθήκευση</button>${c ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή στοιχείων</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-no]').onclick = close;
     el.querySelector('[data-del]')?.addEventListener('click', async () => { await store.del(c._sp, c.id); close(); });
     bindSrcWho(el, 'src', 'srcWho', (s) => { el.querySelector('[data-srcpart]').style.display = s === 'Συνεργαζόμενος χώρος' ? '' : 'none'; });
+    bindPartPick(el, 'srcPart');
     el.querySelector('[data-ok]').onclick = async () => {
       const v = (k) => el.querySelector(`[name=${k}]`).value.trim() || null; const nm = v('name'); if (!nm) return;
-      await store.put(O.OSP, c?.id || null, { type: 'ocl', name: nm, phone: v('phone'), email: v('email'), note: v('note'), src: v('src'), srcWho: v('src') && v('src') !== 'Συνεργαζόμενος χώρος' ? v('srcWho') : null, srcPart: v('src') === 'Συνεργαζόμενος χώρος' ? v('srcPart') : null }); close();
+      await store.put(O.OSP, c?.id || null, { type: 'ocl', name: nm, phone: v('phone'), email: v('email'), note: v('note'), src: v('src'), srcWho: v('src') && v('src') !== 'Συνεργαζόμενος χώρος' ? v('srcWho') : null, srcPart: v('src') === 'Συνεργαζόμενος χώρος' ? await resolvePart(v('srcPart'), v('srcPartN')) : null }); close();
       if (!c) ui.go(`#/office/c/${encodeURIComponent(nm)}`);
     };
   });
@@ -242,19 +243,18 @@ function clientSheet(ui, c, name = '') {
 
 const partnersView = {
   html() {
-    const ps = O.partners();
+    const ps = O.partners().map((p) => ({ p, c: O.partnerClients(p.id) })).sort((a, b) => (a.p.active === false) - (b.p.active === false) || b.c.n - a.c.n || a.p.name.localeCompare(b.p.name, 'el')).map((x) => x.p);
     return `<div class="top">${back('#/office')}<h1>Συνεργάτες</h1><button class="btn sm primary" data-new>+ Συνεργάτης</button></div>
-    <div class="small muted" style="margin:-4px 4px 10px">Χώροι που σου στέλνουν πελάτες (π.χ. ένα στούντιο pilates). Για τον καθένα ορίζεις αν παίρνει αμοιβή (ποσοστό ανά πελάτη/ραντεβού) και αν ο πελάτης του έχει έκπτωση.</div>
+    <div class="small muted" style="margin:-4px 4px 10px">Χώροι και επιχειρήσεις που σου στέλνουν πελάτες (στούντιο, γυμναστήρια, φαρμακεία, γιατροί…). Μπαίνουν και μόνοι τους όταν γράφεις νέο πελάτη «από συνεργαζόμενο χώρο». Πάτα έναν για στατιστικά, έκπτωση και αμοιβή.</div>
     <div class="list">${ps.map((p) => { const s = O.partnerStatus(p.id); return `<div class="item" style="display:block;${p.active === false ? 'opacity:.6' : ''}">
-      <div class="row" data-edit="${esc(p.id)}" style="cursor:pointer"><div class="grow"><div class="t">${esc(p.name)} <span class="small muted">· ${p.pct ? `αμοιβή ${fmtPct(p.pct)}` : 'χωρίς αμοιβή'}${p.disc ? ` · έκπτωση πελάτη ${Math.round(p.disc * 100)}%` : ''}${p.active === false ? ' · ανενεργός' : ''}</span></div>
-        <div class="s">${s.n} πελάτες${s.fees || s.paid ? ` · αμοιβές ${eur(s.fees)} · πληρώθηκαν ${eur(s.paid)}` : ''}</div></div>
+      <div class="row" data-go="#/office/p/${esc(p.id)}" style="cursor:pointer"><div class="grow"><div class="t">${esc(p.name)} <span class="small muted">· ${p.pct ? `αμοιβή ${fmtPct(p.pct)}` : 'χωρίς αμοιβή'}${p.disc ? ` · έκπτωση πελάτη ${Math.round(p.disc * 100)}%` : ''}${p.active === false ? ' · ανενεργός' : ''}</span></div>
+        ${(() => { const c = O.partnerClients(p.id); return `<div class="s">${c.n} ${c.n === 1 ? 'πελάτης' : 'πελάτες'}${c.ny ? ` (${c.ny} φέτος)` : ''}${c.sum ? ` · έφεραν ${eur(c.sum)}` : ''}${s.fees || s.paid ? ` · αμοιβές ${eur(s.fees)} · πληρώθηκαν ${eur(s.paid)}` : ''}</div>`; })()}</div>
         <div class="right"><div class="amt ${s.owed > 0.004 ? 'neg' : 'muted'}">${s.owed > 0.004 ? eur(s.owed) : '✓'}</div><div class="small muted">${s.owed > 0.004 ? 'τους χρωστάς' : 'εντάξει'}</div></div></div>
       ${s.owed > 0.004 ? `<button class="btn sm" style="margin-top:8px" data-pay="${esc(p.id)}">Πλήρωσα ${esc(p.name)}</button>` : ''}</div>`; }).join('') || '<div class="item muted">Κανένας ακόμα</div>'}</div>`;
   },
   mount(root, p, ui) {
     bindCommon(root, ui);
     root.querySelector('[data-new]').addEventListener('click', () => partnerSheet(ui, null));
-    root.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => partnerSheet(ui, O.partner(b.dataset.edit))));
     root.querySelectorAll('[data-pay]').forEach((b) => b.addEventListener('click', () => { const s = O.partnerStatus(b.dataset.pay); ui.go(`#/office/ex/new?part=${b.dataset.pay}&a=${String(Math.round(s.owed * 100) / 100).replace('.', ',')}`); }));
   },
 };
@@ -326,6 +326,32 @@ const sourcesView = {
     root.querySelectorAll('[data-srp]').forEach((b) => b.addEventListener('click', () => { SR.p = b.dataset.srp; ui.render(); }));
     root.querySelectorAll('[name=srf],[name=srt]').forEach((i) => i.addEventListener('change', () => { SR[i.name === 'srf' ? 'from' : 'to'] = i.value; ui.render(); }));
     root.querySelectorAll('[data-sopen]').forEach((c) => c.addEventListener('click', (e) => { if (e.target.closest('[data-go]')) return; SR.open = SR.open === c.dataset.sopen ? '' : c.dataset.sopen; ui.render(); }));
+  },
+};
+
+/** one partner: how many clients it brought (per year), what they paid, discounts, fees, its clients */
+const partnerView = {
+  html([id]) {
+    const p = O.partner(id); if (!p) return `<div class="top">${back('#/office/partners')}<h1>Δεν βρέθηκε</h1></div>`;
+    const c = O.partnerClients(p.id), s = O.partnerStatus(p.id);
+    const years = [...new Set(c.list.map((x) => x.first.slice(0, 4)))].sort().reverse();
+    return `<div class="top">${back('#/office/partners')}<h1>${esc(p.name)}</h1><button class="btn sm" data-edit>✎ Ρυθμίσεις</button></div>
+    <div class="small muted" style="margin:-4px 4px 10px">${p.pct ? `Αμοιβή ${fmtPct(p.pct)}` : 'Χωρίς αμοιβή'} · ${p.disc ? `έκπτωση πελάτη ${String(Math.round(p.disc * 1000) / 10).replace('.', ',')}%` : 'χωρίς έκπτωση πελάτη'}${p.active === false ? ' · ανενεργός' : ''}</div>
+    <div class="grid3"><div class="card kpi"><div class="label">Πελάτες</div><div class="mid">${c.n}</div><div class="small muted">${c.ny} φέτος</div></div>
+      <div class="card kpi"><div class="label">Έφεραν</div><div class="mid pos">${eur(c.sum)}</div><div class="small muted">${c.n ? `${eur(c.sum / c.n)} / πελάτη` : '—'}</div></div>
+      <div class="card kpi"><div class="label">Ξαναήρθαν</div><div class="mid">${c.back}/${c.n}</div><div class="small muted">${c.n ? Math.round((c.back / c.n) * 100) + '%' : '—'}</div></div></div>
+    <div class="card small" style="line-height:1.8">
+      <div class="row"><span class="grow">Πληρωμές μέσω ${esc(p.name)}</span><b>${c.pays} · ${eur(c.viaSum)}</b></div>
+      <div class="row"><span class="grow">Εκπτώσεις που έκανες στους πελάτες του</span><b>${eur(c.disc)}</b></div>
+      ${c.fees || s.paid ? `<div class="row"><span class="grow">Αμοιβές του · πληρώθηκαν</span><b>${eur(c.fees)} · ${eur(s.paid)}</b></div>` : ''}
+      ${s.owed > 0.004 ? `<div class="row"><span class="grow">Του χρωστάς</span><b class="neg">${eur(s.owed)}</b></div><button class="btn sm" style="margin-top:6px" data-pay>Πλήρωσα ${esc(p.name)}</button>` : ''}</div>
+    ${years.length > 1 ? `<h2>Νέοι πελάτες ανά χρονιά</h2><div class="card">${years.map((y) => { const k = c.list.filter((x) => x.first.startsWith(y)); return `<div class="row small" style="margin:4px 0"><span class="grow">${y}</span><span style="width:70px;text-align:right">${k.length} νέοι</span><b style="width:90px;text-align:right">${eur(k.reduce((a, x) => a + x.sum, 0))}</b></div>`; }).join('')}</div>` : ''}
+    <h2>Πελάτες</h2><div class="list">${c.list.map((x) => `<div class="item" data-go="#/office/c/${encodeURIComponent(x.name)}"><div class="grow"><div class="t">${esc(x.name)}</div><div class="s">από ${dFull(x.first)} · ${x.n} ${x.n === 1 ? 'πληρωμή' : 'πληρωμές'}</div></div><div class="amt">${eur(x.sum)}</div></div>`).join('') || '<div class="item muted">Κανένας ακόμα</div>'}</div>`;
+  },
+  mount(root, [id], ui) {
+    bindCommon(root, ui);
+    root.querySelector('[data-edit]')?.addEventListener('click', () => partnerSheet(ui, O.partner(id)));
+    root.querySelector('[data-pay]')?.addEventListener('click', () => { const s = O.partnerStatus(id); ui.go(`#/office/ex/new?part=${id}&a=${String(Math.round(s.owed * 100) / 100).replace('.', ',')}`); });
   },
 };
 
@@ -441,7 +467,7 @@ const cashView = {
     root.querySelectorAll('[data-orep]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); repaySheet(b.dataset.orep); }));
   },
 };
-const PAGES = { sources: sourcesView, cash: cashView, list, clients: clientsView, c: clientView, partners: partnersView, stats: statsView, fixed: fixedView, rec: recView, in: entryView('in'), ex: entryView('ex') };
+const PAGES = { p: partnerView, sources: sourcesView, cash: cashView, list, clients: clientsView, c: clientView, partners: partnersView, stats: statsView, fixed: fixedView, rec: recView, in: entryView('in'), ex: entryView('ex') };
 const denied = { html: () => '<div class="card">Το γραφείο φαίνεται μόνο στη Χαρά.</div>' };
 const pick = (p) => (!O.hasOffice() ? denied : p[0] === 'tasks' ? officeTasks : PAGES[p[0]] || home);
 export default {
