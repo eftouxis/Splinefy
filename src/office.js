@@ -195,6 +195,8 @@ export function monthTotals(m) { return totals(`${m}-01`, `${m}-31`); }
 export const fixed = () => records('ofix', [OSP]).sort((a, b) => (b.m || 0) - (a.m || 0));
 /** a client's open balance = what the latest payment says («μετά από αυτή: μου χρωστάει 5» = +5, «του χρωστάω 5» = −5) */
 export function clientDue(name) { const l = clientPays(name)[0]; return l && l.due ? l.due : 0; }
+/** payments marked «🧾 απόδειξη» whose receipt has not been issued yet (oldest first) — Χαρά issues them later, all together */
+export const pendingReceipts = () => incomes(true).filter((r) => r.rcpt && r.rpend).sort((a, b) => (a.d < b.d ? -1 : 1));
 export function clientsWithDue() {
   const m = new Map();
   for (const r of incomes(true)) { if (!r.cl) continue; const k = norm(r.cl).trim(); if (!m.has(k)) m.set(k, r); }   // newest first

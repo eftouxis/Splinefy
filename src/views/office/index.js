@@ -49,7 +49,7 @@ function pfeeSheet() {
 }
 const payRow = (r) => `<div class="item" data-go="#/office/in/${esc(r.id)}"><div class="dot">💶</div>
   <div class="grow"><div class="t">${esc(r.cl || '—')}</div><div class="s">${dShort(r.d)} · ${esc(r.svc || '')}${r.pay ? ' · ' + esc(r.pay) : ''}${r.part ? ' · 🤝 ' + esc(O.partner(r.part)?.name || '') : ''}${r.note ? ' · ' + esc(r.note) : ''}</div></div>
-  <div class="right"><div class="amt pos">+${eur(r.a)}</div>${r.due ? `<div class="small ${r.due > 0 ? 'pos' : 'neg'}">${r.due > 0 ? 'χρωστάει' : 'του χρωστάς'} ${eur(Math.abs(r.due))}</div>` : ''}${r.rcpt ? '<div class="small muted">🧾 απόδειξη</div>' : ''}</div></div>`;
+  <div class="right"><div class="amt pos">+${eur(r.a)}</div>${r.due ? `<div class="small ${r.due > 0 ? 'pos' : 'neg'}">${r.due > 0 ? 'χρωστάει' : 'του χρωστάς'} ${eur(Math.abs(r.due))}</div>` : ''}${r.rcpt ? (r.rpend ? '<div class="small" style="color:var(--amber, #b7791f)">🧾 για έκδοση</div>' : '<div class="small muted">🧾 απόδειξη</div>') : ''}</div></div>`;
 const expRow = (r) => r.comm ? `<div class="item" data-pfee style="cursor:pointer"><div class="dot">💳</div>
   <div class="grow"><div class="t">${esc(r.desc)}</div><div class="s">${dShort(r.d)} · ${esc(r.cat)} · υπολογίζεται μόνο του</div></div><div class="amt">−${eur(r.a)}</div></div>` : `<div class="item" data-go="${r.sal ? `#/rec/${esc(r._sp)}/${esc(r.rec)}` : r.rec || r.ext ? `#/edit/${esc(r._sp)}/${encodeURIComponent(r.id)}` : `#/office/ex/${esc(r.id)}`}"><div class="dot">${r.sal ? '👩‍⚕️' : r.ext ? '🏠' : r.rec ? '↻' : '🧾'}</div>
   <div class="grow"><div class="t">${esc(r.desc || r.cat || '')}</div><div class="s">${dShort(r.d)} · ${esc(r.cat || '')}${r.part ? ' · 🤝 ' + esc(O.partner(r.part)?.name || '') : ''}${r.pay ? ' · ' + esc(r.pay) : ''}${r.ooff ? ' · το χρωστάει το γραφείο' : ''}</div></div>
@@ -65,7 +65,7 @@ const home = {
     const owed = O.partners().map((p) => ({ p, ...O.partnerStatus(p.id) })).filter((x) => Math.abs(x.owed) > 0.004);
     const recent = O.incomes().slice(0, 8);
     const upcoming = O.expenses(true).filter((r) => r.d > t && r.d <= addMonths(t, 1).slice(0, 10)).reverse().slice(0, 6);
-    const dues = O.clientsWithDue().sort((a, b) => b.due - a.due);
+    const pend = O.pendingReceipts();
     const odebts = O.officeDebts().filter((x) => x.owed > 0.004);
     return `<div class="top"><h1>Γραφείο</h1>${syncBadge()}</div>
     <span class="ac" style="margin-bottom:10px"><input type="search" name="find" placeholder="🔍 Πελάτης (όνομα)" autocomplete="off"><span class="ac-list" data-ac hidden></span></span>
@@ -92,9 +92,14 @@ const home = {
           <div class="row"><span class="grow">Μένουν στο γραφείο (κέρδος − μισθός)</span><b class="${z.res < 0 ? 'neg' : 'pos'}">${eur(z.res)}</b></div>
           <div class="row muted"><span class="grow">Ίδιος μήνας πέρσι</span><span>έσοδα ${eur(ly.inc)} · έξοδα ${eur(ly.exp)}</span></div>
         </div></details></div>
-    ${dues.length ? `<div class="card"><b>Εκκρεμότητες πελατών</b>
-      ${dues.filter((x) => x.due > 0).length ? `<div class="small" style="margin-top:4px">Σου χρωστάνε <b class="pos">${eur(dues.filter((x) => x.due > 0).reduce((s, x) => s + x.due, 0))}</b>: ${dues.filter((x) => x.due > 0).map((x) => `<a href="#/office/c/${encodeURIComponent(x.name)}">${esc(x.name)}</a> ${eur(x.due)}`).join(' · ')}</div>` : ''}
-      ${dues.filter((x) => x.due < 0).length ? `<div class="small" style="margin-top:4px">Χρωστάς <b class="neg">${eur(-dues.filter((x) => x.due < 0).reduce((s, x) => s + x.due, 0))}</b>: ${dues.filter((x) => x.due < 0).map((x) => `<a href="#/office/c/${encodeURIComponent(x.name)}">${esc(x.name)}</a> ${eur(-x.due)}`).join(' · ')}</div>` : ''}</div>` : ''}
+    ${pend.length ? (() => { const tot = pend.reduce((s, r) => s + (r.a || 0), 0);
+      return `<div class="card"><div class="row"><b class="grow">🧾 Αποδείξεις για έκδοση (${pend.length})</b><b>${eur(tot)}</b></div>
+      <div class="small muted" style="margin:2px 0 6px">Πάτα OK όταν κόψεις την απόδειξη· πάτα τη γραμμή για την πληρωμή.</div>
+      ${pend.map((r) => { const sp = O.split(r.a || 0, true, r.vr != null ? r.vr : O.vatRate()); return `<div class="row" data-go="#/office/in/${esc(r.id)}" style="cursor:pointer;border-top:1px solid var(--line, #e5e5e5);padding:6px 0;gap:8px">
+        <div class="grow"><div><b>${esc(r.cl || '—')}</b> <span class="small muted">· ${dShort(r.d)}${r.svc ? ' · ' + esc(r.svc) : ''}${r.pay ? ' · ' + esc(r.pay) : ''}</span></div>
+        <div class="small muted">Χωρίς ΦΠΑ ${eur(sp.net)} · ΦΠΑ ${eur(sp.vat)} · Σύνολο <b>${eur(r.a)}</b></div></div>
+        <button class="btn sm" data-rok="${esc(r.id)}" style="width:auto;flex:none">OK</button></div>`; }).join('')}
+      ${pend.length > 1 ? `<button class="btn sm ghost" data-rall style="margin-top:6px">✓ Τις έκοψα όλες</button>` : ''}</div>`; })() : ''}
     ${odebts.length || owed.length ? `<div class="card small">${odebts.map((x) => `<div><a href="#/odebt/${encodeURIComponent(x.who)}">Το γραφείο χρωστάει ${x.who === 'Άλκης' ? 'στον Άλκη' : 'σε ' + esc(x.who)} <b class="neg">${eur(x.owed)}</b> ›</a></div>`).join('')}${owed.length ? `<div><a href="#/office/partners">Χρωστάς σε συνεργάτες: ${owed.map((x) => `${esc(x.p.name)} <b class="neg">${eur(x.owed)}</b>`).join(' · ')} ›</a></div>` : ''}</div>` : ''}
     <h2>Τελευταίες πληρωμές</h2>
     <div class="list">${recent.map(payRow).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>
@@ -102,6 +107,8 @@ const home = {
   },
   mount(root, p, ui) {
     bindCommon(root, ui);
+    root.querySelectorAll('[data-rok]').forEach((b) => b.addEventListener('click', async (e) => { e.stopPropagation(); await store.put(O.OSP, b.dataset.rok, { rpend: null, rdone: today() }); ui.toast('Η απόδειξη βγήκε από την αναμονή ✓'); }));
+    root.querySelector('[data-rall]')?.addEventListener('click', async () => { const ids = O.pendingReceipts().map((r) => r.id); if (!(await ui.confirm(`Κόπηκαν και οι ${ids.length} αποδείξεις;`, 'Ναι, όλες'))) return; for (const id of ids) await store.put(O.OSP, id, { rpend: null, rdone: today() }); ui.toast('Έγινε ✓'); });
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { monthOff = Math.min(0, monthOff + Number(b.dataset.m)); ui.render(); }));
     const fi = root.querySelector('[name=find]'), box = root.querySelector('[data-ac]');
     const showF = () => { const q = norm(fi.value).trim(); if (!q) { box.hidden = true; return; }

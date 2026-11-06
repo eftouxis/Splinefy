@@ -51,7 +51,7 @@ export function entryView(k) {
       let f = st[k];
       if (!f || (id === 'new' ? f.id : f.id !== id) || location.hash.includes('?')) {
         if (id === 'new') f = blank(k);
-        else { const r = store.state.data[O.OSP]?.recs.get(id); if (!r) return '<div class="top"><h1>Δεν βρέθηκε</h1></div>'; f = { ...blank(k), ...r, a: cm(r.a), id, dueK: r.due > 0 ? 'owes' : r.due < 0 ? 'iowe' : '', dueA: r.due ? cm(Math.abs(r.due)) : '' }; }
+        else { const r = store.state.data[O.OSP]?.recs.get(id); if (!r) return '<div class="top"><h1>Δεν βρέθηκε</h1></div>'; f = { ...blank(k), ...r, _r0: !!r.rcpt, a: cm(r.a), id, dueK: r.due > 0 ? 'owes' : r.due < 0 ? 'iowe' : '', dueA: r.due ? cm(Math.abs(r.due)) : '' }; }
         st[k] = f; if (location.hash.includes('?')) history.replaceState(null, '', `#/office/${k}/${id}`);
       }
       const parts = O.partners().filter((p) => p.active !== false || p.id === f.part);
@@ -71,7 +71,8 @@ export function entryView(k) {
           ${amount}
           <label class="f" style="margin-top:10px"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(f.d)}"></label>
           <label class="f"><span>Τρόπος πληρωμής</span>${chips('pay', O.PAYS.map((p) => [p, p]), f.pay)}</label>
-          <label class="row" style="margin:0 2px 6px"><input type="checkbox" name="rcpt" style="width:auto" ${f.rcpt ? 'checked' : ''}> 🧾 Κόπηκε απόδειξη</label>
+          <label class="row" style="margin:0 2px 6px"><input type="checkbox" name="rcpt" style="width:auto" ${f.rcpt ? 'checked' : ''}> 🧾 Με απόδειξη</label>
+          <div class="small muted" style="margin:-2px 2px 6px">${f.id && f._r0 && !f.rpend ? '✓ Η απόδειξη έχει κοπεί' : 'Μένει στην αρχική στις «Αποδείξεις για έκδοση» μέχρι να πατήσεις OK'}</div>
           <div class="note small" data-vat style="margin-bottom:12px"></div>
           ${parts.length ? `<label class="f"><span>Ήρθε μέσω συνεργάτη</span>${chips('part', [['', 'Κανένας'], ...parts.map((p) => [p.id, p.name])], f.part)}</label>
             ${f.part ? `<div class="small muted" data-fee style="margin:-4px 2px 10px"></div>` : ''}
@@ -161,7 +162,7 @@ export function entryView(k) {
           const dv = parseAmount(f.dueA) || 0; const due = f.dueK === 'owes' ? dv : f.dueK === 'iowe' ? -dv : 0;
           if (f.dueK && !dv) { ui.toast('Γράψε πόσα χρωστάει / χρωστάς'); return; }
           rec = { type: TYPE, d: f.d || today(), cl: f.cl.trim(), svc: f.svc.trim() || null, a, pay: f.pay || null, rcpt: !!f.rcpt, part: f.part || null, fee: pp && pp.pct ? Math.round(a * (pp.pct || 0) * 100) / 100 : null, due: due || null,
-            ...(pp?.disc && parseAmount(f.list) > a ? { list: parseAmount(f.list), disc: Math.round((parseAmount(f.list) - a) * 100) / 100 } : { list: null, disc: null }), vr: f.rcpt ? O.vatRate() : null, note: f.note?.trim() || null };
+            ...(pp?.disc && parseAmount(f.list) > a ? { list: parseAmount(f.list), disc: Math.round((parseAmount(f.list) - a) * 100) / 100 } : { list: null, disc: null }), rpend: f.rcpt ? (f.id && f._r0 ? f.rpend || null : 1) : null, vr: f.rcpt ? O.vatRate() : null, note: f.note?.trim() || null };
         } else {
           if (!f.cat) { ui.toast('Διάλεξε κατηγορία'); return; }
           if (f.cat === 'Αμοιβή συνεργασίας' && !f.part) { ui.toast('Διάλεξε συνεργάτη'); return; }
