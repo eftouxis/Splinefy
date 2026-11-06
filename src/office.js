@@ -197,7 +197,7 @@ export function services() {
   const m = new Map();
   for (const r of incomes(true).slice(0, 400)) {
     const s = (r.svc || '').trim(); if (!s) continue; const k = svcGroup(s);
-    const x = m.get(k) || { name: k, n: 0, prices: new Map() }; x.n++; x.prices.set(r.a, (x.prices.get(r.a) || 0) + 1); m.set(k, x);
+    const x = m.get(k) || { name: k, n: 0, prices: new Map() }; const pr = r.list || r.a; x.n++; x.prices.set(pr, (x.prices.get(pr) || 0) + 1); m.set(k, x);
   }
   return [...m.values()].sort((a, b) => b.n - a.n).map((x) => ({ name: x.name, n: x.n, price: [...x.prices.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] }));
 }
