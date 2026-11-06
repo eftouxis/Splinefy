@@ -8,12 +8,14 @@ import * as P from '../pet.js';
 import { sheet } from './lessons/ui.js';
 
 const mySp = () => store.state.spaces.find((s) => s.owner === store.state.user && s.members.length === 1)?.id || null;
-const child = () => H.profile().name || null;
+const full = () => H.profile().name || null;
+const child = () => (full() ? full().trim().split(/\s+/)[0] : null);          // first name only («Φίλιππος», not the surname)
+const disp = (w) => (w && full() && w.trim() === full().trim() ? child() : w || null);
 const pet = () => (P.hasData() ? P.name() : null);
 const ico = (who) => (who && who === pet() ? '🐕' : who && who === child() ? '👶' : '🧑');
 const book = (who) => (who && who === pet() ? '#/pet' : who && who === child() ? '#/health' : null);
 const num = (v) => Number(String(v ?? '').replace(',', '.')) || 0;
-const people = () => [...new Set([...store.DEFAULT_SPACES.find((s) => s.id === 'shared').members, child(), pet(), ...M.all().map((m) => m.who)].filter(Boolean))];
+const people = () => [...new Set([...store.DEFAULT_SPACES.find((s) => s.id === 'shared').members, child(), pet(), ...M.all().map((m) => disp(m.who))].filter(Boolean))];
 
 // ---- pieces shared by the sheets ----
 const whoPick = (cur) => `<label class="f"><span>Για ποιον</span><div class="chips" data-whos>${people().map((p) => `<button type="button" class="chip ${p === cur ? 'on' : ''}" data-who="${esc(p)}">${ico(p)} ${esc(p)}</button>`).join('')}
@@ -31,14 +33,19 @@ const spPick = (rec, who) => (mySp() ? `<label class="f"><span>Ποιος το �
 const notifyPick = (m) => { const ch = !m ? 'mail' : !(m.mailTo || []).length ? 'none' : m.ch || 'mail';
   return `<div class="f"><span class="small muted" style="display:block;margin-bottom:6px">Ειδοποίηση για κάθε δόση</span>
     <div class="seg" data-ch>${[['none', 'Καμία'], ['mail', '📧 Email'], ['cal', '🔔 Κινητό']].map(([v, l]) => `<button type="button" data-val="${v}" class="${v === ch ? 'on' : ''}">${l}</button>`).join('')}</div>
-    <label class="f" data-chlead style="margin:8px 0 0" ${ch === 'none' ? 'hidden' : ''}><span>Πότε</span><select name="lead">${M.LEADS.map(([v, l]) => `<option value="${v}" ${v === Number(m?.lead || 0) ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <div data-chlead style="margin:8px 0 0" ${ch === 'none' ? 'hidden' : ''}>${(() => { const ld = Number(m?.lead || 0); const pre = M.LEADS.some(([v]) => v === ld);
+      return `<label class="f"><span>Πότε</span><select name="lead">${M.LEADS.map(([v, l]) => `<option value="${v}" ${pre && v === ld ? 'selected' : ''}>${l}</option>`).join('')}<option value="x" ${pre ? '' : 'selected'}>Άλλο…</option></select></label>
+      <div class="grid2" data-leadx ${pre ? 'hidden' : ''}><label class="f"><span>Πόσο πριν</span><input name="leadN" inputmode="numeric" value="${pre ? '' : ld % 60 ? ld : ld / 60}"></label>
+      <label class="f"><span>&nbsp;</span><select name="leadU"><option value="1" ${pre || ld % 60 ? 'selected' : ''}>λεπτά</option><option value="60" ${!pre && !(ld % 60) ? 'selected' : ''}>ώρες</option></select></label></div>`; })()}</div>
     <div class="row small" data-chwho style="margin:8px 2px 0;gap:16px" ${ch === 'none' ? 'hidden' : ''}>${['Άλκης', 'Χαρά'].map((u) => `<label class="row" style="gap:6px"><input type="checkbox" name="mail_${u}" style="width:auto" ${m ? ((m.mailTo || []).includes(u) ? 'checked' : '') : u === store.state.user ? 'checked' : ''}> ${u}</label>`).join('')}</div>
     <div class="small muted" data-chhint style="margin:6px 2px 0"></div></div>`; };
 function bindNotify(el) {
   let ch = el.querySelector('[data-ch] .on')?.dataset.val || 'mail';
   const hint = () => { el.querySelector('[data-chwho]').hidden = ch === 'none'; el.querySelector('[data-chlead]').hidden = ch === 'none'; el.querySelector('[data-chhint]').textContent = ch === 'cal' ? 'Ειδοποίηση στο κινητό μέσω Google Ημερολογίου (ημερολόγιο «Splinefy») — από το ίδιο script των υπενθυμίσεων.' : ch === 'mail' ? 'Email για κάθε δόση.' : 'Χωρίς ειδοποίηση — φαίνεται μόνο στην εφαρμογή.'; };
+  const lx = () => { el.querySelector('[data-leadx]').hidden = el.querySelector('[name=lead]').value !== 'x'; }; el.querySelector('[name=lead]').addEventListener('change', lx);
   el.querySelectorAll('[data-ch] button').forEach((b) => b.addEventListener('click', () => { ch = b.dataset.val; el.querySelectorAll('[data-ch] button').forEach((x) => x.classList.toggle('on', x === b)); hint(); })); hint();
-  return () => { const to = ch === 'none' ? [] : ['Άλκης', 'Χαρά'].filter((u) => el.querySelector(`[name=mail_${u}]`).checked); return { mailTo: to, ch: to.length ? ch : null, lead: to.length ? Number(el.querySelector('[name=lead]').value) || null : null }; };
+  return () => { const to = ch === 'none' ? [] : ['Άλκης', 'Χαρά'].filter((u) => el.querySelector(`[name=mail_${u}]`).checked); const lv = el.querySelector('[name=lead]').value; const lead = lv === 'x' ? Math.round((Number(String(el.querySelector('[name=leadN]').value).replace(',', '.')) || 0) * Number(el.querySelector('[name=leadU]').value)) : Number(lv);
+    return { mailTo: to, ch: to.length ? ch : null, lead: to.length ? lead || null : null }; };
 }
 
 // ---- medicine card ----
@@ -47,7 +54,7 @@ const card = (m, home = false) => {
   const cur = nx && m.mode !== 'times' ? (m.phases || [])[nx.phase] : null; const nt = M.notifyTxt(m);
   const prog = m.mode === 'times' ? (M.tracked(m) ? `${s.done} δόθηκαν${s.total ? ` από ${s.total}` : ''}${s.missed ? ` · <span class="neg">${s.missed} χάθηκαν</span>` : ''}` : '') : `δόση ${s.done + 1} από ${s.total}`;
   return `<div class="${home ? '' : 'item'}" data-med="${esc(m.id)}" style="cursor:pointer;${home ? 'margin-top:8px' : ''}">
-    <div class="grow"><div class="t" style="white-space:normal">💊 ${esc(m.name)}${m.who ? ` <span class="muted">· ${esc(m.who)}</span>` : ''}${nt ? ` <span class="small">${nt}</span>` : ''}</div>
+    <div class="grow"><div class="t" style="white-space:normal">💊 ${esc(m.name)}${m.who ? ` <span class="muted">· ${esc(disp(m.who))}</span>` : ''}${nt ? ` <span class="small">${nt}</span>` : ''}</div>
       <div class="s" style="white-space:normal">${nx && !s.over ? `<span class="${late ? 'neg' : ''}"><b>Επόμενη: ${M.when(nx.at)}</b> (${M.inTxt(nx.at)})</span><br>${[prog, cur ? `κάθε ${String(cur.h).replace('.', ',')} ώρες` : home ? '' : M.schedTxt(m), m.dose ? esc(m.dose) : ''].filter(Boolean).join(' · ')}` : `τελείωσε · ${s.done} δόσεις`}</div></div>
     ${nx && !s.over && M.tracked(m) ? `<button type="button" class="btn sm primary" data-give="${esc(m.id)}" style="width:auto">✓ Δόθηκε</button>` : ''}</div>`;
 };
@@ -87,7 +94,7 @@ export function medSheet(ui, m = null, preset = {}) {
   const drawT = () => times.map((t, i) => `<span class="row" style="gap:2px;display:inline-flex;margin:0 6px 6px 0"><input type="time" name="t${i}" value="${esc(t)}" style="width:auto">${times.length > 1 ? `<button type="button" class="btn sm ghost" data-tdel="${i}" style="width:auto;padding:4px 6px">✕</button>` : ''}</span>`).join('');
   const s = m ? M.status(m) : null;
   sheet(`<div class="mid">${m ? 'Φάρμακο' : 'Νέο φάρμακο'}</div>
-    <div style="margin-top:10px">${whoPick(v0.who)}</div>
+    <div style="margin-top:10px">${whoPick(disp(v0.who))}</div>
     <label class="f"><span>Φάρμακο / συμπλήρωμα</span><input name="name" value="${esc(v0.name || '')}" placeholder="π.χ. Depon σιρόπι, βιταμίνη D"></label>
     <div class="grid2"><label class="f"><span>Δόση (προαιρετικά)</span><input name="dose" value="${esc(v0.dose || '')}" placeholder="π.χ. 1,5 ml, 2 εισπνοές"></label>
     <label class="f"><span>Μορφή (προαιρετικά)</span><input name="form" value="${esc(v0.form || '')}" placeholder="π.χ. σιρόπι"></label></div>
@@ -122,7 +129,7 @@ export function medSheet(ui, m = null, preset = {}) {
     ${m ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}
     <button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     const q = (n) => el.querySelector(`[name=${n}]`);
-    const getWho = bindWho(el, v0.who, (w) => { const sp = q('sp'); if (sp && !m) sp.value = w === store.state.user ? mySp() : 'shared'; });
+    const getWho = bindWho(el, disp(v0.who), (w) => { const sp = q('sp'); if (sp && !m) sp.value = w === store.state.user ? mySp() : 'shared'; });
     const getNotify = bindNotify(el);
     const readPh = () => { phases = phases.map((p, i) => ({ days: num(q('pd' + i).value), h: num(q('ph' + i).value) })); };
     const readT = () => { times = times.map((t, i) => q('t' + i)?.value || t); };
@@ -196,7 +203,7 @@ const sec = (t, inner) => `<h2>${t}</h2><div class="list">${inner}</div>`;
 export default {
   live: true,
   html([who] = []) {
-    const l = M.all().filter((m) => !who || m.who === who); const on = l.filter((m) => !M.status(m).over), off = l.filter((m) => M.status(m).over); const bk = book(who);
+    const l = M.all().filter((m) => !who || disp(m.who) === who); const on = l.filter((m) => !M.status(m).over), off = l.filter((m) => M.status(m).over); const bk = book(who);
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${who ? `💊 ${esc(who)}` : 'Φάρμακα'}</h1></div>
     <div class="chips" style="margin-bottom:12px"><a class="chip ${who ? '' : 'on'}" href="#/meds" style="text-decoration:none">Όλοι</a>${people().map((p) => `<a class="chip ${p === who ? 'on' : ''}" href="#/meds/${encodeURIComponent(p)}" style="text-decoration:none">${ico(p)} ${esc(p)}</a>`).join('')}</div>
     <div class="grid2" style="margin-bottom:10px"><button class="btn primary" data-new>+ Φάρμακο</button><button class="btn" data-rx>📋 Από συνταγή</button></div>
