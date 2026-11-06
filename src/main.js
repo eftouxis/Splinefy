@@ -22,6 +22,8 @@ import petView from './views/pet.js';
 import namesView from './views/names.js';
 import goalsView from './views/goals.js';
 import changelogView from './views/changelog.js';
+import trashView from './views/trash.js';
+import * as TR from './trash.js';
 import odebtView from './views/odebt.js';
 import debtsView from './views/debts.js';
 import coupleView from './views/couple.js';
@@ -38,7 +40,7 @@ const ROUTES = [
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
   [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'], [/^#\/cars(?:\/([\w-]+))?$/, carsView, 'apps'], [/^#\/people(?:\/([\w-]+))?$/, peopleView, 'debts'],
-  [/^#\/trips(?:\/(.+))?$/, tripsView, 'apps'], [/^#\/chores$/, choresView, 'apps'], [/^#\/meds(?:\/(.+))?$/, medsView, 'apps'], [/^#\/apps$/, appsView, 'apps'], [/^#\/philippos$/, philView, 'apps'], [/^#\/health(?:\/(\w+))?$/, healthView, 'apps'], [/^#\/pet(?:\/(\w+))?$/, petView, 'apps'], [/^#\/names$/, namesView, 'settings'], [/^#\/changelog$/, changelogView, 'settings'], [/^#\/odebt(?:\/([^/]+))?$/, odebtView, 'debts'], [/^#\/goals$/, goalsView, 'apps'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
+  [/^#\/trips(?:\/(.+))?$/, tripsView, 'apps'], [/^#\/chores$/, choresView, 'apps'], [/^#\/meds(?:\/(.+))?$/, medsView, 'apps'], [/^#\/apps$/, appsView, 'apps'], [/^#\/philippos$/, philView, 'apps'], [/^#\/health(?:\/(\w+))?$/, healthView, 'apps'], [/^#\/pet(?:\/(\w+))?$/, petView, 'apps'], [/^#\/names$/, namesView, 'settings'], [/^#\/changelog$/, changelogView, 'settings'], [/^#\/trash$/, trashView, 'settings'], [/^#\/odebt(?:\/([^/]+))?$/, odebtView, 'debts'], [/^#\/goals$/, goalsView, 'apps'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0, fresh: false };
 /** true once this app session has synced (or cannot sync): news cards wait for it, so an «OK» from another device is known first */
@@ -48,6 +50,7 @@ export const ui = {
   go: (h) => { if (location.hash === h) render(); else location.hash = h; },
   back: () => (history.length > 1 ? history.back() : ui.go('#/')),
   toast(msg, ms = 2200, act = null) {
+    if (!act && document.querySelector('.toast.undo') && /διαγράφ|σβήστηκε/i.test(msg)) return;     // the «Αναίρεση» message already says it
     const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
     if (act) { const b = document.createElement('button'); b.textContent = act.label; b.style.cssText = 'margin-left:12px;background:none;border:0;color:inherit;text-decoration:underline;font-weight:700'; b.onclick = () => { t.remove(); act.fn(); }; t.appendChild(b); }
     document.body.appendChild(t);
@@ -66,6 +69,21 @@ export const ui = {
   syncNow,
   render,
 };
+
+// after every delete: «Διαγράφηκε … Αναίρεση» for 10 seconds (one message for a group of deletes)
+const UNDO_MS = 10000;
+store.onDeleted((g) => {
+  document.querySelectorAll('.toast').forEach((x) => { if (x.classList.contains('undo') || /διαγράφ|σβήστηκε/i.test(x.textContent)) x.remove(); });
+  const t = document.createElement('div'); t.className = 'toast undo';
+  t.style.cssText = 'display:flex;align-items:center;gap:12px;z-index:60;width:min(90vw,420px)';
+  const m = document.createElement('span'); m.style.cssText = 'flex:1;min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical';
+  m.textContent = `Διαγράφηκε: ${TR.title(g)}`;
+  const b = document.createElement('button'); b.textContent = 'Αναίρεση'; b.dataset.undo = '';
+  b.style.cssText = 'background:none;border:0;color:inherit;text-decoration:underline;font-weight:700;font-size:inherit;padding:4px 0;white-space:nowrap';
+  b.onclick = async () => { t.remove(); if (await store.restore(store.trashOf(g))) ui.toast('Επανήλθε ✓'); };
+  t.append(m, b); document.body.appendChild(t);
+  setTimeout(() => t.remove(), UNDO_MS);
+});
 
 const SVG = {
   home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',

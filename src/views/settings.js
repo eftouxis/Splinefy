@@ -24,7 +24,8 @@ export default {
     return `<div class="top"><h1>Ρυθμίσεις</h1></div>
     <div class="list"><a class="item" href="#/rec" style="text-decoration:none;color:inherit"><div class="dot">↻</div><div class="grow t">Επαναλαμβανόμενα έσοδα / έξοδα</div><div class="muted">›</div></a>
       <a class="item" href="#/cats" style="text-decoration:none;color:inherit"><div class="dot">🏷️</div><div class="grow t">Κατηγορίες και «Είδος»</div><div class="muted">›</div></a>
-      <a class="item" href="#/names" style="text-decoration:none;color:inherit"><div class="dot">✏️</div><div class="grow t">Ενιαία ονόματα <span class="small muted">(ίδια γραφή για κάθε έξοδο)</span></div><div class="muted">›</div></a></div>
+      <a class="item" href="#/names" style="text-decoration:none;color:inherit"><div class="dot">✏️</div><div class="grow t">Ενιαία ονόματα <span class="small muted">(ίδια γραφή για κάθε έξοδο)</span></div><div class="muted">›</div></a>
+      <a class="item" href="#/trash" style="text-decoration:none;color:inherit"><div class="dot">🗑</div><div class="grow t">Πρόσφατα διαγραμμένα <span class="small muted">(30 μέρες)</span></div><div class="muted">›</div></a></div>
     <h2>Συγχρονισμός (OneDrive)</h2>
     <div class="card">
       ${CONFIG.devServer ? `<div class="note">Δοκιμαστική λειτουργία: συγχρονισμός με τοπικό φάκελο δοκιμών.</div>` :
@@ -130,7 +131,7 @@ export default {
               if (!d.recs.has(c.id) && (c.delete || !c.set?.type)) continue;      // new records need their type
               (by[c.sp] = by[c.sp] || []).push(c.delete ? { id: c.id, del: true } : { id: c.id, set: c.set });
             }
-            let n = 0; for (const [sp, ch] of Object.entries(by)) { await store.putMany(sp, ch); n += ch.length; }
+            let n = 0; for (const [sp, ch] of Object.entries(by)) { await store.putMany(sp, ch, { quiet: true }); n += ch.length; }
             ui.toast(`${j.what || file.name}: ${n} αλλαγές ✓`, 3500); continue;
           }
           if (!j.space || !j.records) throw new Error('άγνωστη μορφή');
@@ -142,8 +143,8 @@ export default {
               const sp = l.sp || j.space.id; if (!store.state.data[sp]?.recs.has(l.id)) continue;
               if (sp === j.space.id) ch.push({ id: l.id, set: l.set }); else (other[sp] = other[sp] || []).push({ id: l.id, set: l.set });
             }
-            await store.putMany(j.space.id, ch);
-            for (const [sp, c2] of Object.entries(other)) await store.putMany(sp, c2);
+            await store.putMany(j.space.id, ch, { quiet: true });
+            for (const [sp, c2] of Object.entries(other)) await store.putMany(sp, c2, { quiet: true });
             ui.toast(`${j.what || file.name}: ${ch.length} εγγραφές ✓`, 3000); continue;
           }
           if (!store.spaceById(j.space.id)) await store.setSpaces([...store.state.spaces, { ...j.space, folder: j.space.name, owner: j.space.members[0] }]);

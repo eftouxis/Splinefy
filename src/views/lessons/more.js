@@ -244,7 +244,7 @@ export const holView = {
       ui.confirm(h.off ? `Να ισχύει ξανά «${esc(h.name)}»;` : `«${esc(h.name)}»: να μην ισχύει φέτος (να μπαίνουν κανονικά μαθήματα);`, h.off ? 'Να ισχύει' : 'Να μην ισχύει', false).then(async (ok) => {
         if (!ok) return;
         const ex = store.records('holoff', [L.LSP]).find((r) => r.key === key);
-        if (ex) await store.del(L.LSP, ex.id); else await store.put(L.LSP, null, { type: 'holoff', key });
+        if (ex) await store.del(L.LSP, ex.id, { quiet: true }); else await store.put(L.LSP, null, { type: 'holoff', key });
       });
     }));
   },

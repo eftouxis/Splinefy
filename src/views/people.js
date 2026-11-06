@@ -133,8 +133,8 @@ export function personSheet(ui, p) {
       if (p && p._sp !== sp) {                     // moved between personal and shared: the person and its entries go together
         const nid = await store.put(sp, null, { ...fields, plan: p.plan || null });
         const movs = store.records('pmov').filter((m) => m.p === p.id);
-        for (const m of movs) { const { id: _i, _t, _u, _m, _x, _sp, ...f } = m; await store.put(sp, null, { ...f, p: nid }); await store.del(m._sp, m.id); }
-        await store.del(p._sp, p.id); close(); ui.go(`#/people/${nid}`); return;
+        for (const m of movs) { const { id: _i, _t, _u, _m, _x, _sp, ...f } = m; await store.put(sp, null, { ...f, p: nid }); await store.del(m._sp, m.id, { quiet: true }); }
+        await store.del(p._sp, p.id, { quiet: true }); close(); ui.go(`#/people/${nid}`); return;
       }
       const id = await store.put(p?._sp || sp, p?.id || null, fields);
       close(); if (!p) ui.go(`#/people/${id}`);

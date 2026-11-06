@@ -31,12 +31,14 @@ export async function all(def, set) {
 }
 /** delete the time on day d and every later one (the earlier ones stay) */
 export async function delFrom(def, d) {
-  for (const p of later(def, d)) await store.del(p._sp, p.id);
-  if (!def.start || d <= def.start) return store.del(def._sp, def.id);
-  return store.put(def._sp, def.id, { end: addDays(d, -1) });
+  return store.batch(async () => {
+    for (const p of later(def, d)) await store.del(p._sp, p.id);
+    if (!def.start || d <= def.start) return store.del(def._sp, def.id);
+    return store.put(def._sp, def.id, { end: addDays(d, -1) });
+  }, `${def.name || 'Επαναλαμβανόμενο'} · από ${d.split('-').reverse().join('/')} και πέρα`);
 }
 /** delete the item with all its times, also the past ones */
-export async function delAll(def) { for (const p of chain(def)) await store.del(p._sp, p.id); }
+export async function delAll(def) { return store.batch(async () => { for (const p of chain(def)) await store.del(p._sp, p.id); }); }
 
 /** the time before the first one */
 const prevOf = (r) => (r.unit === 'd' ? addDays(r.start, -(r.every || 1)) : addMonths(r.start, -(r.every || 1)));
@@ -53,7 +55,7 @@ export async function adoptFirst() {
     if (!tx) continue;
     await store.put(r._sp, r.id, { start: pd });
     if (Math.abs((tx.a || 0) - (r.a || 0)) > 0.004 || tx.note) await store.put(r._sp, `${r.id}@${pd}`, { type: 'recx', a: tx.a, note: tx.note || null });
-    await store.del(tx._sp, tx.id); n++;
+    await store.del(tx._sp, tx.id, { quiet: true }); n++;
   }
   return n;
 }

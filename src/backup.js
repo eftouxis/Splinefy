@@ -73,6 +73,6 @@ export function diff(snap) {
 }
 export async function restore(snap) {
   const x = diff(snap);
-  for (let i = 0; i < x.ch.length; i += 500) await store.putMany(x.spId, x.ch.slice(i, i + 500));
+  for (let i = 0; i < x.ch.length; i += 500) await store.putMany(x.spId, x.ch.slice(i, i + 500), { quiet: true });
   return x;
 }

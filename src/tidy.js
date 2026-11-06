@@ -30,7 +30,7 @@ export async function moveMine() {
   for (let i = 0; i < all.length; i += 400) {
     const part = all.slice(i, i + 400);
     await store.putMany(to, part.map((r) => ({ id: r.id, set: clean(r) })));
-    await store.putMany('shared', part.map((r) => ({ id: r.id, del: true })));
+    await store.putMany('shared', part.map((r) => ({ id: r.id, del: true })), { quiet: true });
   }
   return tx.length + rec.length;
 }

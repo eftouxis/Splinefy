@@ -74,6 +74,12 @@ export async function importBase(spaceId, base) {
   bump();
 }
 
+function mkOp(spaceId, r, extra) { const k = `${spaceId}|${tick(S.device)}`; return { k, sp: spaceId, r, u: S.user, synced: 0, i: k.split('|')[1], ...extra }; }
+async function write(spaceId, ops) {
+  const sp = S.data[spaceId]; if (!sp || !ops.length) return;
+  await idb.opsPut(ops); for (const op of ops) applyOp(sp, op); bump();
+}
+
 /** create or update a record (only changed fields are written) */
 export async function put(spaceId, id, fields) {
   const sp = S.data[spaceId];
@@ -85,37 +91,101 @@ export async function put(spaceId, id, fields) {
     if (!cur || JSON.stringify(cur[k] ?? null) !== JSON.stringify(val)) set[k] = val;
   }
   if (cur && !Object.keys(set).length) return id;
-  const op = { k: `${spaceId}|${tick(S.device)}`, sp: spaceId, r: id, s: set, u: S.user, synced: 0 };
-  op.i = op.k.split('|')[1];
-  await idb.opsPut([op]); applyOp(sp, op); bump();
+  notePut(spaceId, id, set);
+  await write(spaceId, [mkOp(spaceId, id, { s: set })]);
   return id;
 }
-/** several changes in one go: [{id, set:{...}} | {id, del:true}] */
-export async function putMany(spaceId, changes) {
-  const sp = S.data[spaceId]; const ops = [];
-  for (const ch of changes) {
-    const k = `${spaceId}|${tick(S.device)}`;
-    const op = { k, sp: spaceId, r: ch.id || uid(), u: S.user, synced: 0, i: k.split('|')[1] };
-    if (ch.undel) op.ux = 1;
-    if (ch.del) op.x = 1; else op.s = Object.fromEntries(Object.entries(ch.set).map(([f, v]) => [f, v === '' || v === undefined ? null : v]));
-    ops.push(op);
-  }
-  if (!ops.length) return;
-  await idb.opsPut(ops); for (const op of ops) applyOp(sp, op); bump();
+/** several changes in one go: [{id, set:{...}} | {id, del:true}]; opts.quiet: not a delete the user made (no «Αναίρεση», not in «Πρόσφατα διαγραμμένα») */
+export async function putMany(spaceId, changes, opts = {}) {
+  const ops = [];
+  const dels = !opts.quiet && changes.some((c) => c.del);
+  if (dels) { openG(spaceId); depth++; }                 // the other changes of the same call are part of the same delete
+  try {
+    for (const ch of changes) {
+      const id = ch.id || uid(); const extra = {};
+      if (ch.undel) extra.ux = 1;
+      if (ch.del) { extra.x = 1; if (dels) noteDel(spaceId, id); }
+      else { extra.s = Object.fromEntries(Object.entries(ch.set).map(([f, v]) => [f, v === '' || v === undefined ? null : v])); if (dels) notePut(spaceId, id, extra.s); }
+      ops.push(mkOp(spaceId, id, extra));
+    }
+    await write(spaceId, ops);
+  } finally { if (dels) depth--; }
+  if (dels) await flushG();
 }
-export async function del(spaceId, id) {
-  const sp = S.data[spaceId];
-  const op = { k: `${spaceId}|${tick(S.device)}`, sp: spaceId, r: id, x: 1, u: S.user, synced: 0 };
-  op.i = op.k.split('|')[1];
-  await idb.opsPut([op]); applyOp(sp, op); bump();
+/** delete a record (it stays as a tombstone with its fields, so it can come back); opts.quiet as in putMany */
+export async function del(spaceId, id, opts = {}) {
+  const noted = !opts.quiet && noteDel(spaceId, id);
+  await write(spaceId, [mkOp(spaceId, id, { x: 1 })]);
+  if (noted) await flushG();
 }
 /** move a record to another space (e.g. personal -> shared) */
 export async function move(fromId, toId, rec) {
   const { id, _t, _u, _m, _x, _sp, ...fields } = rec;
   const nid = await put(toId, null, fields);
-  await del(fromId, id);
+  await del(fromId, id, { quiet: true });
   return nid;
 }
+
+// ---- «Αναίρεση» and «Πρόσφατα διαγραμμένα» ----
+// Every delete is written down in a «trash» record of the same space, so it syncs to everyone who sees that space.
+// Deletes close in time, or made inside batch(), form one group: one «Αναίρεση» / «Επαναφορά» brings all of them back,
+// together with what else that action changed (e.g. the end date of a recurring item, «not this time» on a lesson).
+const GAP = 1500;
+const delL = new Set();
+export const onDeleted = (fn) => { delL.add(fn); return () => delL.delete(fn); };
+let G = null, depth = 0;
+function openG(spaceId, label) {
+  if (!G) G = { id: `trash:${uid()}`, sp: spaceId || null, at: Date.now(), by: S.user, items: [], prev: [], made: [], label: label || null, seen: new Set() };
+  else { if (label && !G.label) G.label = label; if (!G.sp) G.sp = spaceId || null; }
+  return G;
+}
+function noteDel(spaceId, id) {
+  const r = S.data[spaceId]?.recs.get(id); if (!r || r._x || r.type === 'trash') return false;
+  const g = openG(spaceId); g.sp = g.sp || spaceId; const k = `d${spaceId}|${id}`;
+  if (g.seen.has(k)) return false;
+  g.seen.add(k); g.items.push({ sp: spaceId, id }); return true;
+}
+function notePut(spaceId, id, set) {
+  if (!G || !depth) return;
+  const r = S.data[spaceId]?.recs.get(id); const k = `${spaceId}|${id}`;
+  G.sp = G.sp || spaceId;
+  if (!r) { if (!G.seen.has('m' + k)) { G.seen.add('m' + k); G.made.push({ sp: spaceId, id }); } return; }
+  if (G.seen.has('m' + k) || r.type === 'trash') return;
+  let p = G.prev.find((x) => x.sp === spaceId && x.id === id);
+  if (!p) { p = { sp: spaceId, id, f: {} }; G.prev.push(p); }
+  for (const f of Object.keys(set)) if (!(f in p.f)) p.f[f] = r[f] ?? null;
+}
+async function flushG() {
+  const g = G; if (!g || depth) return;
+  if (!g.items.length && !(g.label && (g.prev.length || g.made.length))) { if (!g.items.length) G = null; return; }
+  await write(g.sp, [mkOp(g.sp, g.id, { s: { type: 'trash', at: g.at, by: g.by, label: g.label, items: g.items, prev: g.prev, made: g.made } })]);
+  clearTimeout(g.timer); g.timer = setTimeout(() => { if (G === g && !depth) G = null; }, GAP);
+  for (const f of delL) { try { f(g); } catch (_) { /* a listener must not break the delete */ } }
+}
+/** several steps of one delete (e.g. «this and the next ones»): one group, one «Αναίρεση»; label = what it was */
+export async function batch(fn, label) {
+  openG(null, label); depth++;
+  try { return await fn(); } finally {
+    depth--;
+    if (!depth) { const g = G; await flushG(); if (G === g) G = null; }
+  }
+}
+/** bring back a group of deletes (a «trash» record): the records, the fields that action changed, and remove what it made */
+export async function restore(t) {
+  if (!t || t._x) return false;
+  const by = {}; const add = (sp, o) => (by[sp] = by[sp] || []).push(o);
+  for (const it of t.items || []) add(it.sp, { r: it.id, ux: 1, s: {} });
+  for (const p of t.prev || []) add(p.sp, { r: p.id, s: p.f });
+  for (const m of t.made || []) add(m.sp, { r: m.id, x: 1 });
+  for (const [sp, list] of Object.entries(by)) await write(sp, list.map(({ r, ...o }) => mkOp(sp, r, o)));
+  if (G && G.id === t.id) G = null;
+  await write(t._sp, [mkOp(t._sp, t.id, { x: 1 })]);
+  return true;
+}
+/** the trash record of a group (for «Αναίρεση» right after the delete) */
+export const trashOf = (g) => { const r = S.data[g.sp]?.recs.get(g.id); if (r) r._sp = g.sp; return r; };
+/** a deleted record as it was (for describing it) */
+export const anyRecord = (sp, id) => S.data[sp]?.recs.get(id) || null;
 
 export function records(type, spaces = visibleSpaces().map((s) => s.id)) {
   const out = [];

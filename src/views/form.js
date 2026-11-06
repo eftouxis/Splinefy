@@ -344,7 +344,7 @@ export default {
         const set = { a: amt, payer: f.payer, for: f.for || '' };
         if (ans === 'fwd') await RO.fromHere(def, d, { ...set, start: nd });
         else await RO.all(def, nd !== d && def.start ? { ...set, start: addDays(def.start, Math.round((new Date(nd) - new Date(d)) / 864e5)) } : set);
-        if (ovr) await store.del(f.sp, f.id);
+        if (ovr) await store.del(f.sp, f.id, { quiet: true });
         f = null; ui.toast(ans === 'fwd' ? 'Άλλαξε από εδώ και πέρα ✓' : 'Άλλαξε σε όλες ✓'); ui.back();
         return;
       }
@@ -412,7 +412,7 @@ export default {
     root.querySelector('[data-odel]')?.addEventListener('click', async () => {      // a time of a recurring item: like Monefy
       const [rid, d] = f.id.split('@'); const def = store.state.data[f.sp].recs.get(rid);
       const ans = await askScope('Διαγραφή', `${esc(def.name)} · ${dFull(d)}`, { del: true }); if (!ans) return;
-      if (ans === 'one') await store.put(f.sp, f.id, { type: 'recx', skip: 1 });
+      if (ans === 'one') await store.batch(() => store.put(f.sp, f.id, { type: 'recx', skip: 1 }), `${def.name} · ${dFull(d)}`);
       else if (ans === 'fwd') await RO.delFrom(def, d);
       else await RO.delAll(def);
       f = null; ui.toast(ans === 'one' ? 'Διαγράφηκε αυτή η φορά ✓' : ans === 'fwd' ? 'Διαγράφηκε από εδώ και πέρα ✓' : 'Διαγράφηκε ✓'); ui.back();

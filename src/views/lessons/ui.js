@@ -92,13 +92,15 @@ export function lessonSheet(stu, d, ui) {
       if (nt) await store.put(L.LSP, null, { type: 'lnote', stu, d, text: nt, imp: null });
     };
     el.querySelector('[data-dellesson]')?.addEventListener('click', async () => { await store.del(L.LSP, l.ov); close(); ui.toast('Το μάθημα σβήστηκε ✓'); });
-    el.querySelector('[data-reset]')?.addEventListener('click', async () => { await store.del(L.LSP, l.ov); close(); ui.toast('Όπως το πρόγραμμα ✓'); });
+    el.querySelector('[data-reset]')?.addEventListener('click', async () => { await store.del(L.LSP, l.ov, { quiet: true }); close(); ui.toast('Όπως το πρόγραμμα ✓'); });
     el.querySelector('[data-slotfrom]')?.addEventListener('click', () => { close(); slotSheet(ui, stu, slot, d); });
     el.querySelector('[data-sdel]')?.addEventListener('click', async () => {
       const ans = await askScope('Διαγραφή', `${esc(L.label(st))} · ${dShort(d)} ${d.slice(0, 4)}`, { del: true });
       if (!ans) return;
-      if (ans === 'one') await store.put(L.LSP, `lx:${stu}:${d}`, { type: 'lx', stu, d, h: 0, time: null });
-      else { if (l?.ov) await store.del(L.LSP, l.ov); if (ans === 'fwd') await slotFrom(slot, d, null); else await slotAll(slot, null); }
+      await store.batch(async () => {
+        if (ans === 'one') await store.put(L.LSP, `lx:${stu}:${d}`, { type: 'lx', stu, d, h: 0, time: null });
+        else { if (l?.ov) await store.del(L.LSP, l.ov); if (ans === 'fwd') await slotFrom(slot, d, null); else await slotAll(slot, null); }
+      }, `Μάθημα ${L.label(st)} · ${dShort(d)}${ans === 'one' ? '' : ans === 'fwd' ? ' και τα επόμενα' : ' (όλα)'}`);
       close(); ui.toast(ans === 'one' ? 'Διαγράφηκε ✓' : ans === 'fwd' ? 'Διαγράφηκε από εδώ και πέρα ✓' : 'Διαγράφηκε ✓');
     });
     el.querySelector('[data-ok]').onclick = async () => {
@@ -108,7 +110,7 @@ export function lessonSheet(stu, d, ui) {
       const id = `lx:${stu}:${d}`;
       const same = Math.abs(h - sched) < 1e-9 && (time === (l?.time || '') || !l?.ov);
       const onlyThis = async () => {
-        if (same && sched) { if (l?.ov) await store.del(L.LSP, l.ov); }
+        if (same && sched) { if (l?.ov) await store.del(L.LSP, l.ov, { quiet: true }); }
         else if (!sched && !h) { if (l?.ov) await store.del(L.LSP, l.ov); close(); ui.toast('Το μάθημα σβήστηκε ✓'); return; }   // extra lesson that did not happen → gone
         else await store.put(L.LSP, id, { type: 'lx', stu, d, h: Math.round(h * 1e6) / 1e6, time: time || null });
         close(); ui.toast(h ? 'Αποθηκεύτηκε ✓' : 'Σημειώθηκε ότι δεν έγινε');
@@ -119,7 +121,7 @@ export function lessonSheet(stu, d, ui) {
       const ans = await askScope('Αποθήκευση αλλαγής', `${esc(L.label(st))} · ${dShort(d)} ${d.slice(0, 4)}`);
       if (!ans) return;
       if (ans === 'one') return onlyThis();
-      if (l?.ov) await store.del(L.LSP, l.ov);
+      if (l?.ov) await store.del(L.LSP, l.ov, { quiet: true });
       const set = h ? { h: Math.round(h * 1e6) / 1e6, time: spanOf(time || slot.time, h) } : null;
       if (ans === 'fwd') await slotFrom(slot, d, set); else await slotAll(slot, set);
       close(); ui.toast(!h ? 'Σταμάτησε ✓ — τα προηγούμενα μένουν' : ans === 'fwd' ? 'Άλλαξε από εδώ και πέρα ✓' : 'Άλλαξε σε όλα ✓');
@@ -253,7 +255,8 @@ export function slotSheet(ui, stu, slot = null, from0 = null) {
       const ans = started ? await askScope('Διαγραφή', sub, { ...prog, del: true })
         : (await ui.confirm('Θα σβηστούν και τα μαθήματα αυτής της γραμμής. Διαγραφή;', 'Διαγραφή')) && 'all';
       if (!ans) return;
-      if (ans === 'fwd') await slotFrom(slot, next, null); else if (started) await slotAll(slot, null); else await store.del(L.LSP, slot.id);
+      await store.batch(async () => { if (ans === 'fwd') await slotFrom(slot, next, null); else if (started) await slotAll(slot, null); else await store.del(L.LSP, slot.id); },
+        `Πρόγραμμα ${L.label(st)}${ans === 'fwd' && next ? ` · από ${dShort(next)}` : ''}`);
       close(); ui.toast('Αποθηκεύτηκε ✓');
     });
     el.querySelector('[data-ok]').onclick = async () => {
