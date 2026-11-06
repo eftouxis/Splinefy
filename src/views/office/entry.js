@@ -64,6 +64,7 @@ export function entryView(k) {
           <label class="f"><span>Πελάτης</span><span class="ac"><input name="cl" value="${esc(f.cl)}" autocomplete="off" placeholder="Όνομα πελάτη"><span class="ac-list" data-ac hidden></span></span></label>
           ${f.id ? '' : `<div class="note" data-newcl style="margin:-4px 0 12px;${!f.cl || O.clientCard(f.cl) || O.clientPays(f.cl).length ? 'display:none' : ''}"><div class="small" style="font-weight:700;margin-bottom:6px">🆕 Νέος πελάτης — στοιχεία (προαιρετικά)</div>
             <label class="f" style="margin:0 0 8px"><span>Από πού σε έμαθε</span><select name="clSrc"><option value=""></option>${O.SRCS.map((x) => `<option ${f.clSrc === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+            <label class="f" data-clpart style="margin:0 0 8px;${f.clSrc === 'Συνεργαζόμενος χώρος' ? '' : 'display:none'}"><span>Ποιος συνεργαζόμενος χώρος</span><select name="clSrcPart"><option value=""></option>${O.partners().filter((p) => p.active !== false || p.id === (f.clSrcPart || f.part)).map((p) => `<option value="${esc(p.id)}" ${(f.clSrcPart || f.part) === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
             ${srcWhoHtml(f.clSrc, f.clSrcWho, 'clSrcWho')}
             <div class="grid2"><label class="f" style="margin:0"><span>Κινητό</span><input name="clPhone" inputmode="tel" value="${esc(f.clPhone || '')}"></label><label class="f" style="margin:0"><span>E-mail</span><input name="clEmail" inputmode="email" value="${esc(f.clEmail || '')}"></label></div></div>`}
           <label class="f"><span>Υπηρεσία</span>${chips('svc', svcs.map((s) => [s.name, s.name]), O.svcGroup(f.svc) === f.svc ? f.svc : '')}
@@ -140,7 +141,9 @@ export function entryView(k) {
         });
         if (!f.id && !f.cl) setTimeout(() => clI.focus(), 50);
         const nb = root.querySelector('[data-newcl]');
-        bindSrcWho(root, 'clSrc', 'clSrcWho');
+        bindSrcWho(root, 'clSrc', 'clSrcWho', (s) => { const b = root.querySelector('[data-clpart]'); if (b) b.style.display = s === 'Συνεργαζόμενος χώρος' ? '' : 'none'; });
+        // the partner the client came from is also the payment's partner (discount, fee) unless another one is already chosen
+        root.querySelector('[name=clSrcPart]')?.addEventListener('change', (e) => { read(); if (e.target.value && !f.part) { f.part = e.target.value; ui.render(); } });
         if (nb) clI.addEventListener('input', () => { const v = clI.value.trim(); nb.style.display = v.length > 2 && !O.clientCard(v) && !O.clientPays(v).length ? '' : 'none'; });
       } else {
         const dI = root.querySelector('[name=desc]');
@@ -174,7 +177,7 @@ export function entryView(k) {
           }
         }
         await store.put(O.OSP, f.id || null, rec);
-        if (k === 'in' && !f.id && (f.clPhone?.trim() || f.clEmail?.trim() || f.clSrc) && !O.clientCard(rec.cl)) await store.put(O.OSP, null, { type: 'ocl', name: rec.cl, phone: f.clPhone?.trim() || null, email: f.clEmail?.trim() || null, src: f.clSrc || null, srcWho: f.clSrc && f.clSrc !== 'Συνεργαζόμενος χώρος' ? f.clSrcWho?.trim() || null : null, srcPart: f.clSrc === 'Συνεργαζόμενος χώρος' ? f.part || null : null });
+        if (k === 'in' && !f.id && (f.clPhone?.trim() || f.clEmail?.trim() || f.clSrc) && !O.clientCard(rec.cl)) await store.put(O.OSP, null, { type: 'ocl', name: rec.cl, phone: f.clPhone?.trim() || null, email: f.clEmail?.trim() || null, src: f.clSrc || null, srcWho: f.clSrc && f.clSrc !== 'Συνεργαζόμενος χώρος' ? f.clSrcWho?.trim() || null : null, srcPart: f.clSrc === 'Συνεργαζόμενος χώρος' ? f.clSrcPart || f.part || null : null });
         ui.toast('Καταχωρήθηκε ✓');
         if (again) { const d = f.d; st[k] = { ...blank(k), d, ...(k === 'in' ? { pay: f.pay } : {}) }; ui.render(); } else { st[k] = null; ui.go('#/office'); }
       };
