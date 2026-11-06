@@ -1,0 +1,202 @@
+// #/office/in/<id|new> and #/office/ex/<id|new> — client payment / office expense
+import { esc, eur, today, parseAmount, norm } from '../../util.js';
+import * as store from '../../store.js';
+import * as O from '../../office.js';
+import { calcHtml, bindCalc } from '../calc.js';
+import * as FQ from '../freq.js';
+
+const st = { in: null, ex: null };
+const chips = (name, list, val) => `<div class="chips" data-ch="${name}">${list.map(([v, l]) => `<button type="button" class="chip ${String(v) === String(val ?? '') ? 'on' : ''}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
+const cm = (x) => (x == null || x === '' ? '' : String(x).replace('.', ','));
+function blank(k) {
+  const q = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (k === 'in') return { id: null, d: today(), cl: q.get('cl') || '', svc: '', a: '', pay: 'Μετρητά', rcpt: false, part: '', note: '' };
+  return { id: null, d: today(), desc: '', cat: q.get('part') ? 'Αμοιβή συνεργασίας' : '', a: q.get('a') || '', pay: '', part: q.get('part') || '', note: '', rep: false, repf: 'm1' };
+}
+/** «ποιος / ποιο;» under «Από πού σε έμαθε» (free text with suggestions; hidden for no source and for partners, which have their own list) */
+const whoLabel = (s) => { const t = O.SRC_WHO[s] || 'ποιος / ποιο'; return `${t[0].toUpperCase()}${t.slice(1)};`; };
+export function srcWhoHtml(src, who, nm = 'srcWho') {
+  const on = src && src !== 'Συνεργαζόμενος χώρος';
+  return `<label class="f" data-srcwho style="${on ? '' : 'display:none'}"><span data-srcwhol>${esc(whoLabel(src))}</span><input name="${nm}" list="dl-${nm}" value="${esc(who || '')}" autocomplete="off" placeholder="γράψε (προαιρετικό)"><datalist id="dl-${nm}">${(on ? O.srcWhos(src) : []).slice(0, 40).map((v) => `<option value="${esc(v)}">`).join('')}</datalist></label>`;
+}
+export function bindSrcWho(el, selName, nm = 'srcWho', extra) {
+  const sel = el.querySelector(`[name=${selName}]`); if (!sel) return;
+  sel.addEventListener('change', () => {
+    const s = sel.value, on = s && s !== 'Συνεργαζόμενος χώρος'; const box = el.querySelector('[data-srcwho]'); if (!box) return;
+    box.style.display = on ? '' : 'none'; box.querySelector('[data-srcwhol]').textContent = whoLabel(s);
+    box.querySelector('datalist').innerHTML = (on ? O.srcWhos(s) : []).slice(0, 40).map((v) => `<option value="${esc(v)}">`).join('');
+    box.querySelector('input').value = ''; extra?.(s);
+  });
+}
+/** suggestions under a text field (most used first) */
+function ac(root, input, listFn, onPick) {
+  const box = input.parentElement.querySelector('[data-ac]'); if (!box) return;
+  let cache = null;
+  const show = () => {
+    const q = norm(input.value).trim(); if (!q) { box.hidden = true; return; }
+    if (!cache) cache = listFn().map((x) => ({ ...x, k: norm(x.v).trim() }));      // once per form, not on every key
+    const st1 = [], inc = []; for (const x of cache) { if (x.k === q) continue; if (x.k.startsWith(q)) { st1.push(x); if (st1.length >= 7) break; } else if (inc.length < 7 && x.k.includes(q)) inc.push(x); }
+    const hits = [...st1, ...inc].slice(0, 7); if (!hits.length) { box.hidden = true; return; }
+    box.innerHTML = hits.map((x) => `<button type="button" data-acv="${esc(x.v)}"><b>${esc(x.v)}</b><span class="small muted">${esc(x.s || '')}</span></button>`).join(''); box.hidden = false;
+  };
+  let tm = 0; input.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(show, 150); }); input.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 150));
+  box.addEventListener('pointerdown', (e) => e.preventDefault());
+  box.addEventListener('click', (e) => { const b = e.target.closest('[data-acv]'); if (!b) return; input.value = b.dataset.acv; box.hidden = true; onPick(b.dataset.acv); });
+}
+export function entryView(k) {
+  const TYPE = k === 'in' ? 'oin' : 'oex';
+  return {
+    html([id0]) {
+      const id = (id0 || 'new').split('?')[0];
+      let f = st[k];
+      if (!f || (id === 'new' ? f.id : f.id !== id) || location.hash.includes('?')) {
+        if (id === 'new') f = blank(k);
+        else { const r = store.state.data[O.OSP]?.recs.get(id); if (!r) return '<div class="top"><h1>Δεν βρέθηκε</h1></div>'; f = { ...blank(k), ...r, a: cm(r.a), id, dueK: r.due > 0 ? 'owes' : r.due < 0 ? 'iowe' : '', dueA: r.due ? cm(Math.abs(r.due)) : '' }; }
+        st[k] = f; if (location.hash.includes('?')) history.replaceState(null, '', `#/office/${k}/${id}`);
+      }
+      const parts = O.partners().filter((p) => p.active !== false || p.id === f.part);
+      const top = `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${f.id ? 'Επεξεργασία' : k === 'in' ? 'Έσοδο γραφείου' : 'Έξοδο γραφείου'}</h1></div>`;
+      const amount = `<input class="amount" name="a" inputmode="decimal" placeholder="0,00 €" value="${esc(f.a)}" autocomplete="off">${calcHtml()}`;
+      if (k === 'in') {
+        const svcs = O.services().slice(0, 7);
+        const prevDue = f.cl ? (O.clientPays(f.cl).find((r) => r.id !== f.id && (!f.id || r.d <= f.d))?.due || 0) : 0;
+        return `${top}<div class="card">
+          <label class="f"><span>Πελάτης</span><span class="ac"><input name="cl" value="${esc(f.cl)}" autocomplete="off" placeholder="Όνομα πελάτη"><span class="ac-list" data-ac hidden></span></span></label>
+          ${f.id ? '' : `<div class="note" data-newcl style="margin:-4px 0 12px;${!f.cl || O.clientCard(f.cl) || O.clientPays(f.cl).length ? 'display:none' : ''}"><div class="small" style="font-weight:700;margin-bottom:6px">🆕 Νέος πελάτης — στοιχεία (προαιρετικά)</div>
+            <label class="f" style="margin:0 0 8px"><span>Από πού σε έμαθε</span><select name="clSrc"><option value=""></option>${O.SRCS.map((x) => `<option ${f.clSrc === x ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>
+            ${srcWhoHtml(f.clSrc, f.clSrcWho, 'clSrcWho')}
+            <div class="grid2"><label class="f" style="margin:0"><span>Κινητό</span><input name="clPhone" inputmode="tel" value="${esc(f.clPhone || '')}"></label><label class="f" style="margin:0"><span>E-mail</span><input name="clEmail" inputmode="email" value="${esc(f.clEmail || '')}"></label></div></div>`}
+          <label class="f"><span>Υπηρεσία</span>${chips('svc', svcs.map((s) => [s.name, s.name]), O.svcGroup(f.svc) === f.svc ? f.svc : '')}
+            <input name="svc" value="${esc(f.svc)}" placeholder="ή γράψε (π.χ. πακέτο 4 φορές)" style="margin-top:6px"></label>
+          ${amount}
+          <label class="f" style="margin-top:10px"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(f.d)}"></label>
+          <label class="f"><span>Τρόπος πληρωμής</span>${chips('pay', O.PAYS.map((p) => [p, p]), f.pay)}</label>
+          <label class="row" style="margin:0 2px 6px"><input type="checkbox" name="rcpt" style="width:auto" ${f.rcpt ? 'checked' : ''}> 🧾 Κόπηκε απόδειξη</label>
+          <div class="note small" data-vat style="margin-bottom:12px"></div>
+          ${parts.length ? `<label class="f"><span>Ήρθε μέσω συνεργάτη</span>${chips('part', [['', 'Κανένας'], ...parts.map((p) => [p.id, p.name])], f.part)}</label>
+            ${f.part ? `<div class="small muted" data-fee style="margin:-4px 2px 10px"></div>` : ''}
+            ${f.part && O.partner(f.part)?.disc ? `<div class="note small" style="margin:-4px 0 12px">🏷 Πελάτης από ${esc(O.partner(f.part).name)}: έκπτωση ${Math.round(O.partner(f.part).disc * 100)}%.
+              <div class="row" style="margin-top:6px;gap:6px"><span>Κανονική τιμή</span><input name="list" inputmode="decimal" value="${esc(f.list || cm(O.services().find((x) => x.name === O.svcGroup(f.svc))?.price || ''))}" style="width:90px;padding:6px 8px"><span data-discv class="grow"></span><button type="button" class="btn sm" data-applyd>Βάλε το</button></div></div>` : ''}` : ''}
+          <label class="f"><span>Μετά από αυτή την πληρωμή</span>${chips('dueK', [['', 'Εντάξει'], ['owes', 'Μου χρωστάει'], ['iowe', 'Του/της χρωστάω']], f.dueK)}
+            ${f.dueK ? `<input name="dueA" inputmode="decimal" value="${esc(f.dueA || '')}" placeholder="πόσα €" style="margin-top:6px">` : ''}
+            ${prevDue ? `<div class="small ${prevDue > 0 ? 'pos' : 'neg'}" style="margin-top:4px">Από την προηγούμενη φορά: ${prevDue > 0 ? 'σου χρωστούσε' : 'του/της χρωστούσες'} ${eur(Math.abs(prevDue))}</div>` : ''}</label>
+          <label class="f"><span>Σημείωση</span><input name="note" value="${esc(f.note || '')}" placeholder="π.χ. 2η από τις 4 του πακέτου"></label>
+        </div>
+        <button class="btn primary" style="width:100%" data-save>${f.id ? 'Αποθήκευση' : 'Καταχώρηση'}</button>
+        ${f.id ? '<button class="btn" style="width:100%;margin-top:8px;color:var(--red)" data-del>Διαγραφή</button>' : '<button class="btn" style="width:100%;margin-top:8px" data-saveadd>Καταχώρηση και νέα</button>'}
+        ${f.id ? '' : '<div class="center small" style="margin-top:12px"><a href="#/add/inc?personal=1">Προσωπικό έσοδο (όχι από πελάτη) ›</a></div>'}`;
+      }
+      return `${top}<div class="card">
+        ${amount}
+        <div class="grid2" style="margin-top:10px"><label class="f"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(f.d)}"></label>
+          <label class="f"><span>Τρόπος πληρωμής</span><input name="pay" value="${esc(f.pay || '')}" placeholder="π.χ. Εθνική"></label></div>
+        <label class="f"><span>Περιγραφή</span><span class="ac"><input name="desc" value="${esc(f.desc)}" autocomplete="off" placeholder="π.χ. ρεύμα, φιλοξενία ιστοσελίδας Νοέμβριος"><span class="ac-list" data-ac hidden></span></span></label>
+        <label class="f"><span class="row"><span class="grow">Κατηγορία</span><button type="button" class="btn sm ghost" data-ecats style="padding:2px 8px">✎ Κατηγορίες</button></span>${chips('cat', [...new Set([...O.ecats(), ...(f.cat ? [f.cat] : [])])].map((c) => [c, c]), f.cat)}</label>
+        ${/marketing|διαφήμ|προώθ/i.test(f.cat || '') || f.asrc ? `<label class="f"><span>Διαφήμιση για <span class="small muted">(για να βγαίνει πόσο κόστισε κάθε νέος πελάτης)</span></span>${chips('asrc', [['', 'Γενικά'], ...O.SRCS.filter((x) => x !== 'Συνεργαζόμενος χώρος' && x !== 'Σύσταση από πελάτη' && x !== 'Φίλοι / γνωστοί').map((x) => [x, x])], f.asrc || '')}</label>` : ''}
+        ${f.cat === 'Αμοιβή συνεργασίας' ? `<label class="f"><span>Σε ποιον συνεργάτη</span>${chips('part', parts.map((p) => [p.id, p.name]), f.part)}</label>` : ''}
+        <label class="row small" style="margin:0 2px 10px"><input type="checkbox" name="inv" style="width:auto" ${f.inv ? 'checked' : ''}> 📑 Με τιμολόγιο (στο ΑΦΜ του γραφείου)</label>
+        ${f.inv ? `<label class="f" style="margin-top:-4px"><span>Ο ΦΠΑ που γράφει το τιμολόγιο, σε €</span><input name="ivat" inputmode="decimal" value="${esc(f.ivat ?? '')}" placeholder="π.χ. ${cm(Math.round(((parseAmount(f.a) || 0) - (parseAmount(f.a) || 0) / (1 + O.vatRate())) * 100) / 100) || '58,06'}"></label>
+          <div class="small muted" style="margin:-6px 2px 10px">Αν το αφήσεις κενό, μετράει ΦΠΑ ${Math.round(O.vatRate() * 100)}% μέσα στο ποσό${parseAmount(f.a) ? ` (= ${cm(Math.round(((parseAmount(f.a) || 0) - (parseAmount(f.a) || 0) / (1 + O.vatRate())) * 100) / 100)} € για ${cm(parseAmount(f.a))} €)` : ''}. Γράψε ποσό μόνο αν το τιμολόγιο έχει άλλο ΦΠΑ (π.χ. 6% ή 13%).</div>` : ''}
+        <label class="f"><span>Σημείωση</span><input name="note" value="${esc(f.note || '')}"></label>
+        ${f.id ? '' : `<label class="row small" style="margin:0 2px 4px;flex-wrap:wrap"><input type="checkbox" name="rep" style="width:auto" ${f.rep ? 'checked' : ''}> ↻ Επαναλαμβάνεται ${FQ.freqHtml('repf', { fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }, 'width:auto;padding:6px 8px;font-size:14px;margin-left:6px')}</label>`}
+      </div>
+      <button class="btn primary" style="width:100%" data-save>${f.id ? 'Αποθήκευση' : 'Καταχώρηση'}</button>
+      ${f.id ? '<button class="btn" style="width:100%;margin-top:8px;color:var(--red)" data-del>Διαγραφή</button>' : '<button class="btn" style="width:100%;margin-top:8px" data-saveadd>Καταχώρηση και νέα</button>'}`;
+    },
+    mount(root, p, ui) {
+      const f = st[k]; if (!f) return;
+      const read = () => root.querySelectorAll('input[name],select[name]').forEach((el) => { f[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+      root.querySelector('[data-back]').addEventListener('click', () => { st[k] = null; ui.back(); });
+      root.querySelectorAll('[data-ch]').forEach((c) => c.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-v]'); if (!b) return; read(); const n = c.dataset.ch;
+        f[n] = f[n] === b.dataset.v && n !== 'cat' && n !== 'pay' && n !== 'dueK' ? '' : b.dataset.v;
+        if (n === 'svc') { const s = O.services().find((x) => x.name === f.svc); if (s?.price && !parseAmount(f.a)) f.a = cm(s.price); }
+        ui.render();
+      }));
+      const aI = root.querySelector('[name=a]'); bindCalc(root, aI, () => {});
+      const fee = root.querySelector('[data-fee]');
+      const upFee = () => { if (!fee) return; const pp = O.partner(f.part); const a = parseAmount(aI.value) || 0; fee.textContent = pp && pp.pct ? `Αμοιβή ${pp.name}: ${eur(a * (pp.pct || 0))} (θα τη χρωστάς)` : ''; };
+      upFee(); aI.addEventListener('input', upFee);
+      // VAT breakdown for the receipt
+      const vatBox = root.querySelector('[data-vat]'), rc = root.querySelector('[name=rcpt]');
+      const upVat = () => { if (!vatBox) return; const a = parseAmount(aI.value) || 0; const r = O.vatRate(); const pc = Math.round(r * 1000) / 10;
+        if (!a) { vatBox.innerHTML = rc.checked ? `Με απόδειξη: το ποσό περιλαμβάνει ΦΠΑ ${String(pc).replace('.', ',')}%` : 'Χωρίς απόδειξη: όλο το ποσό είναι καθαρό'; return; }
+        const sp = O.split(a, rc.checked, r);
+        vatBox.innerHTML = rc.checked ? `🧾 Χωρίς ΦΠΑ <b>${eur(sp.net)}</b> · ΦΠΑ ${String(pc).replace('.', ',')}% <b>${eur(sp.vat)}</b> · Σύνολο <b>${eur(a)}</b>` : `Χωρίς απόδειξη: καθαρό <b>${eur(a)}</b>`; };
+      if (vatBox) { upVat(); aI.addEventListener('input', upVat); rc.addEventListener('change', () => { f.rcpt = rc.checked; upVat(); }); }
+      // partner discount
+      const lI = root.querySelector('[name=list]'), dv = root.querySelector('[data-discv]');
+      const pD = O.partner(f.part)?.disc || 0;
+      const upD = () => { if (!lI) return; const l = parseAmount(lI.value) || 0; dv.innerHTML = l ? `→ πληρώνει <b>${eur(l * (1 - pD))}</b>` : ''; };
+      if (lI) { upD(); lI.addEventListener('input', upD); root.querySelector('[data-applyd]').addEventListener('click', () => { const l = parseAmount(lI.value) || 0; if (!l) return; f.list = lI.value; aI.value = cm(Math.round(l * (1 - pD) * 100) / 100); aI.dispatchEvent(new Event('input')); }); }
+      if (k === 'in') {
+        const clI = root.querySelector('[name=cl]');
+        ac(root, clI, () => O.clients().sort((a, b) => (a.last < b.last ? 1 : -1)).map((c) => ({ v: c.name, s: `${c.n}× · ${c.lastSvc || ''}` })), (v) => {
+          read(); const c = O.clients().find((x) => x.name === v);
+          if (c && !f.svc) f.svc = c.lastSvc; if (c && !parseAmount(f.a)) f.a = cm(c.lastA);
+          const lastP = O.clientPays(v)[0]; if (lastP?.part && !f.part) f.part = lastP.part;
+          ui.render();
+        });
+        if (!f.id && !f.cl) setTimeout(() => clI.focus(), 50);
+        const nb = root.querySelector('[data-newcl]');
+        bindSrcWho(root, 'clSrc', 'clSrcWho');
+        if (nb) clI.addEventListener('input', () => { const v = clI.value.trim(); nb.style.display = v.length > 2 && !O.clientCard(v) && !O.clientPays(v).length ? '' : 'none'; });
+      } else {
+        const dI = root.querySelector('[name=desc]');
+        ac(root, dI, () => { const m = new Map(); for (const r of O.expenses(true)) { if (!r.desc || r.sal) continue; const x = m.get(norm(r.desc)) || { v: r.desc, s: r.cat, n: 0, a: r.a, cat: r.cat, pay: r.pay }; x.n++; m.set(norm(r.desc), x); } return [...m.values()].sort((a, b) => b.n - a.n); }, (v) => {
+          read(); const last = O.expenses(true).find((r) => norm(r.desc || '') === norm(v)); if (last) { if (!f.cat) f.cat = last.cat; if (!f.pay && last.pay) f.pay = last.pay; if (!parseAmount(f.a)) f.a = cm(last.a); }
+          ui.render();
+        });
+        root.querySelector('[data-freq]')?.addEventListener('change', () => { read(); f.rep = true; ui.render(); });
+        root.querySelector('[name=inv]')?.addEventListener('change', () => { read(); ui.render(); });
+        root.querySelector('[data-ecats]')?.addEventListener('click', () => { read(); ecatsSheet(ui); });
+        if (!f.id && !f.a) setTimeout(() => aI.focus(), 50);
+      }
+      const save = async (again) => {
+        read(); const a = parseAmount(f.a); if (!a) { ui.toast('Γράψε ποσό'); return; }
+        let rec;
+        if (k === 'in') {
+          if (!f.cl.trim()) { ui.toast('Γράψε πελάτη'); return; }
+          const pp = O.partner(f.part);
+          const dv = parseAmount(f.dueA) || 0; const due = f.dueK === 'owes' ? dv : f.dueK === 'iowe' ? -dv : 0;
+          if (f.dueK && !dv) { ui.toast('Γράψε πόσα χρωστάει / χρωστάς'); return; }
+          rec = { type: TYPE, d: f.d || today(), cl: f.cl.trim(), svc: f.svc.trim() || null, a, pay: f.pay || null, rcpt: !!f.rcpt, part: f.part || null, fee: pp && pp.pct ? Math.round(a * (pp.pct || 0) * 100) / 100 : null, due: due || null,
+            ...(pp?.disc && parseAmount(f.list) > a ? { list: parseAmount(f.list), disc: Math.round((parseAmount(f.list) - a) * 100) / 100 } : { list: null, disc: null }), vr: f.rcpt ? O.vatRate() : null, note: f.note?.trim() || null };
+        } else {
+          if (!f.cat) { ui.toast('Διάλεξε κατηγορία'); return; }
+          if (f.cat === 'Αμοιβή συνεργασίας' && !f.part) { ui.toast('Διάλεξε συνεργάτη'); return; }
+          rec = { type: TYPE, d: f.d || today(), desc: f.desc.trim() || f.cat, cat: f.cat, a, pay: f.pay?.trim() || null, part: f.cat === 'Αμοιβή συνεργασίας' ? f.part : null, note: f.note?.trim() || null, asrc: f.asrc || null, inv: f.inv ? 1 : null, ivat: f.inv ? parseAmount(String(f.ivat ?? '')) : null };
+          if (!f.id && f.rep) {
+            const fr = FQ.toRec({ fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }) || { unit: 'm', every: 1 };
+            await store.put(O.OSP, null, { type: 'rec', biz: 1, name: rec.desc, a, cat: rec.cat, kind: 'Έξοδο', payer: 'Χαρά', for: 'Χαρά', asrc: rec.asrc, unit: fr.unit, every: fr.every, start: rec.d });
+            st[k] = null; ui.toast('Μπήκε στα επαναλαμβανόμενα του γραφείου ✓'); ui.go('#/office'); return;
+          }
+        }
+        await store.put(O.OSP, f.id || null, rec);
+        if (k === 'in' && !f.id && (f.clPhone?.trim() || f.clEmail?.trim() || f.clSrc) && !O.clientCard(rec.cl)) await store.put(O.OSP, null, { type: 'ocl', name: rec.cl, phone: f.clPhone?.trim() || null, email: f.clEmail?.trim() || null, src: f.clSrc || null, srcWho: f.clSrc && f.clSrc !== 'Συνεργαζόμενος χώρος' ? f.clSrcWho?.trim() || null : null, srcPart: f.clSrc === 'Συνεργαζόμενος χώρος' ? f.part || null : null });
+        ui.toast('Καταχωρήθηκε ✓');
+        if (again) { const d = f.d; st[k] = { ...blank(k), d, ...(k === 'in' ? { pay: f.pay } : {}) }; ui.render(); } else { st[k] = null; ui.go('#/office'); }
+      };
+      root.querySelector('[data-save]').addEventListener('click', () => save(false));
+      root.querySelector('[data-saveadd]')?.addEventListener('click', () => save(true));
+      root.querySelector('[data-del]')?.addEventListener('click', async () => { if (!(await ui.confirm('Διαγραφή;', 'Διαγραφή'))) return; await store.del(O.OSP, f.id); st[k] = null; ui.back(); });
+    },
+  };
+}
+
+/** add / remove office expense categories (old expenses keep theirs) */
+function ecatsSheet(ui) {
+  let list = [...O.ecats()];
+  import('../lessons/ui.js').then(({ sheet: sh }) => sh(`<div class="mid">Κατηγορίες εξόδων γραφείου</div><div class="small muted">Οι παλιές κινήσεις κρατάνε την κατηγορία τους, ακόμα κι αν τη σβήσεις από εδώ.</div>
+    <div data-cl style="margin:10px 0"></div>
+    <div class="row" style="gap:6px"><input name="nc" placeholder="Νέα κατηγορία" style="flex:1;min-width:0"><button class="btn sm" data-add style="width:auto;flex:none">Προσθήκη</button></div>
+    <button class="btn primary" data-ok style="margin-top:10px">Αποθήκευση</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    const draw = () => { el.querySelector('[data-cl]').innerHTML = list.map((c, i) => `<div class="row" style="margin:4px 0"><span class="grow">${esc(c)}</span><button class="btn sm ghost" data-up="${i}" ${i ? '' : 'disabled'} style="width:auto">▲</button><button class="btn sm ghost" data-rm="${i}" style="width:auto;color:var(--red)">✕</button></div>`).join('');
+      el.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { list.splice(Number(b.dataset.rm), 1); draw(); });
+      el.querySelectorAll('[data-up]').forEach((b) => b.onclick = () => { const i = Number(b.dataset.up); [list[i - 1], list[i]] = [list[i], list[i - 1]]; draw(); }); };
+    draw();
+    el.querySelector('[data-add]').onclick = () => { const v = el.querySelector('[name=nc]').value.trim(); if (v && !list.includes(v)) { list.push(v); el.querySelector('[name=nc]').value = ''; draw(); } };
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelector('[data-ok]').onclick = async () => { await store.put(O.OSP, 'office', { type: 'opref', ecats: list }); close(); ui.render(); };
+  }));
+}
