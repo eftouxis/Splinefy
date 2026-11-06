@@ -48,12 +48,21 @@ const maxD = (l) => l.reduce((m, e) => (e.d > m ? e.d : m), '') || null;
 export async function done(c, d = today(), note = null) {
   const fixedOcc = c.mode === 'fixed' && c.anchor ? due(c) : null;            // fixed dates: this date is done, the next one stays on its date
   const l = [{ d, by: store.state.user, n: note || null }, ...hist(c).filter((e) => e.d !== d)].sort((a, b) => (a.d < b.d ? 1 : -1));
-  await store.put(c._sp, c.id, { last: maxD(l), next: null, hist: pack(l), undoD: d, prevLast: c.last || null, prevNext: c.next || null, prevOcc: c.doneOcc || null, ...(fixedOcc ? { doneOcc: fixedOcc } : {}) });
+  await store.put(c._sp, c.id, { last: maxD(l), next: null, hist: pack(l), undoD: d, undoK: 'done', prevLast: c.last || null, prevNext: c.next || null, prevOcc: c.doneOcc || null, ...(fixedOcc ? { doneOcc: fixedOcc } : {}) });
 }
 export async function undo(c) {
+  if (c.undoK === 'skip') { await store.put(c._sp, c.id, { next: c.prevNext ?? null, skips: (c.skips || []).slice(1), undoK: null, ...(c.mode === 'fixed' ? { doneOcc: c.prevOcc ?? null } : {}) }); return; }
   const l = hist(c).filter((e) => e.d !== (c.undoD || hist(c)[0]?.d));
   await store.put(c._sp, c.id, { last: c.prevLast ?? maxD(l), next: c.prevNext ?? null, hist: pack(l), undoD: null, ...(c.mode === 'fixed' ? { doneOcc: c.prevOcc ?? null } : {}) });
 }
+/** προσπέραση αυτής της φοράς: δεν μετράει ως «έγινε» — η λήξη πάει στην επόμενη (μετά την ολοκλήρωση: +1 διάστημα από τη λήξη· σταθερές: η επόμενη ημερομηνία) */
+export async function skip(c) {
+  const d0 = due(c); const fixed = c.mode === 'fixed' && c.anchor;
+  const set = fixed ? { next: null, doneOcc: d0 } : { next: step(d0, Number(c.every) || 1, c.unit || 'm') };
+  await store.put(c._sp, c.id, { ...set, skips: [{ d: d0, by: store.state.user }, ...(c.skips || []).filter((x) => x.d !== d0)], undoK: 'skip', prevNext: c.next || null, prevOcc: c.doneOcc || null });
+  return due({ ...c, ...set });
+}
+export async function delSkip(c, d) { await store.put(c._sp, c.id, { skips: (c.skips || []).filter((x) => x.d !== d), undoK: null }); }
 /** διόρθωση μιας φοράς (ημερομηνία / σημείωση) ή διαγραφή της (fields = null) */
 export async function editHist(c, d0, fields) {
   let l = hist(c); const e = l.find((x) => x.d === d0); if (!e) return;
@@ -63,6 +72,6 @@ export async function editHist(c, d0, fields) {
   await store.put(c._sp, c.id, { hist: pack(l), ...(wasLast || (fields?.d && fields.d > (c.last || '')) ? { last: maxD(l) } : {}), undoD: null });
 }
 /** όλες οι φορές από όλες τις εργασίες, πιο πρόσφατες πρώτες */
-export const allHist = (list = all()) => list.flatMap((c) => hist(c).map((e) => ({ ...e, c }))).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : (a.c.name || '').localeCompare(b.c.name || '')));
+export const allHist = (list = all()) => list.flatMap((c) => [...hist(c).map((e) => ({ ...e, c })), ...(c.skips || []).map((e) => ({ ...e, skip: true, c }))]).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : (a.c.name || '').localeCompare(b.c.name || '')));
 /** the ones that should be done by today (for the home page) */
 export const dueNow = () => all().filter((c) => c.due <= today() && (!c.who || c.who === store.state.user || c._sp === 'shared'));

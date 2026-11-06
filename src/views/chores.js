@@ -11,11 +11,11 @@ let tab = 'due', hq = '', hOne = null;            // καρτέλα · αναζ�
 const ago = (n) => (n === 0 ? 'σήμερα' : n === 1 ? 'αύριο' : n === -1 ? 'χθες' : n > 0 ? `σε ${n} μέρες` : `πριν ${-n} μέρες`);
 const row = (c) => {
   const n = C.daysTo(c.due);
-  return `<div class="item" data-chore="${esc(c.id)}" style="cursor:pointer">
+  return `<div class="sw" data-sw="${esc(c.id)}"><div class="sw-bg"><span>⏭ Προσπέραση</span><span>✓ Έγινε</span></div><div class="item" data-chore="${esc(c.id)}" style="cursor:pointer">
     <button type="button" class="btn sm ghost" data-tick="${esc(c.id)}" title="Έγινε σήμερα" style="width:auto;font-size:22px;padding:2px 8px">☐</button>
     <div class="grow"><div class="t" style="white-space:normal">${esc(c.name)}${(c.mailTo || []).includes(store.state.user) ? ` <span class="small">${c.ch === 'cal' ? '🔔' : '📧'}</span>` : ''}</div>
       <div class="s" style="white-space:normal"><span class="${n < 0 ? 'neg' : n === 0 ? 'neg' : ''}">Λήγει: ${dFull(c.due)} (${ago(n)})</span><br>${c.last ? `Τελευταία: ${dFull(c.last)} (${ago(C.daysTo(c.last))})` : 'Δεν έχει γίνει ακόμα'} · ${C.everyTxt(c)}${c.notes ? `<br><span class="muted">📝 ${esc(c.notes.split('\n')[0].slice(0, 80))}${c.notes.length > 80 || c.notes.includes('\n') ? '…' : ''}</span>` : ''}</div></div>
-    <div class="small muted" style="text-align:right">${C.mySpace() ? `<div title="${isMine(c) ? 'Προσωπική — μόνο εσύ' : 'Κοινή'}">${isMine(c) ? '👤' : '👥'}</div>` : ''}${c.grp ? esc(c.grp) : ''}</div></div>`;
+    <div class="small muted" style="text-align:right">${C.mySpace() ? `<div title="${isMine(c) ? 'Προσωπική — μόνο εσύ' : 'Κοινή'}">${isMine(c) ? '👤' : '👥'}</div>` : ''}${c.grp ? esc(c.grp) : ''}</div></div></div>`;
 };
 export function choresCard() {                    // home: what is due (overdue + today)
   const l = C.dueNow(); if (!l.length) return '';
@@ -28,6 +28,32 @@ export function bindTicks(root, ui) {
     e.stopPropagation(); const c = C.all().find((x) => x.id === b.dataset.tick); if (!c) return;
     await C.done(c); ui.toast(`✓ ${c.name} — επόμενη ${dFull(C.due({ ...c, last: today(), next: null }))}`, 5000, { label: 'Αναίρεση', fn: () => C.undo(store.records('chore').find((x) => x.id === c.id)) });
   }));
+}
+/** σύρσιμο: ← αριστερά = έγινε σήμερα · δεξιά → = προσπέραση αυτής της φοράς (με «Αναίρεση») */
+export function bindSwipe(root, ui) {
+  root.querySelectorAll('[data-sw]').forEach((el) => {
+    const row = el.querySelector('.item'); let x0 = null, y0 = 0, dx = 0, drag = false, swiped = false;
+    const thr = () => Math.min(110, el.offsetWidth * 0.3);
+    const reset = () => { row.style.transition = 'transform .2s'; row.style.transform = ''; el.classList.remove('l', 'r', 'go'); };
+    el.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && e.button !== 0) return; x0 = e.clientX; y0 = e.clientY; dx = 0; drag = false; row.style.transition = 'none'; });
+    el.addEventListener('pointermove', (e) => {
+      if (x0 == null) return; const mx = e.clientX - x0, my = e.clientY - y0;
+      if (!drag) { if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) { x0 = null; return; } if (Math.abs(mx) < 12) return; drag = true; try { el.setPointerCapture(e.pointerId); } catch (_) { /* */ } }
+      dx = mx; row.style.transform = `translateX(${dx}px)`; el.classList.toggle('l', dx < 0); el.classList.toggle('r', dx > 0); el.classList.toggle('go', Math.abs(dx) > thr());
+    });
+    const end = async () => {
+      if (x0 == null) return; x0 = null; if (!drag) return; swiped = true; setTimeout(() => { swiped = false; }, 350);
+      if (Math.abs(dx) <= thr()) { reset(); return; }
+      const left = dx < 0; row.style.transition = 'transform .18s'; row.style.transform = `translateX(${left ? -1 : 1}${el.offsetWidth}px)`;
+      const c = C.all().find((x) => x.id === el.dataset.sw); if (!c) { reset(); return; }
+      const fresh = () => store.records('chore').find((x) => x.id === c.id);
+      if (navigator.vibrate) try { navigator.vibrate(15); } catch (_) { /* */ }
+      if (left) { await C.done(c); ui.toast(`✓ ${c.name} — επόμενη ${dFull(C.due(fresh() || c))}`, 5000, { label: 'Αναίρεση', fn: () => C.undo(fresh()) }); }
+      else { const nx = await C.skip(c); ui.toast(`⏭ ${c.name}: προσπεράστηκε η ${dFull(c.due)} — επόμενη ${dFull(nx)}`, 5000, { label: 'Αναίρεση', fn: () => C.undo(fresh()) }); }
+    };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', () => { x0 = null; if (drag) reset(); });
+    el.addEventListener('click', (e) => { if (swiped) { e.stopPropagation(); e.preventDefault(); } }, true);
+  });
 }
 export function choreSheet(ui, c = null, office = false) {
   office = office || !!c?.office;
@@ -93,16 +119,17 @@ const nrm = (x) => norm(x).replace(/ς/g, 'σ');
 function histList(office) {
   let l = C.allHist(C.all().filter((c) => (!office || c.office) && (!hOne || c.id === hOne) && (!showF || (showF === 'mine') === isMine(c))));
   const tok = nrm(hq).split(/\s+/).filter(Boolean);
-  if (tok.length) l = l.filter((e) => { const x = nrm(`${e.c.name} ${e.c.grp || ''} ${e.n || ''} ${e.by || ''} ${dFull(e.d)} ${monthLabel(e.d.slice(0, 7))}`); return tok.every((t) => x.includes(t)); });
+  if (tok.length) l = l.filter((e) => { const x = nrm(`${e.c.name} ${e.c.grp || ''} ${e.n || ''} ${e.by || ''} ${dFull(e.d)} ${monthLabel(e.d.slice(0, 7))} ${e.skip ? 'προσπεραση προσπεραστηκε' : ''}`); return tok.every((t) => x.includes(t)); });
   return l;
 }
 function histBody(office) {
   const l = histList(office); if (!l.length) return `<div class="card muted center">${hq ? `Δεν βρέθηκε κάτι για «${esc(hq)}».` : 'Δεν έχει ολοκληρωθεί κάτι ακόμα. Όταν πατάς ☐ ή «✓ Έγινε», καταγράφεται εδώ.'}</div>`;
   const by = new Map(); for (const e of l) { const k = e.d.slice(0, 7); if (!by.has(k)) by.set(k, []); by.get(k).push(e); }
-  return `<div class="small muted" style="margin:2px 2px 4px">${l.length} ${l.length === 1 ? 'φορά' : 'φορές'}</div>` + [...by].map(([k, es]) => `<h2>${monthLabel(k)} <span class="small muted">(${es.length})</span></h2><div class="list">${es.map((e) => `<div class="item" data-he="${esc(e.c.id)}|${esc(e.d)}" style="cursor:pointer">
+  const nd = l.filter((e) => !e.skip).length, ns = l.length - nd;
+  return `<div class="small muted" style="margin:2px 2px 4px">${nd} ${nd === 1 ? 'φορά' : 'φορές'}${ns ? ` · ${ns} ${ns === 1 ? 'προσπέραση' : 'προσπεράσεις'}` : ''}</div>` + [...by].map(([k, es]) => `<h2>${monthLabel(k)} <span class="small muted">(${es.length})</span></h2><div class="list">${es.map((e) => `<div class="item" data-he="${esc(e.c.id)}|${esc(e.d)}|${e.skip ? 's' : ''}" style="cursor:pointer${e.skip ? ';opacity:.6' : ''}">
     <div style="min-width:72px" class="small"><b>${dShort(e.d)}</b></div>
-    <div class="grow"><div class="t" style="white-space:normal">${esc(e.c.name)}</div>
-    <div class="s" style="white-space:normal">${[e.c.grp ? esc(e.c.grp) : '', !isMine(e.c) && e.by ? `✓ ${esc(e.by)}` : ''].filter(Boolean).join(' · ')}${e.n ? `${e.c.grp || (!isMine(e.c) && e.by) ? '<br>' : ''}📝 ${esc(e.n)}` : ''}</div></div>
+    <div class="grow"><div class="t" style="white-space:normal">${e.skip ? '⏭ ' : ''}${esc(e.c.name)}</div>
+    <div class="s" style="white-space:normal">${[e.skip ? 'προσπεράστηκε' : '', e.c.grp ? esc(e.c.grp) : '', !isMine(e.c) && e.by ? `✓ ${esc(e.by)}` : ''].filter(Boolean).join(' · ')}${e.n ? `${e.c.grp || (!isMine(e.c) && e.by) ? '<br>' : ''}📝 ${esc(e.n)}` : ''}</div></div>
     ${C.mySpace() ? `<div class="small muted">${isMine(e.c) ? '👤' : '👥'}</div>` : ''}</div>`).join('')}</div>`).join('');
 }
 function histSheet(ui, c, d0) {
@@ -139,7 +166,7 @@ const view = (office) => ({
     ${all.length ? '' : `<div class="note">${office ? 'Ό,τι επαναλαμβάνεται στο γραφείο: παραγγελίες, καθαρισμός ζυγαριάς, ανανεώσεις συνδρομών, δηλώσεις…' : 'Ό,τι επαναλαμβάνεται και δεν είναι χρήματα: καθαρισμοί, εμβόλια, ανανεώσεις, συντηρήσεις…'} Βάζεις κάθε πότε και πότε έγινε τελευταία φορά· όταν λήγει, εμφανίζεται στην αρχική και (αν θες) σου έρχεται email. Πάτα ☐ όταν το κάνεις.</div>`}
     ${sec('Έληξαν', l.filter((c) => c.due < t))}${sec('Σήμερα', l.filter((c) => c.due === t))}
     ${sec('Τις επόμενες 30 μέρες', l.filter((c) => c.due > t && C.daysTo(c.due) <= 30))}${sec('Αργότερα', l.filter((c) => C.daysTo(c.due) > 30))}
-    ${l.length ? '<div class="small muted" style="margin-top:12px">☐ = έγινε σήμερα (η επόμενη μετράει από σήμερα). Για άλλη μέρα, πάτα την εργασία και άλλαξε την «Τελευταία φορά». 📧 / 🔔 = έρχεται email / ειδοποίηση στο κινητό όταν λήγει (Ρυθμίσεις → Υπενθυμίσεις με email).</div>' : ''}`;
+    ${l.length ? '<div class="small muted" style="margin-top:12px">☐ ή σύρε ← αριστερά = έγινε σήμερα · σύρε δεξιά → = προσπέραση αυτής της φοράς (η λήξη πάει στην επόμενη, χωρίς να μετρήσει ως «έγινε»). Για άλλη μέρα, πάτα την εργασία και άλλαξε την «Τελευταία φορά». 📧 / 🔔 = έρχεται email / ειδοποίηση στο κινητό όταν λήγει (Ρυθμίσεις → Υπενθυμίσεις με email).</div>' : ''}`;
   },
   mount(root, p, ui) {
     root.querySelector('[data-back]')?.addEventListener('click', () => ui.back());
@@ -148,13 +175,15 @@ const view = (office) => ({
     root.querySelectorAll('[data-showf]').forEach((b) => b.addEventListener('click', () => { showF = b.dataset.showf; ui.render(); }));
     root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; hOne = null; ui.render(); }));
     root.querySelector('[data-hone]')?.addEventListener('click', () => { hOne = null; ui.render(); });
-    const bindHist = (box) => box.querySelectorAll('[data-he]').forEach((r) => r.addEventListener('click', () => { const [id, d] = r.dataset.he.split('|'); const c = store.records('chore').find((x) => x.id === id); if (c) histSheet(ui, c, d); }));
+    const bindHist = (box) => box.querySelectorAll('[data-he]').forEach((r) => r.addEventListener('click', () => { const [id, d, sk] = r.dataset.he.split('|'); const c = store.records('chore').find((x) => x.id === id); if (!c) return;
+      if (!sk) { histSheet(ui, c, d); return; }
+      ui.confirm(`«${c.name}»: προσπεράστηκε η ${dFull(d)}${(c.skips || []).find((x) => x.d === d)?.by ? ` (${(c.skips || []).find((x) => x.d === d).by})` : ''}. Να σβηστεί από το ιστορικό; (η λήξη δεν αλλάζει)`, 'Σβήσιμο').then(async (ok) => { if (ok) { await C.delSkip(c, d); ui.toast('Σβήστηκε'); } }); }));
     const hb = root.querySelector('[data-hb]');
     if (hb) {
       bindHist(hb); let tm;
       root.querySelector('[data-hq]').addEventListener('input', (e) => { clearTimeout(tm); tm = setTimeout(() => { hq = e.target.value.trim(); hb.innerHTML = histBody(office); bindHist(hb); }, 150); });
     }
-    bindTicks(root, ui);
+    bindTicks(root, ui); bindSwipe(root, ui);
   },
 });
 export const officeTasks = view(true);
