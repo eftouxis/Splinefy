@@ -5,7 +5,6 @@ import { movements, fx, VIEWS } from '../ledger.js';
 import * as ST from '../stats.js';
 import { ICON } from './common.js';
 import * as T from '../trips.js';
-import { carsList } from './cars.js';
 import { sheet } from './lessons/ui.js';
 import * as store from '../store.js';
 import * as PL from '../plan.js';
@@ -27,7 +26,7 @@ function sySheet(ui, years) {
 }
 
 let view = null, tab = 'months', selY = null, selCat = null;
-const TABS = [['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί'], ['inv', 'Επενδύσεις'], ['cars', 'Αυτοκίνητα']];
+const TABS = [['months', 'Μήνες'], ['years', 'Χρόνια'], ['cats', 'Κατηγορίες'], ['trips', 'Ταξίδια'], ['bills', 'Λογαριασμοί'], ['inv', 'Επενδύσεις']];
 const short = (m) => `${MSHORT[Number(m.slice(5)) - 1]} ${m.slice(2, 4)}`;
 const k0 = (x) => eur(x).replace(' €', '');
 
@@ -63,7 +62,6 @@ function catBars(entries, cmp = null, cmpLabel = '') {
 }
 
 const pages = {
-  cars() { return carsList.html([], null, true); },
   inv() {
     const t = today(); const Y = Number(t.slice(0, 4)); const col = state.user === 'Χαρά' ? 'V' : 'U';
     const l = movements().filter((r) => r.kind === 'Έξοδο' && (r.cat === 'Επενδύσεις' || r.cat === 'Αποταμίευση') && r.d <= t && !r.skipped).map((r) => ({ r, v: Math.abs(fx(r)[col] || 0) })).filter((x) => x.v > 0.004);
@@ -236,13 +234,12 @@ export default {
     if (!TABS.some(([k]) => k === tab)) tab = 'months';
     const body = sub === 'm' ? pages.month([arg]) : sub === 'y' ? pages.year([arg]) : sub === 'sy' ? pages.syear([arg]) : pages[tab]();
     return `<div class="top"><h1>Στατιστικά</h1></div>
-    ${(tab === 'inv' || tab === 'cars') && sub !== 'm' && sub !== 'y' && sub !== 'sy' ? '' : `<div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>`}
+    ${tab === 'inv' && sub !== 'm' && sub !== 'y' && sub !== 'sy' ? '' : `<div class="chips" style="margin-bottom:8px">${views.map((v) => `<button class="chip ${v === view ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}</div>`}
     ${view === 'Φίλιππος' ? '<a class="card row" href="#/philippos" style="text-decoration:none;color:inherit"><span class="grow"><b>👶 Πορτοφόλι Φιλίππου</b><div class="small muted">υπόλοιπο, ό,τι μπήκε και ξοδεύτηκε, μεταφορές</div></span><span class="muted">›</span></a>' : ''}
     <div class="tabs">${TABS.map(([k, l]) => `<button class="${k === tab && sub !== 'm' && sub !== 'y' && sub !== 'sy' ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
     ${body}`;
   },
   mount(root, [sub], ui) {
-    if (tab === 'cars' && sub !== 'm' && sub !== 'y' && sub !== 'sy') carsList.mount(root, [], ui);
     root.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { view = b.dataset.v; ui.render(); }));
     root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; ui.go(`#/stats/${tab}`); }));
     root.querySelectorAll('[data-y]').forEach((b) => b.addEventListener('click', () => { selY += Number(b.dataset.y); ui.render(); }));

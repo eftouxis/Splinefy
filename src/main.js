@@ -113,6 +113,7 @@ export function render() {
   current = view;
   app.innerHTML = view.html(params, ui);
   view.mount?.(app, params, ui);
+  app.querySelectorAll('.tabs').forEach((t) => { const on = t.querySelector('.on'); if (on) t.scrollLeft = on.offsetLeft - (t.clientWidth - on.offsetWidth) / 2; });   // the chosen tab in view
   nav.innerHTML = key === 'welcome' ? '' : navHtml(key);
   // inside Γραφείο: a second row just above the bar with its sections
   let sub = document.getElementById('subnav');
