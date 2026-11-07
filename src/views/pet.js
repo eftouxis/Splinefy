@@ -1,13 +1,16 @@
 // #/pet — 🐕 Κατοικίδιο: βιβλιάριο υγείας με αναζήτηση σε όλα (ιστορικό, εμβόλια, βάρος, φάρμακα, περιστατικά, φροντίδα, έγγραφα).
 // Το όνομα και όλο το ιστορικό έρχονται από τα δεδομένα — τίποτα για το ζώο μέσα στον κώδικα.
-import { esc, today, dFull } from '../util.js';
+import { esc, today, dFull, eur, monthLabel, addMonths } from '../util.js';
 import * as store from '../store.js';
 import * as P from '../pet.js';
 import { sheet } from './lessons/ui.js';
 import { chart } from './health.js';
 
-const TABS = [['sum', 'Σύνοψη'], ['hist', 'Ιστορικό'], ['vac', 'Εμβόλια'], ['weight', 'Βάρος'], ['meds', 'Φάρμακα'], ['inc', 'Περιστατικά'], ['care', 'Φροντίδα'], ['docs', 'Έγγραφα']];
-let q = '', kindF = '', TOK = [], ui;
+const TABS = [['sum', 'Σύνοψη'], ['hist', 'Ιστορικό'], ['vac', 'Εμβόλια'], ['weight', 'Βάρος'], ['meds', 'Φάρμακα'], ['inc', 'Περιστατικά'], ['care', 'Φροντίδα'], ['cost', 'Έξοδα'], ['docs', 'Έγγραφα']];
+let q = '', kindF = '', TOK = [], ui, costY = null;
+// the pet's expenses = the movements with category «Κατοικίδιο» (also the ones brought from Monefy): read live, nothing copied
+const CAT = 'Κατοικίδιο';
+const costs = () => store.records('tx').filter((t) => t.kind === 'exp' && !t.fx && t.cat === CAT).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
 const dec = (x) => (x == null ? '' : String(x).replace('.', ','));
 const euro = (x) => (x == null ? '' : `${dec(x)} €`);
 
@@ -50,6 +53,20 @@ function weightChart() {
 const docRow = (d) => `<div class="item" data-doc="${esc(d.id)}"><div class="dot">${(d.mime || '').startsWith('image') ? '🖼️' : '📄'}</div><div class="grow"><div class="t" style="white-space:normal">${hl(d.title)}</div><div class="s">${hl(dFull(d.d))}${d.file ? '' : ' · δεν έχει ανέβει αρχείο'}</div></div><button class="btn sm ghost" data-docedit="${esc(d.id)}" style="width:auto">✎</button></div>`;
 
 const TAB = {
+  cost() {
+    const l = costs(); if (!l.length) return `<div class="card muted">Δεν υπάρχουν κινήσεις με κατηγορία «${CAT}». Όταν γράφεις ένα έξοδο για ${esc(P.name())} (κτηνίατρος, τροφή, φάρμακα…) με αυτή την κατηγορία, εμφανίζεται εδώ.</div>`;
+    const t = today(), from12 = addMonths(t.slice(0, 7) + '-01', -11);
+    const sum = (f) => l.filter(f).reduce((s, x) => s + (x.a || 0), 0);
+    const years = [...new Set(l.map((x) => x.d.slice(0, 4)))];
+    const Y = years.includes(costY) ? costY : years[0];
+    const mon = {}; l.filter((x) => x.d.startsWith(Y)).forEach((x) => { const k = x.d.slice(0, 7); (mon[k] = mon[k] || []).push(x); });
+    return `<div class="grid2"><div class="card kpi"><div class="label">Τελευταίοι 12 μήνες</div><div class="mid">${eur(sum((x) => x.d >= from12))}</div><div class="small muted">${eur(sum((x) => x.d >= from12) / 12)} τον μήνα</div></div>
+      <div class="card kpi"><div class="label">Από την αρχή</div><div class="mid">${eur(sum(() => true))}</div><div class="small muted">από ${dFull(l[l.length - 1].d)}</div></div></div>
+      <div class="card"><table class="t st">${years.map((y) => `<tr class="click" data-costy="${y}"><td>${y === Y ? '<b>' + y + '</b>' : y}</td><td class="r">${eur(sum((x) => x.d.startsWith(y)))}</td></tr>`).join('')}</table></div>
+      <h2>${Y}</h2><div class="card">${Object.entries(mon).map(([k, xs]) => `<div class="row" style="margin-top:8px"><b class="grow">${monthLabel(k)}</b><b>${eur(xs.reduce((s, x) => s + (x.a || 0), 0))}</b></div>
+        ${xs.map((x) => `<div class="row small click" data-tx="${esc(x._sp)}/${esc(x.id)}" style="margin-top:4px;cursor:pointer"><span class="muted" style="width:52px">${x.d.slice(8, 10)}/${x.d.slice(5, 7)}</span><span class="grow">${esc(x.desc || CAT)}</span><span>${eur(x.a)}</span></div>`).join('')}`).join('')}</div>
+      <div class="small muted">Οι κινήσεις με κατηγορία «${CAT}» — και όσες ήρθαν από το Monefy. Κάθε νέο έξοδο με αυτή την κατηγορία μπαίνει εδώ μόνο του.</div>`;
+  },
   sum() {
     const p = P.profile(), sc = P.schedule(), late = sc.filter((s) => s.st === 'late' || s.st === 'none').length, ch = P.chores();
     const w = P.weights().pop(), last = P.events()[0];
@@ -276,6 +293,8 @@ export default {
     const bindAll = () => {
       bindBody(body);
       body.querySelectorAll('[data-q]').forEach((b) => b.addEventListener('click', () => { inp.value = b.dataset.q; inp.dispatchEvent(new Event('input')); }));
+      body.querySelectorAll('[data-costy]').forEach((b) => b.addEventListener('click', () => { costY = b.dataset.costy; u.render(); }));
+      body.querySelectorAll('[data-tx]').forEach((b) => b.addEventListener('click', () => u.go(`#/edit/${b.dataset.tx}`)));
       body.querySelectorAll('[data-kind]').forEach((b) => b.addEventListener('click', () => { kindF = b.dataset.kind; u.render(); }));
     };
     bindAll();
