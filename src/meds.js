@@ -29,12 +29,12 @@ const isTimes = (m) => m.mode === 'times';
 export function doses(m, horizon = Date.now() + 10 * 24 * H) {
   if (isTimes(m)) {
     const times = (m.times || []).filter(Boolean).slice().sort(); if (!m.start || !times.length) return [];
-    const last = lastDay(m); const wd = (m.wd || []).map(Number); const st = ms(m.start) - 60000; const tk = m.taken || {};
+    const last = lastDay(m); const wd = (m.wd || []).map(Number); const st = ms(m.start) - 60000; const tk = m.taken || {}; const tf = m.trackFrom ? ms(m.trackFrom) : 0;
     const out = []; let d = m.start.slice(0, 10);
     for (let i = 0; i < 4000; i++) {
       if (last && d > last) break;
       const day = new Date(d + 'T12:00'); if (!last && day.getTime() > horizon) break;
-      if (!wd.length || wd.includes(day.getDay())) for (const t of times) { const at = ms(`${d}T${t}`); if (at >= st) out.push({ k: out.length, at, given: tk[local(at)] ? ms(tk[local(at)]) : null, h: 0, phase: 0 }); }
+      if (!wd.length || wd.includes(day.getDay())) for (const t of times) { const at = ms(`${d}T${t}`); if (at >= st && (at >= tf || tk[local(at)])) out.push({ k: out.length, at, given: tk[local(at)] ? ms(tk[local(at)]) : null, h: 0, phase: 0 }); }
       d = addDays(d, 1);
     }
     const now = Date.now(); let lp = -1; out.forEach((x, i) => { if (x.at <= now) lp = i; });
@@ -75,6 +75,19 @@ export async function give(m, when = Date.now()) {
     await store.put(m._sp, m.id, { taken: tk, takenOld: old || null }); return;
   }
   await store.put(m._sp, m.id, { given: [...(m.given || []), local(when)].sort() });
+}
+/** home: the doses whose time has come (or comes within the hour) and are not ticked — like the Εργασίες.
+ *  A medicine without ✓ (track off) shows only today's; ticking it turns ✓ on from that dose. */
+export function pending(now = Date.now()) {
+  const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
+  return all().filter((m) => !m.stopped).flatMap((m) => doses(m).filter((d) => d.given == null && !d.missed && d.at <= now + H && (tracked(m) || d.at >= d0.getTime())).map((d) => ({ m, d })))
+    .sort((a, b) => a.d.at - b.d.at);
+}
+/** ✓ for one dose (from the home page) */
+export async function giveDose(m, at, when = Date.now()) {
+  const on = tracked(m) ? {} : { track: true, trackFrom: local(at) };
+  if (!isTimes(m)) { await store.put(m._sp, m.id, { ...on, given: [...(m.given || []), local(when)].sort() }); return; }
+  await store.put(m._sp, m.id, { ...on, taken: { ...(m.taken || {}), [local(at)]: local(when) } });
 }
 export async function ungive(m) {
   if (isTimes(m)) { const tk = { ...(m.taken || {}) }; const last = Object.entries(tk).sort((a, b) => (a[1] < b[1] ? 1 : -1))[0]; if (last) delete tk[last[0]]; await store.put(m._sp, m.id, { taken: tk }); return; }

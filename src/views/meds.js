@@ -58,11 +58,21 @@ const card = (m, home = false) => {
       <div class="s" style="white-space:normal">${nx && !s.over ? `<span class="${late ? 'neg' : ''}"><b>Επόμενη: ${M.when(nx.at)}</b> (${M.inTxt(nx.at)})</span><br>${[prog, cur ? `κάθε ${String(cur.h).replace('.', ',')} ώρες` : home ? '' : M.schedTxt(m), m.dose ? esc(m.dose) : ''].filter(Boolean).join(' · ')}` : `τελείωσε · ${s.done} δόσεις`}</div></div>
     ${nx && !s.over && M.tracked(m) ? `<button type="button" class="btn sm primary" data-give="${esc(m.id)}" style="width:auto">✓ Δόθηκε</button>` : ''}</div>`;
 };
-export function medsCard() {
-  const l = M.active().filter((m) => M.tracked(m) || (M.status(m).next?.at || 0) < Date.now() + 3 * 36e5); if (!l.length) return '';
-  return `<div class="card" style="border-left:4px solid #5b8def"><div class="row"><b class="grow">💊 Φάρμακα</b><a class="small" href="#/meds" style="color:var(--brand);text-decoration:none;font-weight:600">όλα ›</a></div>${l.map((m) => card(m, true)).join('')}</div>`;
+export function medsCard() {                       // home: the doses due now, to tick like the Εργασίες
+  const l = M.pending(); if (!l.length) return '';
+  const me = store.state.user;
+  return `<div class="card" style="border-left:4px solid #5b8def"><div class="row"><b class="grow">💊 Φάρμακα για τώρα</b><a class="small" href="#/meds" style="color:var(--brand);text-decoration:none;font-weight:600">όλα ›</a></div>
+    ${l.slice(0, 8).map(({ m, d }) => { const late = d.at < Date.now() - 60000; const who = disp(m.who);
+      return `<div class="row small" style="margin-top:6px" data-med="${esc(m.id)}"><span class="grow">${esc(m.name)}${who && who !== me ? ` · ${esc(who)}` : ''}${m.dose ? ` <span class="muted">(${esc(m.dose)})</span>` : ''}
+        <span class="${late ? 'neg' : 'muted'}">· ${M.when(d.at)}${late ? ` (${M.inTxt(d.at)})` : ''}</span></span>
+        <button class="btn sm" data-dose="${esc(m.id)}|${d.at}" style="width:auto">✓ ${!who || who === me ? 'Το πήρα' : 'Δόθηκε'}</button></div>`; }).join('')}</div>`;
 }
 export function bindMeds(root, ui) {
+  root.querySelectorAll('[data-dose]').forEach((b) => b.addEventListener('click', async (e) => {
+    e.stopPropagation(); const [id, at] = b.dataset.dose.split('|'); const m = M.all().find((x) => x.id === id); if (!m) return;
+    await M.giveDose(m, Number(at)); const n = M.status(M.all().find((x) => x.id === id)).next;
+    ui.toast(`✓ ${m.name}${n ? ` — επόμενη ${M.when(n.at)}` : ''}`, 6000, { label: 'Αναίρεση', fn: () => M.ungive(M.all().find((x) => x.id === id)) });
+  }));
   root.querySelectorAll('[data-give]').forEach((b) => b.addEventListener('click', async (e) => {
     e.stopPropagation(); const m = M.all().find((x) => x.id === b.dataset.give); if (!m) return;
     const nx = M.status(m).next; let at = Date.now();

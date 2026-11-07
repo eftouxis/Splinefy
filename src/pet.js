@@ -16,9 +16,22 @@ export function num(v) { v = String(v ?? '').trim().replace(',', '.'); const n =
 const byD = (a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
 export const profile = () => store.records('pprofile', [SP])[0] || {};
 export const name = () => profile().name || 'Κατοικίδιο';
-export const events = () => store.records('pevent', [SP]).sort(byD);
+const stored = () => store.records('pevent', [SP]);
+// her expenses (category «Κατοικίδιο», or her name in the description) → events in her history, on the date of the expense:
+// «Μπάνιο» 12/10 → Περιποίηση. Read live from the movements (nothing copied); a day that already has an entry in the booklet is skipped.
+const KW = [[/μπαν|κουρε|περιποι|grooming|νυχ/, 'Περιποίηση'], [/εμβολ|λυσσ|καλαζ|leish/, 'Εμβόλιο'], [/αδεν/, 'Αδένες'],
+  [/αποπαρασ|παρασιτ|ψυλ|τσιμπουρ|bravecto|nexgard|simparica|frontline|advocate|drontal|milbemax|scalibor|seresto|κολαρο/, 'Αποπαρασίτωση'],
+  [/επεμβ|χειρουρ|στειρ/, 'Επέμβαση'], [/εξετασ|αιματ|ακτινογ|υπερηχ/, 'Εξέταση'], [/κτην|γιατρ|vet|επισκεψ/, 'Επίσκεψη']];
+const FOOD = /τροφ|κροκετ|λιχουδ|κονσερβ|σνακ|κοκαλ/;              // food is bought often and says nothing about her health: not in the history
+export function txEvents() {
+  const nm = norm(name()); const days = new Set(stored().map((e) => e.d));
+  return store.records('tx').filter((t) => t.kind === 'exp' && !t.fx && t.d && (t.cat === 'Κατοικίδιο' || (nm && norm(t.desc).includes(nm))) && !days.has(t.d) && !FOOD.test(norm(t.desc)))
+    .map((t) => { const title = String(t.desc || '').trim(); const n = norm(title);
+      return { id: `tx:${t._sp}/${t.id}`, tx: `${t._sp}/${t.id}`, d: t.d, kind: (KW.find(([re]) => re.test(n)) || [0, 'Έξοδο'])[1], title: title || 'Έξοδο', cost: t.a ?? null }; });
+}
+export const events = () => [...stored(), ...txEvents()].sort(byD);
 export const docs = () => store.records('pdoc', [SP]).sort(byD);
-export const hasData = () => events().length > 0 || !!profile().name;
+export const hasData = () => stored().length > 0 || !!profile().name;
 export const docDir = () => `Υγεία ${name()}`;
 /** text of an event used by search and by the care schedule */
 export const evText = (e) => [e.kind, e.title, e.text, (e.vacc || []).join(' '), (e.meds || []).join(' '), e.vet, e.sev].filter(Boolean).join(' ');
