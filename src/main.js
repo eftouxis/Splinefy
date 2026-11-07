@@ -19,6 +19,7 @@ import appsView from './views/apps.js';
 import philView from './views/philippos.js';
 import healthView from './views/health.js';
 import petView from './views/pet.js';
+import gymView from './views/gym.js';
 import namesView from './views/names.js';
 import goalsView from './views/goals.js';
 import changelogView from './views/changelog.js';
@@ -40,7 +41,7 @@ const ROUTES = [
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
   [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'], [/^#\/cars(?:\/([\w-]+))?$/, carsView, 'apps'], [/^#\/people(?:\/([\w-]+))?$/, peopleView, 'debts'],
-  [/^#\/trips(?:\/(.+))?$/, tripsView, 'apps'], [/^#\/chores$/, choresView, 'apps'], [/^#\/meds(?:\/(.+))?$/, medsView, 'apps'], [/^#\/apps$/, appsView, 'apps'], [/^#\/philippos$/, philView, 'apps'], [/^#\/health(?:\/(\w+))?$/, healthView, 'apps'], [/^#\/pet(?:\/(\w+))?$/, petView, 'apps'], [/^#\/names$/, namesView, 'settings'], [/^#\/changelog$/, changelogView, 'settings'], [/^#\/trash$/, trashView, 'settings'], [/^#\/odebt(?:\/([^/]+))?$/, odebtView, 'debts'], [/^#\/goals$/, goalsView, 'apps'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
+  [/^#\/trips(?:\/(.+))?$/, tripsView, 'apps'], [/^#\/chores$/, choresView, 'apps'], [/^#\/meds(?:\/(.+))?$/, medsView, 'apps'], [/^#\/apps$/, appsView, 'apps'], [/^#\/philippos$/, philView, 'apps'], [/^#\/health(?:\/(\w+))?$/, healthView, 'apps'], [/^#\/pet(?:\/(\w+))?$/, petView, 'apps'], [/^#\/gym(?:\/(\w+))?$/, gymView, 'apps'], [/^#\/names$/, namesView, 'settings'], [/^#\/changelog$/, changelogView, 'settings'], [/^#\/trash$/, trashView, 'settings'], [/^#\/odebt(?:\/([^/]+))?$/, odebtView, 'debts'], [/^#\/goals$/, goalsView, 'apps'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0, fresh: false };
 /** true once this app session has synced (or cannot sync): news cards wait for it, so an «OK» from another device is known first */
