@@ -94,7 +94,7 @@ export function bindMeds(root, ui) {
 
 // ---- one medicine ----
 export function medSheet(ui, m = null, preset = {}) {
-  const v0 = { mode: 'times', times: M.DEF_TIMES[1], wd: [], durN: null, durU: 'd', track: true, ...preset, ...(m || {}) };
+  const v0 = { mode: 'times', times: M.DEF_TIMES[1], wd: [], durN: null, durU: 'd', track: false, ...preset, ...(m || {}) };
   let mode = m ? (m.mode === 'times' ? 'times' : 'every') : v0.mode === 'every' ? 'every' : 'times';     // older ones (no mode) = every N hours
   let phases = (v0.phases || [{ days: 2, h: 4 }]).map((p) => ({ ...p }));
   let times = (v0.times || ['09:00']).slice().sort(); let wd = (v0.wd || []).map(Number);
@@ -127,7 +127,7 @@ export function medSheet(ui, m = null, preset = {}) {
       <div class="small muted" style="margin:-4px 2px 10px">Π.χ. «2 μέρες κάθε 4 ώρες» και «+ Μετά…» «2 μέρες κάθε 6 ώρες». Κάθε επόμενη δόση μετράει από τη στιγμή που πάτησες ✓ στην προηγούμενη.</div>
     </div>
     <label class="f"><span>Οδηγίες / σημειώσεις</span><textarea name="notes" rows="2" placeholder="π.χ. με φαγητό · μετά στοπ">${esc(v0.notes || '')}</textarea></label>
-    <label class="row small" style="margin:0 2px 10px;gap:6px"><input type="checkbox" name="track" style="width:auto" ${v0.track !== false ? 'checked' : ''}> <span>✓ Σημειώνω κάθε δόση που δίνεται</span></label>
+    <label class="row small" style="margin:0 2px 10px;gap:6px"><input type="checkbox" name="track" style="width:auto" ${v0.track !== false ? 'checked' : ''}> <span>🏠 Στην Αρχική για ✓ — κάθε δόση φαίνεται σαν εκκρεμότητα μέχρι να πατήσεις «Το πήρα / Δόθηκε» (για ό,τι δεν πρέπει να χαθεί· όχι για ένα χάπι που παίρνεις έτσι κι αλλιώς)</span></label>
     ${notifyPick(m || (preset.mailTo ? preset : null))}
     <div class="grid2"><label class="f"><span>Συνταγή (αρ.)</span><input name="rx" inputmode="numeric" value="${esc(v0.rx || '')}"></label>
     <label class="f"><span>Σύνδεσμος</span><input name="rxUrl" value="${esc(v0.rxUrl || '')}" placeholder="https://…"></label></div>
@@ -170,7 +170,7 @@ export function medSheet(ui, m = null, preset = {}) {
       let v;
       if (mode === 'times') { v = vals(); if (!v.times.length || !v.start) { ui.toast('Ώρες και πότε ξεκινάει'); return; } if (end === 'until' && !v.until) { ui.toast('Βάλε την τελευταία μέρα'); return; } }
       else { readPh(); const ph = phases.filter((p) => p.days > 0 && p.h > 0); if (!ph.length || !q('start').value) { ui.toast('Πρώτη δόση και πρόγραμμα'); return; } v = { mode: 'every', start: q('start').value, phases: ph }; }
-      Object.assign(v, { name, who: getWho(), dose: q('dose').value.trim() || null, form: q('form').value.trim() || null, notes: q('notes').value.trim() || null, track: q('track').checked,
+      Object.assign(v, { name, who: getWho(), dose: q('dose').value.trim() || null, form: q('form').value.trim() || null, notes: q('notes').value.trim() || null, track: q('track').checked, ...(q('track').checked && m && !M.tracked(m) ? { trackFrom: M.local(Date.now()) } : {}),
         rx: q('rx').value.trim() || null, rxUrl: q('rxUrl').value.trim() || null, ...getNotify() });
       const sp = q('sp')?.value || 'shared';
       if (m && sp !== m._sp) await store.move(m._sp, sp, { ...m, ...v }); else await store.put(sp, m?.id || null, { type: 'med', ...v });

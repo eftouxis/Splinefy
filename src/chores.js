@@ -74,4 +74,4 @@ export async function editHist(c, d0, fields) {
 /** όλες οι φορές από όλες τις εργασίες, πιο πρόσφατες πρώτες */
 export const allHist = (list = all()) => list.flatMap((c) => [...hist(c).map((e) => ({ ...e, c })), ...(c.skips || []).map((e) => ({ ...e, skip: true, c }))]).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : (a.c.name || '').localeCompare(b.c.name || '')));
 /** the ones that should be done by today (for the home page) */
-export const dueNow = () => all().filter((c) => c.due <= today() && (!c.who || c.who === store.state.user || c._sp === 'shared'));
+export const dueNow = () => all().filter((c) => c.home !== false && c.due <= today() && (!c.who || c.who === store.state.user || c._sp === 'shared'));

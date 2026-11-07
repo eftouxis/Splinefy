@@ -77,17 +77,15 @@ export async function give(m, when = Date.now()) {
   await store.put(m._sp, m.id, { given: [...(m.given || []), local(when)].sort() });
 }
 /** home: the doses whose time has come (or comes within the hour) and are not ticked — like the Εργασίες.
- *  A medicine without ✓ (track off) shows only today's; ticking it turns ✓ on from that dose. */
+ *  Only medicines with «Στην Αρχική για ✓» (track) on: a daily pill taken anyway stays off the home page. */
 export function pending(now = Date.now()) {
-  const d0 = new Date(now); d0.setHours(0, 0, 0, 0);
-  return all().filter((m) => !m.stopped).flatMap((m) => doses(m).filter((d) => d.given == null && !d.missed && d.at <= now + H && (tracked(m) || d.at >= d0.getTime())).map((d) => ({ m, d })))
+  return all().filter((m) => !m.stopped && tracked(m)).flatMap((m) => doses(m).filter((d) => d.given == null && !d.missed && d.at <= now + H).slice(0, isTimes(m) ? 9 : 1).map((d) => ({ m, d })))   // «every N hours»: only the next one (the one after counts from when it is given)
     .sort((a, b) => a.d.at - b.d.at);
 }
 /** ✓ for one dose (from the home page) */
 export async function giveDose(m, at, when = Date.now()) {
-  const on = tracked(m) ? {} : { track: true, trackFrom: local(at) };
-  if (!isTimes(m)) { await store.put(m._sp, m.id, { ...on, given: [...(m.given || []), local(when)].sort() }); return; }
-  await store.put(m._sp, m.id, { ...on, taken: { ...(m.taken || {}), [local(at)]: local(when) } });
+  if (!isTimes(m)) { await store.put(m._sp, m.id, { given: [...(m.given || []), local(when)].sort() }); return; }
+  await store.put(m._sp, m.id, { taken: { ...(m.taken || {}), [local(at)]: local(when) } });
 }
 export async function ungive(m) {
   if (isTimes(m)) { const tk = { ...(m.taken || {}) }; const last = Object.entries(tk).sort((a, b) => (a[1] < b[1] ? 1 : -1))[0]; if (last) delete tk[last[0]]; await store.put(m._sp, m.id, { taken: tk }); return; }

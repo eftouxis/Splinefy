@@ -20,10 +20,12 @@ const row = (c) => {
 export function choresCard() {                    // home: what is due (overdue + today)
   const l = C.dueNow(); if (!l.length) return '';
   return `<div class="card" style="border-left:4px solid var(--red)"><div class="row"><b class="grow">✅ Εργασίες για τώρα</b><a class="small" href="#/chores" style="color:var(--brand);text-decoration:none;font-weight:600">όλες ›</a></div>
-    ${l.slice(0, 6).map((c) => `<div class="row small" style="margin-top:6px"><span class="grow">${esc(c.name)} <span class="neg">· ${ago(C.daysTo(c.due))}</span></span><button class="btn sm" data-tick="${esc(c.id)}" style="width:auto">✓ Έγινε</button></div>`).join('')}
+    ${l.slice(0, 6).map((c) => { const old = C.daysTo(c.due) < -30;           // very late: stronger
+      return `<div class="row small" style="margin-top:6px"><span class="grow" data-chopen="${esc(c.id)}" style="cursor:pointer">${old ? '<b>' : ''}${esc(c.name)}${old ? '</b>' : ''} <span class="neg">· ${old ? '<b>' : ''}${ago(C.daysTo(c.due))}${old ? '</b>' : ''}</span></span><button class="btn sm" data-tick="${esc(c.id)}" style="width:auto">✓ Έγινε</button></div>`; }).join('')}
     ${l.length > 6 ? `<div class="small muted" style="margin-top:6px">και ${l.length - 6} ακόμα</div>` : ''}</div>`;
 }
 export function bindTicks(root, ui) {
+  root.querySelectorAll('[data-chopen]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); const c = C.all().find((x) => x.id === b.dataset.chopen); if (c) choreSheet(ui, c); }));
   root.querySelectorAll('[data-tick]').forEach((b) => b.addEventListener('click', async (e) => {
     e.stopPropagation(); const c = C.all().find((x) => x.id === b.dataset.tick); if (!c) return;
     await C.done(c); ui.toast(`✓ ${c.name} — επόμενη ${dFull(C.due({ ...c, last: today(), next: null }))}`, 5000, { label: 'Αναίρεση', fn: () => C.undo(store.records('chore').find((x) => x.id === c.id)) });
@@ -73,6 +75,7 @@ export function choreSheet(ui, c = null, office = false) {
     <label class="f"><span>Ομάδα (προαιρετικά)</span><input name="grp" list="chgrps" value="${esc(c?.grp || '')}" placeholder="π.χ. Σπίτι, Κατοικίδιο, Αυτοκίνητο"><datalist id="chgrps">${grps.map((g) => `<option value="${esc(g)}">`).join('')}</datalist></label>
     <label class="f"><span>Σημειώσεις (προαιρετικά)</span><textarea name="notes" rows="3" placeholder="π.χ. ποιο φάρμακο, τηλέφωνο τεχνικού, link">${esc(c?.notes || '')}</textarea></label>
     ${c?.notes && /https?:\/\//.test(c.notes) ? `<div class="small" style="margin:-6px 2px 10px">${[...c.notes.matchAll(/https?:\/\/\S+/g)].map((m) => `<a href="${esc(m[0])}" target="_blank" rel="noopener" style="color:var(--brand)">🔗 Άνοιγμα συνδέσμου</a>`).join(' · ')}</div>` : ''}
+    <label class="row small" style="margin:0 2px 12px;gap:6px"><input type="checkbox" name="home" style="width:auto" ${c?.home === false ? '' : 'checked'}> <span>🏠 Στην Αρχική όταν λήγει, μέχρι να πατήσεις ✓ Έγινε</span></label>
     <label class="f"><span>Ειδοποίηση όταν λήγει (σε μένα)</span><select name="mail">${[['none', 'Καμία'], ['mail', '📧 Email'], ['cal', '🔔 Στο κινητό (Google Ημερολόγιο)']].map(([v, l]) => `<option value="${v}" ${v === (!c ? 'mail' : !(c.mailTo || []).includes(store.state.user) ? 'none' : c.ch === 'cal' ? 'cal' : 'mail') ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <div class="grid2" data-rmd><label class="f"><span>Πότε</span><select name="rmdD">${[['', 'Το πρωί της ημέρας'], ['0', 'Την ίδια μέρα, σε ώρα…'], ['1', '1 μέρα πριν'], ['2', '2 μέρες πριν'], ['3', '3 μέρες πριν'], ['7', '1 εβδομάδα πριν'], ['14', '2 εβδομάδες πριν'], ['30', '1 μήνα πριν']].map(([v, l]) => `<option value="${v}" ${v === (c?.rmdD != null ? String(c.rmdD) : c?.rmdT ? '0' : '') ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label class="f" data-rmdt><span>Ώρα</span><input type="time" name="rmdT" value="${esc(c?.rmdT || '20:00')}"></label></div>
@@ -87,7 +90,7 @@ export function choreSheet(ui, c = null, office = false) {
       <button class="btn" data-del style="color:var(--red)">Διαγραφή</button>` : ''}
     <button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     const q = (n) => el.querySelector(`[name=${n}]`);
-    const vals = () => ({ name: q('name').value.trim(), every: Math.max(1, Number(q('every').value) || 1), unit: q('unit').value, last: q('last').value || null, next: q('next').value || null,
+    const vals = () => ({ home: q('home').checked ? null : false, name: q('name').value.trim(), every: Math.max(1, Number(q('every').value) || 1), unit: q('unit').value, last: q('last').value || null, next: q('next').value || null,
       mode, anchor: mode === 'fixed' ? q('anchor').value || t : null, wk: mode === 'fixed' && ['m', 'y'].includes(q('unit').value) ? q('wk').value || null : null, doneOcc: mode === 'fixed' ? (c?.mode === 'fixed' && c?.anchor === q('anchor').value ? c.doneOcc || null : (q('last').value ? q('last').value : null)) : null, grp: q('grp').value.trim() || null, notes: q('notes').value.trim() || null, mailTo: [...new Set([...(c?.mailTo || []).filter((u) => u !== store.state.user), ...(q('mail').value !== 'none' ? [store.state.user] : [])])], ch: q('mail').value === 'cal' ? 'cal' : null, rmdD: q('rmdD').value === '' ? null : Number(q('rmdD').value), rmdT: q('rmdD').value === '' ? null : q('rmdT').value || '09:00' });
     const wkFill = () => { const a = q('anchor').value || t; const keep = q('wk').value || c?.wk || ''; q('wk').innerHTML = C.wkOpts(a).map(([v, l]) => `<option value="${v}" ${v === keep ? 'selected' : ''}>${l}</option>`).join(''); el.querySelector('[data-wkf]').hidden = !['m', 'y'].includes(q('unit').value); };
     const hint = () => {
