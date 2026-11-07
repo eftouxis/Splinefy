@@ -20,6 +20,7 @@ import philView from './views/philippos.js';
 import healthView from './views/health.js';
 import petView from './views/pet.js';
 import gymView from './views/gym.js';
+import cardsView from './views/cards.js';
 import namesView from './views/names.js';
 import goalsView from './views/goals.js';
 import changelogView from './views/changelog.js';
@@ -41,7 +42,7 @@ const ROUTES = [
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
   [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'], [/^#\/cars(?:\/([\w-]+))?$/, carsView, 'apps'], [/^#\/people(?:\/([\w-]+))?$/, peopleView, 'debts'],
-  [/^#\/trips(?:\/(.+))?$/, tripsView, 'apps'], [/^#\/chores$/, choresView, 'apps'], [/^#\/meds(?:\/(.+))?$/, medsView, 'apps'], [/^#\/apps$/, appsView, 'apps'], [/^#\/philippos$/, philView, 'apps'], [/^#\/health(?:\/(\w+))?$/, healthView, 'apps'], [/^#\/pet(?:\/(\w+))?$/, petView, 'apps'], [/^#\/gym(?:\/(\w+))?$/, gymView, 'apps'], [/^#\/names$/, namesView, 'settings'], [/^#\/changelog$/, changelogView, 'settings'], [/^#\/trash$/, trashView, 'settings'], [/^#\/odebt(?:\/([^/]+))?$/, odebtView, 'debts'], [/^#\/goals$/, goalsView, 'apps'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
+  [/^#\/trips(?:\/(.+))?$/, tripsView, 'apps'], [/^#\/chores$/, choresView, 'apps'], [/^#\/meds(?:\/(.+))?$/, medsView, 'apps'], [/^#\/apps$/, appsView, 'apps'], [/^#\/philippos$/, philView, 'apps'], [/^#\/health(?:\/(\w+))?$/, healthView, 'apps'], [/^#\/pet(?:\/(\w+))?$/, petView, 'apps'], [/^#\/gym(?:\/(\w+))?$/, gymView, 'apps'], [/^#\/cards(?:\/([\w-]+))?(?:\/(\d+))?$/, cardsView, 'apps'], [/^#\/names$/, namesView, 'settings'], [/^#\/changelog$/, changelogView, 'settings'], [/^#\/trash$/, trashView, 'settings'], [/^#\/odebt(?:\/([^/]+))?$/, odebtView, 'debts'], [/^#\/goals$/, goalsView, 'apps'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0, fresh: false };
 /** true once this app session has synced (or cannot sync): news cards wait for it, so an «OK» from another device is known first */
@@ -181,7 +182,7 @@ async function start() {
     if ((!location.hash || location.hash === '#/' || location.hash === '#') && last && last !== '#/' && !FORM.test(last) && Date.now() - seen < 10 * 60000) history.replaceState(null, '', last); } catch (_) { /* */ }
   const seenNow = () => { try { localStorage.setItem('lastSeen', String(Date.now())); } catch (_) { /* */ } };
   seenNow(); setInterval(() => { if (document.visibilityState === 'visible') seenNow(); }, 30000);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') seenNow(); else if (Date.now() - Number(localStorage.getItem('lastSeen') || 0) > 10 * 60000 && location.hash !== '#/' && !FORM.test(location.hash) && !document.querySelector('.sheet-bg')) location.hash = '#/'; else seenNow(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') seenNow(); else if (Date.now() - Number(localStorage.getItem('lastSeen') || 0) > 10 * 60000 && location.hash !== '#/' && !/^#\/cards\//.test(location.hash) && !FORM.test(location.hash) && !document.querySelector('.sheet-bg')) location.hash = '#/'; else seenNow(); });
   window.addEventListener('hashchange', () => { try { if (!FORM.test(location.hash)) localStorage.setItem('lastHash', location.hash); } catch (_) { /* */ } document.querySelectorAll('.sheet-bg').forEach((e) => e.remove()); render(); });
   let lastV = store.state.version;
   store.on((v) => {
