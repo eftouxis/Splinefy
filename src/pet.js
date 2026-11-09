@@ -25,7 +25,7 @@ const KW = [[/μπαν|κουρε|περιποι|grooming|νυχ/, 'Περιπο
 const FOOD = /τροφ|κροκετ|λιχουδ|κονσερβ|σνακ|κοκαλ/;              // food is bought often and says nothing about her health: not in the history
 export function txEvents() {
   const nm = norm(name()); const days = new Set(stored().map((e) => e.d));
-  return store.records('tx').filter((t) => t.kind === 'exp' && !t.fx && t.d && (t.cat === 'Κατοικίδιο' || (nm && norm(t.desc).includes(nm))) && !days.has(t.d) && !FOOD.test(norm(t.desc)))
+  return store.records('tx').filter((t) => (t.kind === 'Έξοδο' || t.kind === 'exp') && !t.fx && t.d && (t.cat === 'Κατοικίδιο' || (nm && norm(t.desc).includes(nm))) && !days.has(t.d) && !FOOD.test(norm(t.desc)))
     .map((t) => { const title = String(t.desc || '').trim(); const n = norm(title);
       return { id: `tx:${t._sp}/${t.id}`, tx: `${t._sp}/${t.id}`, d: t.d, kind: (KW.find(([re]) => re.test(n)) || [0, 'Έξοδο'])[1], title: title || 'Έξοδο', cost: t.a ?? null }; });
 }

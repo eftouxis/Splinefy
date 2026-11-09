@@ -7,6 +7,33 @@ import { sheet } from './lessons/ui.js';
 const k0 = (x) => eur0(x).replace(' €', '');
 const n1 = (x, d = 1) => (x == null ? '–' : x.toFixed(d).replace('.', ','));
 const km = (x) => (x == null ? '–' : Math.round(x).toLocaleString('el-GR'));
+// «πριν / μετά» από μια ημερομηνία (π.χ. από τότε που άλλαξε η διαδρομή): ίσα διαστήματα, για να συγκρίνονται
+const cmpKey = (id) => `carcmp:${id}`;
+const cmpGet = (id) => { try { return localStorage.getItem(cmpKey(id)) || ''; } catch (_) { return ''; } };
+const addD = (d, n) => { const x = new Date(`${d}T12:00:00`); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+const daysB = (a, b) => Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 864e5) + 1;
+function cmpCard(id, t, hasP, hasG) {
+  const D = cmpGet(id); const head = `<h2>Πριν και μετά από μια ημερομηνία</h2>`;
+  const pick = `<label class="f" style="margin:0"><span>Από πότε άλλαξε κάτι (π.χ. νέα δουλειά, νέα διαδρομή)</span><input type="date" data-cmpd value="${esc(D)}" max="${t}"></label>`;
+  if (!D || D > t) return `${head}<div class="card">${pick}<div class="small muted" style="margin-top:6px">Διάλεξε ημερομηνία και θα δεις καύσιμα, χιλιόμετρα και κόστος <b>μετά</b> από αυτήν, δίπλα στο ίδιο μήκος διάστημα <b>πριν</b>.</div></div>`;
+  const n = daysB(D, t); const A = [addD(D, -n), addD(D, -1)], Bp = [D, t];
+  const col = ([a, b]) => { const m = K.money(id, a, b); const k = K.kmIn(id, a, b); const f = K.fills(id).filter((x) => x.d >= a && x.d <= b);
+    const q = (ft) => f.filter((x) => x.ft === ft).reduce((s, x) => s + (x.q || 0), 0);
+    return { fuel: m.fuel, all: m.total, k, n: f.length, gq: q('Αέριο'), pq: q('Βενζίνη'), cg: hasG ? K.consumption(id, 'Αέριο', a, b) : null, cp: hasP ? K.consumption(id, 'Βενζίνη', a, b) : null }; };
+  const x = col(A), y = col(Bp); const mo = (v) => (v / n) * 30.44;
+  const diff = (a, b, money = true) => { if (!a || b == null) return ''; const p = ((b - a) / a) * 100; return `<span class="small" style="color:${p > 0 === money ? 'var(--red)' : 'var(--green)'}">${p > 0 ? '▲' : '▼'} ${Math.abs(p).toFixed(0)}%</span>`; };
+  const row = (l, a, b, f = (v) => k0(v), money = true) => `<tr><td>${l}</td><td class="r">${a ? f(a) : '–'}</td><td class="r"><b>${b ? f(b) : '–'}</b></td><td class="r">${diff(a, b, money)}</td></tr>`;
+  const per = (v, k) => (v && k ? (v / k) * 100 : null);
+  return `${head}<div class="card" style="overflow-x:auto">${pick}
+    <table class="t st" style="margin-top:10px"><tr><th></th><th class="r">Πριν<div class="small muted" style="font-weight:400">${dFull(A[0]).slice(0, 5)}–${dFull(A[1]).slice(0, 5)}</div></th><th class="r">Μετά<div class="small muted" style="font-weight:400">${dFull(D).slice(0, 5)}–σήμερα</div></th><th></th></tr>
+      ${row('⛽ Καύσιμα €', x.fuel, y.fuel)}${row('… τον μήνα', mo(x.fuel), mo(y.fuel))}${row('Γεμίσματα', x.n, y.n, (v) => v)}
+      ${hasG ? row('Αέριο (kg)', x.gq, y.gq, (v) => n1(v)) : ''}${hasP ? row('Βενζίνη (l)', x.pq, y.pq, (v) => n1(v)) : ''}
+      ${row('Χιλιόμετρα', x.k, y.k, (v) => km(v))}${row('… τον μήνα', mo(x.k || 0), mo(y.k || 0), (v) => km(v))}
+      ${row('€ καυσίμων / 100 km', per(x.fuel, x.k), per(y.fuel, y.k), (v) => n1(v, 2))}
+      ${hasG ? row('kg / 100 km', x.cg, y.cg, (v) => n1(v)) : ''}${hasP ? row('l / 100 km', x.cp, y.cp, (v) => n1(v)) : ''}
+      ${row('Σύνολο (με συνεργεία)', x.all, y.all)}</table>
+    <div class="small muted" style="margin-top:6px">${n} μέρες πριν, ${n} μέρες μετά.${!y.k ? ' Για χιλιόμετρα και κατανάλωση γράφε τα km του κοντέρ σε κάθε γέμισμα (ή «+ Χιλιόμετρα»).' : ''}${y.n && !y.gq && !y.pq ? ' Για kg/λίτρα γράφε και την ποσότητα στο γέμισμα.' : ''}</div></div>`;
+}
 const back = (h) => `<button class="btn sm ghost" data-back="${h}">‹</button>`;
 const STATUS = { late: ['⚠', 'neg', 'πέρασε'], soon: ['⏰', 'neg', ''], ok: ['✓', 'pos', 'εντάξει'] };
 function remRow(r, withCar) {
@@ -63,6 +90,7 @@ const detail = {
     <div class="card" style="overflow-x:auto"><table class="t st"><tr><th>Έτος</th><th class="r">km</th><th class="r">Καύσιμα</th>${hasP ? '<th class="r">l/100</th>' : ''}${hasG ? '<th class="r">kg/100</th>' : ''}<th class="r">Συνεργ.</th><th class="r">Σύνολο</th><th class="r">€/km</th></tr>${rows}</table>
       <div class="small muted" style="margin-top:6px">ποσά σε €</div></div>
     ${K.isBi(id) ? `<div class="note small" style="margin-bottom:12px">⛽ Το ${esc(c.name)} καίει αέριο και βενζίνη. Η κατανάλωση μετράει ανά 100 km συνολικής οδήγησης: π.χ. «kg/100: 5» και «l/100: 1» σημαίνει ότι κάθε 100 km θέλουν περίπου 5 kg αέριο <b>και</b> 1 λίτρο βενζίνη. Το πιο χρήσιμο νούμερο είναι το €/100 km (τι κοστίζουν τα καύσιμα ανά 100 km). Αρκεί να γράφεις σε κάθε γέμισμα τι έβαλες και πόσο, και τα χιλιόμετρα του κοντέρ όποτε μπορείς.</div>` : ''}
+    ${cmpCard(id, t, hasP, hasG)}
     <h2>Υπενθυμίσεις</h2><div class="list">${K.reminders(id).map((r) => remRow(r, false)).join('') || '<div class="item muted">Καμία</div>'}</div>
     <h2>Συνεργεία, ΚΤΕΟ κ.λπ.</h2>
     <div class="list">${ev.slice(0, 40).map((e) => `<div class="item" ${e.tx ? `data-edit="${esc(e._sp)}/${esc(e.id)}"` : `data-ev="${esc(e.id)}"`}><div class="dot">🔧</div><div class="grow"><div class="t">${esc(e.title || e.typ || '')}</div>
@@ -72,6 +100,7 @@ const detail = {
       <div class="s">${dFull(f.d)}${f.km ? ' · ' + km(f.km) + ' km' : ''}${f.note ? ' · ' + esc(f.note) : ''}</div></div><div class="amt">${eur(f.a)}</div></div>`).join('') || '<div class="item muted">—</div>'}</div>`;
   },
   mount(root, [id], ui) {
+    root.querySelector('[data-cmpd]')?.addEventListener('change', (e) => { try { localStorage.setItem(cmpKey(id), e.target.value); } catch (_) { /* */ } ui.render(); });
     root.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.back)));
     root.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => ui.go(`#/edit/${b.dataset.edit}`)));
     root.querySelectorAll('[data-rem]').forEach((b) => b.addEventListener('click', () => remSheet(ui, store.records('crem', ['shared']).find((r) => r.id === b.dataset.rem))));

@@ -20,6 +20,7 @@ export default {
     if (q) {
       const n = norm(q);
       list = list.filter((r) => norm(`${r.desc} ${r.cat} ${r.note || ''} ${r.trip || ''} ${r.payer} ${r.for}`).includes(n));
+      if (rng) list = list.filter((r) => when(r) >= rng[0] && when(r) <= rng[1]);
     } else if (rng) list = list.filter((r) => when(r) >= rng[0] && when(r) <= rng[1]);
     else list = list.filter((r) => when(r).startsWith(month));
     const col = state.user === 'Χαρά' ? 'V' : 'U';          // my share, same as the home page
@@ -33,6 +34,9 @@ export default {
     list.sort((a, b) => (a.d === b.d ? (created(b) > created(a) ? 1 : -1) : a.d < b.d ? 1 : -1));
     const sum = (k) => list.reduce((s, r) => s + (r.kind === k ? val(r) : 0), 0);
     const exp = sum('Έξοδο'), inc = sum('Έσοδο');
+    // πληρώθηκαν αυτόν τον μήνα αλλά «αφορούν» άλλον (μισθοί, εξοφλήσεις): φαίνονται, χωρίς να μετράνε εδώ
+    const elsewhere = !q && !rng && !catF ? movements().filter((r) => r.md && !r.skipped && r.d.startsWith(month) && !when(r).startsWith(month) && keep(r)) : [];
+    const days = rng ? Math.max(1, Math.round((new Date(`${rng[1] > t ? t : rng[1]}T12:00:00`) - new Date(`${rng[0]}T12:00:00`)) / 864e5) + 1) : 0;
     let html = '', lastD = '';
     for (const r of list.slice(0, shown)) {
       if (r.d !== lastD) { html += `<div class="day">${dShort(r.d)}${q || r.d.slice(0, 7) !== when(r).slice(0, 7) ? ' ' + r.d.slice(0, 4) : ''}</div>`; lastD = r.d; }
@@ -41,7 +45,7 @@ export default {
     const note = { mine: 'Μόνο ό,τι σε βαραίνει και μόνο το μερίδιό σου (όπως η αρχική)', home: 'Κοινά έξοδα και έσοδα του σπιτιού — ολόκληρα ποσά', phil: 'Κινήσεις του Φιλίππου', all: 'Όλες οι κινήσεις — ολόκληρα ποσά' }[view];
     return `<div class="top"><h1>Κινήσεις</h1></div>
     <input type="search" name="q" placeholder="🔍 Αναζήτηση σε όλα (από το 2008)" value="${esc(q)}" style="margin-bottom:10px">
-    ${q ? '' : rng ? `<div class="row" style="margin-bottom:8px"><div class="grow center mid">${rng[0].split('-').reverse().join('/')} – ${rng[1].split('-').reverse().join('/')}</div><button class="btn sm ghost" data-norng>✕</button></div>` : `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${monthLabel(month)}</div><button class="btn sm ghost" data-m="1">▶</button></div>`}
+    ${q ? `<div class="row" style="gap:6px;margin-bottom:8px"><label class="small muted">Από</label><input type="date" data-qf value="${esc(rng && rng[0] > '2000' ? rng[0] : '')}" style="flex:1"><label class="small muted">έως</label><input type="date" data-qt value="${esc(rng && rng[1] < '2100' ? rng[1] : '')}" style="flex:1">${rng ? '<button class="btn sm ghost" data-norng style="width:auto">✕</button>' : ''}</div>` : rng ? `<div class="row" style="margin-bottom:8px"><div class="grow center mid">${rng[0].split('-').reverse().join('/')} – ${rng[1].split('-').reverse().join('/')}</div><button class="btn sm ghost" data-norng>✕</button></div>` : `<div class="row" style="margin-bottom:8px"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${monthLabel(month)}</div><button class="btn sm ghost" data-m="1">▶</button></div>`}
     ${catF ? `<div class="note row" style="margin-bottom:8px"><span class="grow">${ICON[catF.cat] || '•'} Μόνο <b>${esc(catF.cat)}</b> (${catF.kind === 'Έξοδο' ? 'έξοδα' : 'έσοδα'})${catF.cat === 'Ταξίδι' ? '<br><span class="small muted">Όλα τα έξοδα με ταξίδι, όποια κατηγορία κι αν έχουν — το ταξίδι γράφεται σε κάθε γραμμή</span>' : ''}</span><button class="btn sm ghost" data-nocat>✕</button></div>` : ''}
     <div class="chips" style="margin-bottom:10px">${VIEWS_L.map(([v, l]) => `<button class="chip ${view === v ? 'on' : ''}" data-view="${v}">${l}</button>`).join('')}</div>
     <div class="card grid3 center" style="padding:10px 6px;margin-bottom:8px">
@@ -49,7 +53,10 @@ export default {
       <div><div class="small muted">Έξοδα</div><b class="neg">${eur(exp)}</b></div>
       <div><div class="small muted">Διαφορά</div><b class="${inc - exp < 0 ? 'neg' : 'pos'}">${eur(inc - exp)}</b></div></div>
     <div class="small muted" style="margin:0 2px 6px">${note} · ${list.length} κινήσεις${q ? ` με «${esc(q)}»` : ''}${extra && view !== 'all' ? ` · ${extra} ακόμα στις «Όλες»` : ''}</div>
+    ${q && rng && rng[0] > '2000' && days > 6 && (exp || inc) ? `<div class="small" style="margin:-2px 2px 8px">≈ <b>${eur(((exp || inc) / days) * 30.44)}</b> τον μήνα (${days} μέρες)</div>` : ''}
     <div class="list">${html || '<div class="item muted">Καμία κίνηση</div>'}</div>
+    ${elsewhere.length ? `<h2 style="margin-top:14px">Πληρώθηκαν τώρα, μετράνε σε άλλον μήνα</h2><div class="small muted" style="margin:-4px 2px 6px">Δεν είναι στα σύνολα αυτού του μήνα — άλλαξέ το από «Αφορά μήνα» αν είναι λάθος.</div>
+      <div class="list" style="opacity:.75">${elsewhere.map((r) => itemHtml(r, { today: t, showDate: true, amt: view === 'mine' ? val(r) : null }).replace('</div></div>', ` <span class="space-tag">→ ${monthLabel(when(r).slice(0, 7))}</span></div></div>`)).join('')}</div>` : ''}
     ${list.length > shown ? `<div class="center" style="margin-top:10px"><button class="btn sm" data-more>Περισσότερες…</button></div>` : ''}`;
   },
   mount(root, p, ui) {
@@ -62,6 +69,8 @@ export default {
     root.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { view = b.dataset.view; shown = 150; ui.render(); }));
     root.querySelector('[data-nocat]')?.addEventListener('click', () => { catF = null; ui.render(); });
     root.querySelector('[data-norng]')?.addEventListener('click', () => { rng = null; catF = null; ui.render(); });
+    const qr = () => { const a = root.querySelector('[data-qf]').value, b = root.querySelector('[data-qt]').value; rng = a || b ? [a || '2000-01-01', b || '2100-12-31'] : null; ui.render(); };
+    root.querySelector('[data-qf]')?.addEventListener('change', qr); root.querySelector('[data-qt]')?.addEventListener('change', qr);
     root.querySelector('[data-more]')?.addEventListener('click', () => { shown += 300; ui.render(); });
     bindEdit(root, ui);
   },
