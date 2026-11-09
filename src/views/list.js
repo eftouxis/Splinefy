@@ -1,5 +1,5 @@
 import { esc, eur, today, monthLabel, dShort, norm } from '../util.js';
-import { movements, fx, othSum } from '../ledger.js';
+import { movements, fx, othSum, SAVE } from '../ledger.js';
 import { state } from '../store.js';
 import { itemHtml, bindEdit, ICON, created } from './common.js';
 
@@ -33,7 +33,10 @@ export default {
     const val = (r) => (view === 'mine' ? mine(r) : (r.a || 0) - (view === 'all' ? 0 : othSum(r)));
     list.sort((a, b) => (a.d === b.d ? (created(b) > created(a) ? 1 : -1) : a.d < b.d ? 1 : -1));
     const sum = (k) => list.reduce((s, r) => s + (r.kind === k ? val(r) : 0), 0);
-    const exp = sum('Έξοδο'), inc = sum('Έσοδο');
+    // όπως η αρχική και τα Στατιστικά: επενδύσεις / αποταμίευση δεν είναι έξοδα (λεφτά στην άκρη) — φαίνονται χωριστά
+    const isSave = (r) => r.kind === 'Έξοδο' && SAVE.has(r.cat);
+    const exp = list.reduce((s, r) => s + (r.kind === 'Έξοδο' && !isSave(r) ? val(r) : 0), 0), inc = sum('Έσοδο');
+    const sav = list.reduce((s, r) => s + (isSave(r) ? val(r) : 0), 0);
     // πληρώθηκαν αυτόν τον μήνα αλλά «αφορούν» άλλον (μισθοί, εξοφλήσεις): φαίνονται, χωρίς να μετράνε εδώ
     const elsewhere = !q && !rng && !catF ? movements().filter((r) => r.md && !r.skipped && r.d.startsWith(month) && !when(r).startsWith(month) && keep(r)) : [];
     const days = rng ? Math.max(1, Math.round((new Date(`${rng[1] > t ? t : rng[1]}T12:00:00`) - new Date(`${rng[0]}T12:00:00`)) / 864e5) + 1) : 0;
@@ -52,6 +55,7 @@ export default {
       <div><div class="small muted">Έσοδα</div><b class="pos">${eur(inc)}</b></div>
       <div><div class="small muted">Έξοδα</div><b class="neg">${eur(exp)}</b></div>
       <div><div class="small muted">Διαφορά</div><b class="${inc - exp < 0 ? 'neg' : 'pos'}">${eur(inc - exp)}</b></div></div>
+    ${sav > 0.004 ? `<div class="small" style="margin:-2px 2px 6px">📈 Επιπλέον <b>${eur(sav)}</b> σε επενδύσεις / αποταμίευση — δεν μετράνε στα έξοδα, όπως στην αρχική και στα Στατιστικά</div>` : ''}
     <div class="small muted" style="margin:0 2px 6px">${note} · ${list.length} κινήσεις${q ? ` με «${esc(q)}»` : ''}${extra && view !== 'all' ? ` · ${extra} ακόμα στις «Όλες»` : ''}</div>
     ${q && rng && rng[0] > '2000' && days > 6 && (exp || inc) ? `<div class="small" style="margin:-2px 2px 8px">≈ <b>${eur(((exp || inc) / days) * 30.44)}</b> τον μήνα (${days} μέρες)</div>` : ''}
     <div class="list">${html || '<div class="item muted">Καμία κίνηση</div>'}</div>
