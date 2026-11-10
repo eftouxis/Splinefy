@@ -354,13 +354,12 @@ export function confirmCard() {
   if (!L.hasLessons()) return '';
   const list = L.toConfirm();
   const unset = L.students().filter((s) => !s.pay && L.isActive(s));
-  if (!list.length) {
-    if (!unset.length || nudgeOff() || L.students().some((s) => s.pay)) return '';
-    return `<div class="card"><div class="mid">💶 Να σε ρωτάω αν πληρώθηκες;</div>
-      <div class="small muted" style="margin:4px 0 8px">Μετά από κάθε μάθημα (ή στο τέλος του μήνα) σε ρωτάω «πλήρωσε;» και με ένα «ναι» μπαίνει το έσοδο και ξεχρεώνεται. Πώς πληρώνει ο καθένας;</div>
-      ${unset.map((s) => `<div class="row small" style="gap:6px;margin-bottom:6px"><b class="grow">${esc(L.label(s))}</b>${L.PAYMODES.map(([v, l]) => `<button class="chip" data-pmode="${esc(s.id)}|${v}">${l}</button>`).join('')}</div>`).join('')}
-      <button class="btn sm ghost" data-pnudge style="margin-top:4px">Όχι τώρα</button></div>`;
-  }
+  // όσοι δεν έχουν ακόμα «πώς πληρώνει»: μένουν εδώ ώσπου να οριστούν όλοι (ή «Όχι τώρα»)
+  const setup = unset.length && !nudgeOff() ? `<div class="card"><div class="mid">💶 Πώς σε πληρώνει ο καθένας;</div>
+      <div class="small muted" style="margin:4px 0 8px">Μετά από κάθε μάθημα (ή στο τέλος του μήνα) σε ρωτάω «πλήρωσε;» και με ένα «ναι» μπαίνει το έσοδο και ξεχρεώνεται.${unset.length < L.students().filter((s) => L.isActive(s)).length ? ` Έμειναν ${unset.length}.` : ''}</div>
+      ${unset.map((s) => `<div class="row small" style="gap:6px;margin-bottom:6px;flex-wrap:wrap"><b class="grow">${esc(L.label(s))}</b>${L.PAYMODES.map(([v, l]) => `<button class="chip" data-pmode="${esc(s.id)}|${v}">${l}</button>`).join('')}</div>`).join('')}
+      <button class="btn sm ghost" data-pnudge style="margin-top:4px">Όχι τώρα</button></div>` : '';
+  if (!list.length) return setup;
   const row = (x, i) => {
     const nm = esc(L.label(x.st)); const bal = L.balance(x.st.id);
     const when = x.mode === 'lesson' ? `${dShort(x.d)}${x.l.time ? ' · ' + esc(String(x.l.time).slice(0, 5)) : ''} · ${hoursTxt(x.l.h)}` : `${MONTHS[Number(x.m.slice(5)) - 1]} · ${x.n} ${x.n === 1 ? 'μάθημα' : 'μαθήματα'}`;
@@ -372,7 +371,7 @@ export function confirmCard() {
         ${x.mode === 'lesson' ? `<button class="btn sm ghost" data-pnot="${i}" style="width:auto">Δεν έγινε</button>` : ''}</div></div>`;
   };
   return `<div class="card" style="padding-bottom:6px"><div class="mid">💶 Πλήρωσε; <span class="small muted">(${list.length})</span></div><div class="list" style="margin-top:8px">${list.slice(0, 6).map(row).join('')}</div>
-    ${list.length > 6 ? `<div class="small muted" style="margin:6px 2px">και άλλα ${list.length - 6}…</div>` : ''}</div>`;
+    ${list.length > 6 ? `<div class="small muted" style="margin:6px 2px">και άλλα ${list.length - 6}…</div>` : ''}</div>${setup}`;
 }
 export function bindConfirm(root, ui) {
   if (!root.querySelector('[data-pyes],[data-pmode],[data-pnudge]')) return;
@@ -407,6 +406,6 @@ export function bindConfirm(root, ui) {
     });
   }));
   root.querySelectorAll('[data-pmode]').forEach((b) => b.addEventListener('click', async (e) => { e.stopPropagation(); const [id, v] = b.dataset.pmode.split('|');
-    await store.put(L.LSP, id, { pay: v, paySince: t }); ui.toast('Αποθηκεύτηκε ✓ — αλλάζει από την καρτέλα του μαθητή'); }));
+    const st = L.student(id); await store.put(L.LSP, id, { pay: v, paySince: t }); ui.toast(`${st ? L.label(st) : ''}: ${(L.PAYMODES.find((m) => m[0] === v) || [0, ''])[1]} ✓`); }));
   root.querySelector('[data-pnudge]')?.addEventListener('click', (e) => { e.stopPropagation(); try { localStorage.setItem(NUDGE, '1'); } catch (_) { /* */ } ui.render(); });
 }
