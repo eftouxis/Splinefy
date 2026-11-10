@@ -1,5 +1,5 @@
 // Shared pieces of the lessons screens: bottom sheets, lesson / payment / slot editors.
-import { esc, eur, today, dShort, dFull, parseAmount, addDays, pad, MONTHS, norm } from '../../util.js';
+import { esc, eur, today, dShort, dFull, parseAmount, addDays, pad, MONTHS, MONTHS_GEN, norm } from '../../util.js';
 import * as store from '../../store.js';
 import * as L from '../../lessons.js';
 
@@ -344,4 +344,69 @@ export function bindGcal(root, ui) {
   root.querySelectorAll('[data-gno]').forEach((b) => b.addEventListener('click', async () => { const x = gcRes[Number(b.dataset.gno)]; await GC.ignore(x); gcRes = gcRes.filter((y) => y !== x); ui.render(); }));
   root.querySelector('[data-gall]')?.addEventListener('click', async () => { for (const x of gcRes) await GC.apply(x); gcRes = []; ui.render(); });
   if (GC.connected() && GC.hasToken() && !gcBusy && Date.now() - gcAt > 10 * 60000) run(false);     // silent re-check while the Google session lasts
+}
+
+// ---------- «Πλήρωσε;» — επιβεβαίωση πληρωμών μετά το μάθημα / τον μήνα ----------
+const NUDGE = 'paynudge-off';
+const nudgeOff = () => { try { return localStorage.getItem(NUDGE) === '1'; } catch (_) { return false; } };
+/** κάρτα για την αρχική και τα Μαθήματα: τι περιμένει «ναι / άλλο ποσό / όχι ακόμα / δεν έγινε» */
+export function confirmCard() {
+  if (!L.hasLessons()) return '';
+  const list = L.toConfirm();
+  const unset = L.students().filter((s) => !s.pay && L.isActive(s));
+  if (!list.length) {
+    if (!unset.length || nudgeOff() || L.students().some((s) => s.pay)) return '';
+    return `<div class="card"><div class="mid">💶 Να σε ρωτάω αν πληρώθηκες;</div>
+      <div class="small muted" style="margin:4px 0 8px">Μετά από κάθε μάθημα (ή στο τέλος του μήνα) σε ρωτάω «πλήρωσε;» και με ένα «ναι» μπαίνει το έσοδο και ξεχρεώνεται. Πώς πληρώνει ο καθένας;</div>
+      ${unset.map((s) => `<div class="row small" style="gap:6px;margin-bottom:6px"><b class="grow">${esc(L.label(s))}</b>${L.PAYMODES.map(([v, l]) => `<button class="chip" data-pmode="${esc(s.id)}|${v}">${l}</button>`).join('')}</div>`).join('')}
+      <button class="btn sm ghost" data-pnudge style="margin-top:4px">Όχι τώρα</button></div>`;
+  }
+  const row = (x, i) => {
+    const nm = esc(L.label(x.st)); const bal = L.balance(x.st.id);
+    const when = x.mode === 'lesson' ? `${dShort(x.d)}${x.l.time ? ' · ' + esc(String(x.l.time).slice(0, 5)) : ''} · ${hoursTxt(x.l.h)}` : `${MONTHS[Number(x.m.slice(5)) - 1]} · ${x.n} ${x.n === 1 ? 'μάθημα' : 'μαθήματα'}`;
+    const all = bal > x.a + 0.5 ? `<button class="btn sm green" data-pall="${i}" style="width:auto">✓ Όλο ${eur(bal)}</button>` : '';
+    return `<div class="item" style="display:block"><div class="row"><b class="grow">${nm}</b><span class="small muted">${when}</span></div>
+      <div class="small" style="margin:4px 0 6px">${x.mode === 'lesson' ? 'Πλήρωσε το μάθημα;' : `Πλήρωσε τα μαθήματα του ${MONTHS_GEN[Number(x.m.slice(5)) - 1]};`}${bal > x.a + 0.5 ? ` <span class="muted">(χρωστάει συνολικά ${eur(bal)})</span>` : ''}</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm green" data-pyes="${i}" style="width:auto">✓ Ναι, ${eur(x.a)}</button>${all}
+        <button class="btn sm" data-pother="${i}" style="width:auto">Άλλο ποσό</button><button class="btn sm ghost" data-plater="${i}" style="width:auto">Όχι ακόμα</button>
+        ${x.mode === 'lesson' ? `<button class="btn sm ghost" data-pnot="${i}" style="width:auto">Δεν έγινε</button>` : ''}</div></div>`;
+  };
+  return `<div class="card" style="padding-bottom:6px"><div class="mid">💶 Πλήρωσε; <span class="small muted">(${list.length})</span></div><div class="list" style="margin-top:8px">${list.slice(0, 6).map(row).join('')}</div>
+    ${list.length > 6 ? `<div class="small muted" style="margin:6px 2px">και άλλα ${list.length - 6}…</div>` : ''}</div>`;
+}
+export function bindConfirm(root, ui) {
+  if (!root.querySelector('[data-pyes],[data-pmode],[data-pnudge]')) return;
+  const list = L.toConfirm(); const t = today();
+  const ack = (x, ans, a = null) => store.put(L.LSP, `la:${x.k}`, { type: 'lack', k: x.k, ans, a, at: t });
+  const pay = async (x, a, d = t) => {
+    const st = x.st; const m = x.mode === 'month' ? x.m : null;
+    await store.put(L.LSP, null, { type: 'tx', kind: 'Έσοδο', cat: 'Ιδιαίτερα', payer: 'Άλκης', for: '', a, d, desc: st.full || st.name, stu: st.id,
+      note: m ? `${MONTHS[Number(m.slice(5)) - 1]}` : null, md: m ? mdOf(m, d) : null });
+    await ack(x, 'paid', a);
+    ui.toast(`+${eur(a)} από ${L.label(st)} — μπήκε στα έσοδα ✓`, 3500);
+  };
+  const get = (b, k) => list[Number(b.dataset[k])];
+  root.querySelectorAll('[data-pyes]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); const x = get(b, 'pyes'); if (x) pay(x, x.a, x.mode === 'lesson' ? x.d : t); }));
+  root.querySelectorAll('[data-pall]').forEach((b) => b.addEventListener('click', async (e) => { e.stopPropagation(); const x = get(b, 'pall'); if (!x) return;
+    const bal = L.balance(x.st.id); await pay(x, Math.round(bal * 100) / 100, t);
+    for (const y of L.toConfirm().filter((y) => y.st.id === x.st.id)) await ack(y, 'paid', 0);     // όλο το χρέος → και τα υπόλοιπα «πλήρωσε;» του κλείνουν
+  }));
+  root.querySelectorAll('[data-plater]').forEach((b) => b.addEventListener('click', async (e) => { e.stopPropagation(); const x = get(b, 'plater'); if (!x) return; await ack(x, 'later'); ui.toast(`${L.label(x.st)}: μένει στα «Μου χρωστάνε»`); }));
+  root.querySelectorAll('[data-pnot]').forEach((b) => b.addEventListener('click', async (e) => { e.stopPropagation(); const x = get(b, 'pnot'); if (!x) return;
+    await store.put(L.LSP, `lx:${x.st.id}:${x.d}`, { type: 'lx', stu: x.st.id, d: x.d, h: 0, time: null }); await ack(x, 'no'); ui.toast('Σημειώθηκε ότι δεν έγινε'); }));
+  root.querySelectorAll('[data-pother]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); const x = get(b, 'pother'); if (!x) return;
+    sheet(`<div class="mid">${esc(L.label(x.st))}: πόσα πλήρωσε;</div>
+      <input class="amount" name="a" inputmode="decimal" value="${esc(String(x.a).replace('.', ','))}" style="margin-top:10px">
+      <div class="small muted" style="margin:4px 2px 10px">Χρωστάει συνολικά ${eur(L.balance(x.st.id))}. Ό,τι μείνει, μένει στα «Μου χρωστάνε»· αν δώσει παραπάνω, μετράει ως προπληρωμή.</div>
+      <label class="f"><span>Πότε</span><input type="date" name="d" value="${x.mode === 'lesson' ? x.d : t}"></label>
+      <button class="btn primary" data-ok>Καταχώριση</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+      setTimeout(() => el.querySelector('[name=a]').select(), 50);
+      el.querySelector('[data-no]').onclick = close;
+      el.querySelector('[data-ok]').onclick = async () => { const a = parseAmount(el.querySelector('[name=a]').value); close();
+        if (a > 0) await pay(x, a, el.querySelector('[name=d]').value || t); else { await ack(x, 'later'); ui.toast('Δεν μπήκε πληρωμή — μένει στα «Μου χρωστάνε»'); } };
+    });
+  }));
+  root.querySelectorAll('[data-pmode]').forEach((b) => b.addEventListener('click', async (e) => { e.stopPropagation(); const [id, v] = b.dataset.pmode.split('|');
+    await store.put(L.LSP, id, { pay: v, paySince: t }); ui.toast('Αποθηκεύτηκε ✓ — αλλάζει από την καρτέλα του μαθητή'); }));
+  root.querySelector('[data-pnudge]')?.addEventListener('click', (e) => { e.stopPropagation(); try { localStorage.setItem(NUDGE, '1'); } catch (_) { /* */ } ui.render(); });
 }

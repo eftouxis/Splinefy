@@ -4,7 +4,7 @@ import { medsCard, bindMeds } from './meds.js';
 import { movements, debt, totals, fx } from '../ledger.js';
 import { state } from '../store.js';
 import * as store from '../store.js';
-import { sheet, notesCard, bindNotes } from './lessons/ui.js';
+import { sheet, notesCard, bindNotes, confirmCard, bindConfirm } from './lessons/ui.js';
 import { itemHtml, bindEdit, ICON, created } from './common.js';
 import { syncBadge, syncedThisSession } from '../main.js';
 import * as LS from '../lessons.js';
@@ -65,7 +65,7 @@ export default {
     <div class="grid3 quick" style="margin-bottom:12px">
       <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="${O2.hasOffice() ? '#/office/in/new' : '#/add/inc'}">${O2.hasOffice() ? '+ Πελάτης' : '+ Έσοδο'}</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
     </div>
-    ${tidyCard()}${syncedThisSession() ? otherCard() + newsCard(t) : ''}${me === 'Άλκης' && LS.hasLessons() ? notesCard() : ''}${medsCard()}${choresCard()}${carCard()}${roomCard()}
+    ${tidyCard()}${syncedThisSession() ? otherCard() + newsCard(t) : ''}${me === 'Άλκης' && LS.hasLessons() ? confirmCard() + notesCard() : ''}${medsCard()}${choresCard()}${carCard()}${roomCard()}
     <div class="card">
       <div class="seg per" style="margin-bottom:10px">${PERS.map(([k, l]) => `<button class="${k === per ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
       ${per === 'r' ? `<div class="grid2"><label class="f"><span>Από</span><input type="date" name="rf" value="${from}"></label><label class="f"><span>Έως</span><input type="date" name="rt" value="${P.to}"></label></div>`
@@ -95,6 +95,7 @@ export default {
     <div class="list">${up.length ? up.map((r) => itemHtml(r, { showDate: true, today: t })).join('') : '<div class="item muted">Τίποτα</div>'}</div>`;
   },
   mount(root, p, ui) {
+    bindConfirm(root, ui);
     root.querySelectorAll('[data-per]').forEach((b) => b.addEventListener('click', () => { per = b.dataset.per; monthOff = 0; try { localStorage.setItem(LS_KEY, per); } catch (_) { /* private mode */ } ui.render(); }));
     root.querySelector('[data-allcats]')?.addEventListener('click', () => { allCats = !allCats; ui.render(); });
     root.querySelectorAll('[name=rf],[name=rt]').forEach((el) => el.addEventListener('change', () => { if (!el.value) return; if (el.name === 'rf') rFrom = el.value; else rTo = el.value; ui.render(); }));

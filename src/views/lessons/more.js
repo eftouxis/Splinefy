@@ -23,6 +23,8 @@ export const editView = {
       <div class="grid2"><label class="f"><span>Ξεκίνησε</span><input type="date" name="start" value="${esc(st?.start || t)}"></label>
       <label class="f"><span>Τελευταίο μάθημα (κενό = ως το τέλος της χρονιάς)</span><input type="date" name="end" value="${esc(st?.end || '')}"></label></div>
       <label class="f"><span>Σημειώσεις</span><input name="note" value="${esc(st?.note || '')}" placeholder="π.χ. Γ΄ Λυκείου · γονιός: …"></label>
+      <label class="f"><span>💶 Πώς πληρώνει</span><div class="seg" data-paym>${L.PAYMODES.map(([v, l]) => `<button type="button" data-val="${v}" class="${(st?.pay || 'none') === v ? 'on' : ''}">${l}</button>`).join('')}</div></label>
+      <div class="small muted" style="margin:-6px 2px 10px">Με το μάθημα: μετά από κάθε μάθημα σε ρωτάει «πλήρωσε;». Με τον μήνα: μετά το τελευταίο μάθημα του μήνα, για όλο τον μήνα. Με ένα «ναι» μπαίνει το έσοδο και ξεχρεώνεται.</div>
       <details class="more" ${st?.open ? 'open' : ''}><summary>Περισσότερα ▾</summary>
         <label class="f"><span>Χρωστούμενα από πριν (€, − αν έχει προπληρώσει)</span><input name="open" inputmode="decimal" value="${esc(st?.open ?? '')}"></label>
         ${(st?.rates || []).length ? `<div class="small muted">Αλλαγές τιμής: ${st.rates.map((r) => `${dFull(r.from)}: ${eur(r.price)} / ${hoursTxt(r.dur)}`).join(' · ')}</div>` : ''}
@@ -36,6 +38,8 @@ export const editView = {
     const st = id === 'new' ? null : L.student(id);
     const g = (n) => root.querySelector(`[name=${n}]`).value.trim();
     const rate = () => { const p = parseAmount(g('price')), d = hrs(g('dur')); root.querySelector('[data-rate]').textContent = p && d ? `Διάρκεια ${hoursTxt(d)} · ${eur(p)} το μάθημα = ${eur(p / d)} την ώρα` : 'Διάρκεια: π.χ. 1:20 = 1 ώρα και 20 λεπτά, 1,5 = μιάμιση ώρα'; };
+    let paym = st?.pay || 'none';
+    root.querySelectorAll('[data-paym] button').forEach((b) => b.addEventListener('click', () => { paym = b.dataset.val; root.querySelectorAll('[data-paym] button').forEach((x) => x.classList.toggle('on', x === b)); }));
     rate(); root.querySelector('[name=price]').addEventListener('input', rate); root.querySelector('[name=dur]').addEventListener('input', rate);
     if (!st) setTimeout(() => root.querySelector('[name=full]').focus(), 50);
     root.querySelector('[data-del]')?.addEventListener('click', async () => {
@@ -47,7 +51,7 @@ export const editView = {
     root.querySelector('[data-save]').addEventListener('click', async () => {
       const full = g('full').replace(/\s+/g, ' '); const name = full.split(' ')[0]; const price = parseAmount(g('price')); const dur = hrs(g('dur'));
       if (!full || !price || !dur) { ui.toast('Ονοματεπώνυμο, τιμή και διάρκεια'); return; }
-      const rec = { type: 'student', name, full, start: g('start') || today(), end: g('end') || null, note: g('note') || null, open: parseAmount(g('open')) };
+      const rec = { type: 'student', name, full, start: g('start') || today(), end: g('end') || null, note: g('note') || null, open: parseAmount(g('open')), pay: paym === 'none' ? null : paym, paySince: paym !== 'none' && paym !== (st?.pay || 'none') ? today() : st?.paySince || null };
       if (!st) {
         const nid = await store.put(L.LSP, null, { ...rec, price, dur });
         ui.toast('Προστέθηκε ✓ — βάλε τώρα το πρόγραμμά του'); ui.go(`#/lessons/s/${nid}`); setTimeout(() => slotSheet(ui, nid), 300); return;

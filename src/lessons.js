@@ -236,3 +236,36 @@ export function prepaid(stu) {
   out.rest = Math.round(credit * 100) / 100;
   return out;
 }
+
+// ---------- πληρωμές: «πλήρωσε;» μετά το μάθημα ή στο τέλος του μήνα ----------
+// Κάθε μαθητής έχει st.pay: 'lesson' (πληρώνει με το μάθημα) · 'month' (στο τέλος του μήνα) · 'none' / κενό (δεν ρωτάει).
+// Η απάντηση κρατιέται σε εγγραφή 'lack' (k = «μαθητής|ημερομηνία» ή «μαθητής|M|μήνας»), για να μη ρωτήσει ξανά.
+export const PAYMODES = [['lesson', 'Με το μάθημα'], ['month', 'Με τον μήνα'], ['none', 'Μη ρωτάς']];
+export const acks = () => new Map(records('lack', [LSP]).map((a) => [a.k, a]));
+/** τελείωσε: περασμένη μέρα, ή σήμερα μετά την ώρα λήξης */
+export function ended(l, now = new Date()) {
+  const t = today(); if (l.d < t) return true; if (l.d > t) return false;
+  const m = String(l.time || '').match(/(\d{1,2})[:.](\d{2})/); if (!m) return now.getHours() >= 21;
+  return Number(m[1]) * 60 + Number(m[2]) + (l.h || 1) * 60 <= now.getHours() * 60 + now.getMinutes();
+}
+/** ό,τι περιμένει επιβεβαίωση, παλιότερα πρώτα */
+export function toConfirm(now = new Date()) {
+  const t = today(); const A = acks(); const out = [];
+  for (const st of students()) {
+    if (st.pay !== 'lesson' && st.pay !== 'month') continue;
+    if (balance(st.id) <= 0.005) continue;                       // έχει ήδη πληρώσει / προπληρώσει → τίποτα να ρωτήσω
+    const since = st.paySince && st.paySince > addDays(t, -45) ? st.paySince : addDays(t, -45);
+    if (st.pay === 'lesson') {
+      for (const l of lessons({ stu: st.id, from: since, to: t })) { const k = `${st.id}|${l.d}`; if (ended(l, now) && !A.has(k)) out.push({ mode: 'lesson', st, l, k, d: l.d, a: Math.round(l.v * 100) / 100 }); }
+    } else {
+      const ms = new Set(lessons({ stu: st.id, from: since.slice(0, 7) + '-01', to: t }).map((l) => l.d.slice(0, 7)));
+      for (const m of ms) {
+        const k = `${st.id}|M|${m}`; if (A.has(k)) continue;
+        const ls = lessons({ stu: st.id, from: `${m}-01`, to: eom(m) }); const last = ls[ls.length - 1];
+        if (!last || !ended(last, now)) continue;                    // ρωτάει μετά το τελευταίο μάθημα του μήνα
+        out.push({ mode: 'month', st, m, k, d: last.d, n: ls.length, a: Math.round(ls.reduce((s, l) => s + l.v, 0) * 100) / 100 });
+      }
+    }
+  }
+  return out.sort((a, b) => (a.d < b.d ? -1 : 1));
+}
