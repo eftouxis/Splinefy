@@ -42,7 +42,7 @@ const home = {
       }).join('') || '';
     }
     const order = sums.sort((a, b) => (Math.abs(b.bal) > 0.005) - (Math.abs(a.bal) > 0.005) || b.bal - a.bal || a.s.name.localeCompare(b.s.name, 'el'));
-    const tmrw = L.lessons({ from: addDays(today(), 1), to: addDays(today(), 1) }).length;
+    const tmrw = L.lessons({ from: addDays(today(), 1), to: addDays(today(), 1) }).filter((l) => { const s = L.student(l.stu); return s && (s.ph || s.php || s.php2); }).length;   // μόνο όσοι έχουν κινητό
     return `<div class="top"><h1>Μαθήματα</h1>${syncBadge()}</div>${confirmCard()}
     ${tmrw ? `<button class="btn" data-tmrw style="width:100%;margin-bottom:12px">⏰ Υπενθυμίσεις για αύριο (${tmrw}) — SMS</button>` : ''}
     <div class="grid2">

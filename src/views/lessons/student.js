@@ -60,7 +60,7 @@ export default {
         <div class="small muted">${eur(x.rate)} την ώρα${st.end && st.end < t ? ' · σταμάτησε ' + dFull(st.end) : ''}</div></div>
     </div>
     <div class="grid2 quick" style="margin-bottom:${st.ph || st.php || st.php2 ? '8px' : '12px'}"><button class="btn green" data-pay>+ Πληρωμή</button><button class="btn blue" data-addlesson>+ Μάθημα</button></div>
-    <button class="btn" data-msg style="width:100%;margin-bottom:12px">💬 Μήνυμα${st.ph || st.php || st.php2 ? '' : ' (βάλε πρώτα κινητό)'}</button>
+    ${st.ph || st.php || st.php2 ? '<button class="btn" data-msg style="width:100%;margin-bottom:12px">💬 Μήνυμα</button>' : ''}
     `}
 <div class="card">
       <div class="row"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${MONTHS[m - 1]} ${y}</div><button class="btn sm ghost" data-m="1">▶</button></div>

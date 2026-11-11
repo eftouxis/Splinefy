@@ -369,7 +369,7 @@ export function confirmCard() {
       <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm green" data-pyes="${i}" style="width:auto">✓ Ναι, ${eur(x.a)}</button>${all}
         <button class="btn sm" data-pother="${i}" style="width:auto">Άλλο ποσό</button><button class="btn sm ghost" data-plater="${i}" style="width:auto">Όχι ακόμα</button>
         ${x.mode === 'lesson' ? `<button class="btn sm ghost" data-pnot="${i}" style="width:auto">Δεν έγινε</button>` : ''}
-        ${x.st.php || x.st.ph ? `<button class="btn sm ghost" data-pmsg="${i}" style="width:auto">💬 Στείλε το ποσό</button>` : ''}</div></div>`;
+        ${x.st.php || x.st.ph || x.st.php2 ? `<button class="btn sm ghost" data-pmsg="${i}" style="width:auto">💬 Στείλε το ποσό</button>` : ''}</div></div>`;
   };
   return `<div class="card" style="padding-bottom:6px"><div class="mid">💶 Πλήρωσε; <span class="small muted">(${list.length})</span></div><div class="list" style="margin-top:8px">${list.slice(0, 6).map(row).join('')}</div>
     ${list.length > 6 ? `<div class="small muted" style="margin:6px 2px">και άλλα ${list.length - 6}…</div>` : ''}</div>${setup}`;
@@ -490,11 +490,11 @@ export function msgSheet(ui, stu, kind0 = 'remind', opt = {}) {
 }
 /** «Υπενθυμίσεις για αύριο»: όλοι όσοι έχουν μάθημα αύριο, ένα κουμπί ο καθένας */
 export function tomorrowSheet(ui) {
-  const d = addDays(today(), 1); const ls = L.lessons({ from: d, to: d });
+  const d = addDays(today(), 1); const ls = L.lessons({ from: d, to: d }).filter((l) => phones(L.student(l.stu)).length);
   sheet(`<div class="mid">⏰ Υπενθυμίσεις για αύριο</div><div class="small muted" style="margin:4px 2px 10px">${DAYN[dobj(d).getDay()]} ${dShort(d).replace(/^\D+\s*/, '')} · ${ls.length} ${ls.length === 1 ? 'μάθημα' : 'μαθήματα'}</div>
     <div class="list">${ls.map((l, i) => { const st = L.student(l.stu); const ph = phones(st); const kid = ph.find((p) => p[0] === 'kid') || ph[0];
-      return `<div class="item"><div class="grow"><div class="t">${esc(L.label(st))}</div><div class="s">${tm(l) || ''}${kid ? ` · ${kid[1]}` : ' · χωρίς κινητό'}</div></div>
-        ${kid ? `<a class="btn sm primary" data-tm="${i}" style="width:auto" href="${smsHref(kid[2], msgText('remind', st, kid[0] === 'kid' ? 'kid' : 'par', { lesson: l }))}">📨 Στείλε</a>` : `<a class="btn sm" href="#/lessons/edit/${esc(st.id)}" style="width:auto">+ κινητό</a>`}</div>`; }).join('') || '<div class="item muted">Κανένα μάθημα αύριο</div>'}</div>
+      return `<div class="item"><div class="grow"><div class="t">${esc(L.label(st))}</div><div class="s">${tm(l) || ''} · ${kid[1]}</div></div>
+        <a class="btn sm primary" data-tm="${i}" style="width:auto" href="${smsHref(kid[2], msgText('remind', st, kid[0] === 'kid' ? 'kid' : 'par', { lesson: l }))}">📨 Στείλε</a></div>`; }).join('')}</div>
     <button class="btn ghost" data-no style="margin-top:8px">Κλείσιμο</button>`, (el, close) => {
     el.querySelectorAll('[data-tm]').forEach((a) => a.addEventListener('click', () => { a.textContent = '✓ Στάλθηκε'; a.classList.remove('primary'); }));
     el.querySelector('[data-no]').onclick = close;

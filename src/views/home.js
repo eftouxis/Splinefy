@@ -65,7 +65,7 @@ export default {
     <div class="grid3 quick" style="margin-bottom:12px">
       <a class="btn red" href="#/add/exp">− Έξοδο</a><a class="btn green" href="${O2.hasOffice() ? '#/office/in/new' : '#/add/inc'}">${O2.hasOffice() ? '+ Πελάτης' : '+ Έσοδο'}</a><a class="btn blue" href="#/add/trf">⇄ Μεταφορά</a>
     </div>
-    ${tidyCard()}${syncedThisSession() ? otherCard() + newsCard(t) : ''}${me === 'Άλκης' && LS.hasLessons() ? confirmCard() + notesCard() : ''}${medsCard()}${choresCard()}${carCard()}${roomCard()}
+    ${tidyCard()}${syncedThisSession() ? otherCard() + newsCard(t) : ''}${me === 'Άλκης' && LS.hasLessons() ? notesCard() : ''}${medsCard()}${choresCard()}${carCard()}${roomCard()}
     <div class="card">
       <div class="seg per" style="margin-bottom:10px">${PERS.map(([k, l]) => `<button class="${k === per ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div>
       ${per === 'r' ? `<div class="grid2"><label class="f"><span>Από</span><input type="date" name="rf" value="${from}"></label><label class="f"><span>Έως</span><input type="date" name="rt" value="${P.to}"></label></div>`
@@ -188,6 +188,7 @@ function lessonsCard(recv) {
   return `<div class="card row" data-go="#/lessons" style="cursor:pointer"><div class="dot">📚</div><div class="grow">
     <div class="mid">${has ? `Μου χρωστάνε ${eur(owed)}` : 'Μαθήματα'}</div>
     ${debt.length ? `<div class="small">${debt.map((x) => `${esc(LS.label(x.s))} <b class="neg">${eur(x.b)}</b>`).join(' · ')}</div>` : ''}
+    ${has && LS.toConfirm().length ? `<div class="small" style="color:var(--brand);font-weight:600">💶 ${LS.toConfirm().length} πληρωμές να επιβεβαιώσεις ›</div>` : ''}
     ${has ? `<div class="small muted">${tl.length ? `Σήμερα: ${tl.map((l) => esc(LS.label(LS.student(l.stu)))).join(', ')}` : 'Σήμερα κανένα μάθημα'}</div>` : ''}</div><div class="muted">›</div></div>`;
 }
 const INC = new Set(['Μισθός', 'Ιδιαίτερα', 'Πωλήσεις', 'Επιδόματα', 'Δώρο', 'Από οικογένεια', 'Ενοίκιο', 'Άλλο']);
