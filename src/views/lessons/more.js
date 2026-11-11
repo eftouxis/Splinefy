@@ -23,6 +23,11 @@ export const editView = {
       <div class="grid2"><label class="f"><span>Ξεκίνησε</span><input type="date" name="start" value="${esc(st?.start || t)}"></label>
       <label class="f"><span>Τελευταίο μάθημα (κενό = ως το τέλος της χρονιάς)</span><input type="date" name="end" value="${esc(st?.end || '')}"></label></div>
       <label class="f"><span>Σημειώσεις</span><input name="note" value="${esc(st?.note || '')}" placeholder="π.χ. Γ΄ Λυκείου · γονιός: …"></label>
+      <div class="grid2"><label class="f"><span>📱 Κινητό μαθητή</span><input name="ph" type="tel" inputmode="tel" value="${esc(st?.ph || '')}" placeholder="69…"></label>
+      <label class="f"><span>📱 Κινητό γονιού</span><input name="php" type="tel" inputmode="tel" value="${esc(st?.php || '')}" placeholder="69…"></label></div>
+      <details class="more" ${st?.php2 || st?.voc ? 'open' : ''} style="margin:-4px 0 10px"><summary class="small">Δεύτερος γονιός · πώς τον λέω στα μηνύματα ▾</summary>
+        <div class="grid2"><label class="f"><span>📱 Κινητό 2ου γονιού</span><input name="php2" type="tel" inputmode="tel" value="${esc(st?.php2 || '')}"></label>
+        <label class="f"><span>Στα μηνύματα: «Καλημέρα …!»</span><input name="voc" value="${esc(st?.voc || '')}" placeholder="αυτόματα από το όνομα"></label></div></details>
       <label class="f"><span>💶 Πώς πληρώνει</span><div class="seg" data-paym>${L.PAYMODES.map(([v, l]) => `<button type="button" data-val="${v}" class="${(st?.pay || 'none') === v ? 'on' : ''}">${l}</button>`).join('')}</div></label>
       <div class="small muted" style="margin:-6px 2px 10px">Με το μάθημα: μετά από κάθε μάθημα σε ρωτάει «πλήρωσε;». Με τον μήνα: μετά το τελευταίο μάθημα του μήνα, για όλο τον μήνα. Με ένα «ναι» μπαίνει το έσοδο και ξεχρεώνεται.</div>
       <details class="more" ${st?.open ? 'open' : ''}><summary>Περισσότερα ▾</summary>
@@ -51,7 +56,7 @@ export const editView = {
     root.querySelector('[data-save]').addEventListener('click', async () => {
       const full = g('full').replace(/\s+/g, ' '); const name = full.split(' ')[0]; const price = parseAmount(g('price')); const dur = hrs(g('dur'));
       if (!full || !price || !dur) { ui.toast('Ονοματεπώνυμο, τιμή και διάρκεια'); return; }
-      const rec = { type: 'student', name, full, start: g('start') || today(), end: g('end') || null, note: g('note') || null, open: parseAmount(g('open')), pay: paym === 'none' ? null : paym, paySince: paym !== 'none' && paym !== (st?.pay || 'none') ? today() : st?.paySince || null };
+      const rec = { type: 'student', name, full, start: g('start') || today(), end: g('end') || null, note: g('note') || null, open: parseAmount(g('open')), ph: g('ph') || null, php: g('php') || null, php2: g('php2') || null, voc: g('voc') || null, pay: paym === 'none' ? null : paym, paySince: paym !== 'none' && paym !== (st?.pay || 'none') ? today() : st?.paySince || null };
       if (!st) {
         const nid = await store.put(L.LSP, null, { ...rec, price, dur });
         ui.toast('Προστέθηκε ✓ — βάλε τώρα το πρόγραμμά του'); ui.go(`#/lessons/s/${nid}`); setTimeout(() => slotSheet(ui, nid), 300); return;

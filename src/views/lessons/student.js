@@ -1,7 +1,7 @@
 // #/lessons/s/<id> — the student's card (like the Excel sheet of each student)
 import { esc, eur, today, addDays, dShort, dFull, MONTHS, MSHORT, pad, parseISO } from '../../util.js';
 import * as L from '../../lessons.js';
-import { lessonSheet, addLessonSheet, paySheet, slotSheet, fmtH, hoursTxt, DSHORT, noteSheet } from './ui.js';
+import { lessonSheet, addLessonSheet, paySheet, slotSheet, fmtH, hoursTxt, DSHORT, noteSheet, msgSheet } from './ui.js';
 
 let month = null, cur = null;
 function archHead(id, st) {
@@ -59,7 +59,8 @@ export default {
       <div class="card kpi"><div class="label">Τιμή</div><div class="mid" style="margin-top:4px">${eur(pr.price)} / ${hoursTxt(pr.dur)}</div>
         <div class="small muted">${eur(x.rate)} την ώρα${st.end && st.end < t ? ' · σταμάτησε ' + dFull(st.end) : ''}</div></div>
     </div>
-    <div class="grid2 quick" style="margin-bottom:12px"><button class="btn green" data-pay>+ Πληρωμή</button><button class="btn blue" data-addlesson>+ Μάθημα</button></div>
+    <div class="grid2 quick" style="margin-bottom:${st.ph || st.php || st.php2 ? '8px' : '12px'}"><button class="btn green" data-pay>+ Πληρωμή</button><button class="btn blue" data-addlesson>+ Μάθημα</button></div>
+    <button class="btn" data-msg style="width:100%;margin-bottom:12px">💬 Μήνυμα${st.ph || st.php || st.php2 ? '' : ' (βάλε πρώτα κινητό)'}</button>
     `}
 <div class="card">
       <div class="row"><button class="btn sm ghost" data-m="-1">◀</button><div class="grow center mid">${MONTHS[m - 1]} ${y}</div><button class="btn sm ghost" data-m="1">▶</button></div>
@@ -91,6 +92,7 @@ export default {
       if (l) lessonSheet(id, d, ui); else addLessonSheet(ui, id, d);
     }));
     root.querySelector('[data-pay]')?.addEventListener('click', () => paySheet(ui, id));
+    root.querySelector('[data-msg]')?.addEventListener('click', () => msgSheet(ui, id, L.balance(id) > 0.005 && !L.nextLessonFrom(id, today()) ? 'debt' : 'remind'));
     root.querySelector('[data-addlesson]')?.addEventListener('click', () => addLessonSheet(ui, id));
     root.querySelector('[data-newslot]')?.addEventListener('click', () => slotSheet(ui, id));
     root.querySelector('[data-newnote]')?.addEventListener('click', () => noteSheet(ui, id));
