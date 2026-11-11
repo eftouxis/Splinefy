@@ -90,7 +90,7 @@ function build() {
     else L.set(key, { stu: x.stu, d: x.d, h: x.h || 0, sched: 0, time: x.time || '', ov: x.id, fv: x.v });
   }
   for (const [k, l] of L) if (!(l.h > 0)) L.delete(k);         // a lesson that did not happen is deleted, not shown
-  const lessons = [...L.values()].map((l) => ({ ...l, v: l.fv != null ? l.fv : l.h * rateAt(byId.get(l.stu), l.d) }))
+  const lessons = [...L.values()].map((l) => ({ ...l, v: l.fv != null ? l.fv : valueOf(byId.get(l.stu), l.d, l.h) }))
     .sort((a, b) => (a.d === b.d ? (a.time < b.time ? -1 : 1) : a.d < b.d ? -1 : 1));
   const pays = records('tx', [LSP]).filter((r) => r.stu && byId.has(r.stu)).concat(records('lpay', [LSP]).filter((r) => byId.has(r.stu)));
   cache = { v: state.version, students, archive, byId, slots, lx, hol, lessons, pays, labels: null };
@@ -130,6 +130,13 @@ export function rateAt(st, d) {
   let price = st.price, dur = st.dur;
   for (const r of st.rates || []) if (r.from <= d) { price = r.price; dur = r.dur; }
   return price && dur ? price / dur : 0;
+}
+/** αξία μαθήματος: αν κρατάει όσο το κανονικό (±1΄) → ακριβώς η τιμή του μαθήματος· αλλιώς αναλογικά, στρογγυλεμένο στο λεπτό του ευρώ.
+ *  (π.χ. 40 € για 1:20 → 40,00 και όχι 39,90 από στρογγυλέματα των ωρών) */
+export function valueOf(st, d, h) {
+  if (!st || !h) return 0; const { price, dur } = priceAt(st, d); if (!price || !dur) return 0;
+  if (Math.abs(h - dur) < 1 / 60 + 1e-9) return price;
+  return Math.round(price * (h / dur) * 100) / 100;
 }
 export const priceAt = (st, d = today()) => { let p = st.price, du = st.dur; for (const r of st.rates || []) if (r.from <= d) { p = r.price; du = r.dur; } return { price: p, dur: du }; };
 /** «now» student: not stopped, and has a lesson in the last 45 / next 60 days or a running schedule (no yearly bookkeeping) */

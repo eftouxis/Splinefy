@@ -91,7 +91,7 @@ export const schedView = {
     const t = today();
     const sl = L.slots().filter((s) => !s.to || s.to >= t);
     const byDay = [1, 2, 3, 4, 5, 6, 7].map((wd) => sl.filter((s) => s.wd === wd).sort((a, b) => ((a.time || '') < (b.time || '') ? -1 : 1)));
-    const tot = sl.reduce((a, s) => a + s.h * L.rateAt(L.student(s.stu), t), 0), th = sl.reduce((a, s) => a + s.h, 0);
+    const tot = sl.reduce((a, s) => a + L.valueOf(L.student(s.stu), t, s.h), 0), th = sl.reduce((a, s) => a + s.h, 0);
     const act = L.students().filter((s) => L.isActive(s));
     return `<div class="top">${back()}<h1>Πρόγραμμα εβδομάδας</h1></div>
     <div class="card row"><div class="grow"><div class="small muted">Κάθε εβδομάδα</div><div class="mid">${hoursTxt(th)} · ${eur(tot)}</div></div></div>
@@ -99,7 +99,7 @@ export const schedView = {
       const st = L.student(s.stu);
       return `<div class="item" data-slot="${esc(s.id)}"><div class="dot" style="font-size:12px;font-weight:700">${esc((s.time || '').split(/[–-]/)[0] || '•')}</div>
       <div class="grow"><div class="t">${esc(L.label(st))}</div><div class="s">${hoursTxt(s.h)}${s.time ? ' · ' + esc(s.time) : ''} · ${s.from > t ? 'από ' + dFull(s.from) : 'έως ' + (s.to ? dFull(s.to) : '—')}</div></div>
-      <div class="amt">${eur(s.h * L.rateAt(st, t))}</div></div>`;
+      <div class="amt">${eur(L.valueOf(st, t, s.h))}</div></div>`;
     }).join('')}</div>` : '').join('')}
     <h2>Προσθήκη ημέρας σε μαθητή</h2>
     <div class="chips">${act.map((s) => `<button class="chip" data-newslot="${esc(s.id)}">+ ${esc(L.label(s))}</button>`).join('')}</div>

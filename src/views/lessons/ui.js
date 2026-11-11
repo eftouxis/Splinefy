@@ -80,7 +80,7 @@ export function lessonSheet(stu, d, ui) {
     ${location.hash.startsWith('#/lessons/s/') ? '' : `<button class="btn" data-card>Καρτέλα ${esc(L.label(st))} › (πληρωμές, χρωστούμενα)</button>`}
     <button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-card]')?.addEventListener('click', () => { close(); ui.go(`#/lessons/s/${stu}`); });
-    const val = () => { el.querySelector("[data-valtxt]").textContent = h ? `Αξία: ${eur(h * L.rateAt(st, d))}` : 'Δεν χρεώνεται'; };
+    const val = () => { el.querySelector("[data-valtxt]").textContent = h ? `Αξία: ${eur(L.valueOf(st, d, h))}` : 'Δεν χρεώνεται'; };
     val();
     bindSeg(el, (n, v) => { h = Number(v); el.querySelector('[name=hx]').value = ''; val(); });
     el.querySelector('[name=hx]').addEventListener('input', (e) => { const x = parseAmount(e.target.value.replace(/(\d+):(\d+)/, '$1+$2/60')); if (x != null) { h = x; el.querySelectorAll('[data-seg] button').forEach((b) => b.classList.remove('on')); val(); } });
