@@ -368,8 +368,7 @@ export function confirmCard() {
       <div class="small" style="margin:4px 0 6px">${x.mode === 'lesson' ? 'Πλήρωσε το μάθημα;' : `Πλήρωσε τα μαθήματα του ${MONTHS_GEN[Number(x.m.slice(5)) - 1]};`}${bal > x.a + 0.5 ? ` <span class="muted">(χρωστάει συνολικά ${eur(bal)})</span>` : ''}</div>
       <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm green" data-pyes="${i}" style="width:auto">✓ Ναι, ${eur(x.a)}</button>${all}
         <button class="btn sm" data-pother="${i}" style="width:auto">Άλλο ποσό</button><button class="btn sm ghost" data-plater="${i}" style="width:auto">Όχι ακόμα</button>
-        ${x.mode === 'lesson' ? `<button class="btn sm ghost" data-pnot="${i}" style="width:auto">Δεν έγινε</button>` : ''}
-        ${x.st.php || x.st.ph || x.st.php2 ? `<button class="btn sm ghost" data-pmsg="${i}" style="width:auto">💬 Στείλε το ποσό</button>` : ''}</div></div>`;
+        ${x.mode === 'lesson' ? `<button class="btn sm ghost" data-pnot="${i}" style="width:auto">Δεν έγινε</button>` : ''}</div></div>`;
   };
   return `<div class="card" style="padding-bottom:6px"><div class="mid">💶 Πλήρωσε; <span class="small muted">(${list.length})</span></div><div class="list" style="margin-top:8px">${list.slice(0, 6).map(row).join('')}</div>
     ${list.length > 6 ? `<div class="small muted" style="margin:6px 2px">και άλλα ${list.length - 6}…</div>` : ''}</div>${setup}`;
@@ -391,7 +390,6 @@ export function bindConfirm(root, ui) {
     const bal = L.balance(x.st.id); await pay(x, Math.round(bal * 100) / 100, t);
     for (const y of L.toConfirm().filter((y) => y.st.id === x.st.id)) await ack(y, 'paid', 0);     // όλο το χρέος → και τα υπόλοιπα «πλήρωσε;» του κλείνουν
   }));
-  root.querySelectorAll('[data-pmsg]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); const x = get(b, 'pmsg'); if (x) msgSheet(ui, x.st.id, 'debt'); }));
   root.querySelectorAll('[data-plater]').forEach((b) => b.addEventListener('click', async (e) => { e.stopPropagation(); const x = get(b, 'plater'); if (!x) return; await ack(x, 'later'); ui.toast(`${L.label(x.st)}: μένει στα «Μου χρωστάνε»`); }));
   root.querySelectorAll('[data-pnot]').forEach((b) => b.addEventListener('click', async (e) => { e.stopPropagation(); const x = get(b, 'pnot'); if (!x) return;
     await store.put(L.LSP, `lx:${x.st.id}:${x.d}`, { type: 'lx', stu: x.st.id, d: x.d, h: 0, time: null }); await ack(x, 'no'); ui.toast('Σημειώθηκε ότι δεν έγινε'); }));
@@ -437,13 +435,17 @@ export function debtLessons(stu) {
   for (const l of done) { if (s >= bal - 0.005) break; ls.unshift(l); s += l.v; }
   return { bal, ls };
 }
-export const MSG_KINDS = [['remind', '⏰ Υπενθύμιση μαθήματος'], ['debt', '💶 Πόσα χρωστάει'], ['cancel', '✖ Δεν θα γίνει μάθημα'], ['free', '✏️ Ελεύθερο']];
+export const MSG_KINDS = [['remind', '⏰ Υπενθύμιση μαθήματος'], ['change', '🔁 Αλλαγή μαθήματος'], ['debt', '💶 Πόσα χρωστάει'], ['cancel', '✖ Δεν θα γίνει μάθημα'], ['free', '✏️ Ελεύθερο']];
 export function msgText(kind, st, to, opt = {}) {
   const kid = to === 'kid'; const hi = `${hello()}${kid ? ` ${voc(st)}` : ''}!`;
   if (kind === 'remind') {
     const l = opt.lesson || L.nextLessonFrom(st.id, today());
     if (!l) return `${hi} `;
     return `${hi} ${kid ? 'Υπενθύμιση: ' : 'Υπενθύμιση: '}${whenTxt(l.d)}${tm(l) ? ` στις ${tm(l)}` : ''} έχουμε μάθημα.`;
+  }
+  if (kind === 'change') {
+    const l = opt.lesson || L.nextLessonFrom(st.id, today()); if (!l) return `${hi} `;
+    return `${hi} ${l.sched ? 'Αλλαγή: το μάθημα θα γίνει' : 'Θα κάνουμε επιπλέον μάθημα'} ${whenTxt(l.d)}${tm(l) ? ` στις ${tm(l)}` : ''}.`;
   }
   if (kind === 'debt') {
     const { bal, ls } = debtLessons(st.id); if (!bal) return `${hi} `;
@@ -455,8 +457,9 @@ export function msgText(kind, st, to, opt = {}) {
   if (kind === 'cancel') {
     const l = opt.lesson || L.nextLessonFrom(st.id, today());
     if (!l) return `${hi} `;
-    const w = DAYG[dobj(l.d).getDay()];
-    return `${hi} Το μάθημα ${l.d === addDays(today(), 1) ? 'της αυριανής' : l.d === today() ? 'της σημερινής' : `της ${w} ${dShort(l.d).replace(/^\D+\s*/, '')}`}${l.d === today() || l.d === addDays(today(), 1) ? ` ${w}` : ''}${tm(l) ? ` στις ${tm(l)}` : ''} δεν θα γίνει. Θα κανονίσουμε άλλη μέρα.`;
+    const w = DAYG[dobj(l.d).getDay()], sat = dobj(l.d).getDay() === 6;          // του Σαββάτου, της Δευτέρας…
+    const pre = l.d === addDays(today(), 1) ? (sat ? 'του αυριανού' : 'της αυριανής') : l.d === today() ? (sat ? 'του σημερινού' : 'της σημερινής') : (sat ? 'του' : 'της');
+    return `${hi} Το μάθημα ${pre} ${w}${l.d === today() || l.d === addDays(today(), 1) ? '' : ` ${dShort(l.d).replace(/^\D+\s*/, '')}`}${tm(l) ? ` στις ${tm(l)}` : ''} δεν θα γίνει. Θα κανονίσουμε άλλη μέρα.`;
   }
   return `${hi} `;
 }
@@ -499,4 +502,27 @@ export function tomorrowSheet(ui) {
     el.querySelectorAll('[data-tm]').forEach((a) => a.addEventListener('click', () => { a.textContent = '✓ Στάλθηκε'; a.classList.remove('primary'); }));
     el.querySelector('[data-no]').onclick = close;
   });
+}
+
+// ---------- κάρτα «💬 Μηνύματα» στα Μαθήματα: αύριο · αλλαγές · ακυρώσεις · χρέη (μόνο όσοι έχουν κινητό) ----------
+const MK = { remind: ['⏰', 'Αύριο'], change: ['🔁', 'Αλλαγή'], cancel: ['✖', 'Δεν θα γίνει'], debt: ['💶', 'Χρωστάει'] };
+const defTo = (st, kind) => { const ph = phones(st); return (kind === 'debt' ? ph.find((p) => p[0] !== 'kid') : ph.find((p) => p[0] === 'kid')) || ph[0]; };
+export function messagesCard() {
+  const list = L.toMessage(); if (!list.length) return '';
+  const row = (x, i) => { const p = defTo(x.st, x.kind); const [ic, lab] = MK[x.kind];
+    const what = x.kind === 'debt' ? eur(x.a) : `${dShort(x.d)}${tm(x.l) ? ' · ' + tm(x.l) : ''}${x.kind === 'change' && x.l.otime && x.l.sched ? ` <span class="muted">(ήταν ${tm({ time: x.l.otime })})</span>` : ''}`;
+    return `<div class="item"><div class="dot">${ic}</div><div class="grow"><div class="t">${esc(L.label(x.st))} <span class="small muted">· ${lab}</span></div><div class="s">${what} · σε ${p[1].toLowerCase()}</div></div>
+      <a class="btn sm primary" data-mgo="${i}" style="width:auto" href="${smsHref(p[2], msgText(x.kind, x.st, p[0] === 'kid' ? 'kid' : 'par', { lesson: x.l }))}">📨</a>
+      <button class="btn sm ghost" data-medit="${i}" style="width:auto">✏️</button><button class="btn sm ghost" data-mx="${i}" style="width:auto" title="Δεν χρειάζεται">✕</button></div>`; };
+  return `<div class="card" style="padding-bottom:6px"><div class="mid">💬 Μηνύματα <span class="small muted">(${list.length})</span></div>
+    <div class="small muted" style="margin:2px 0 6px">📨 ανοίγει το SMS έτοιμο · ✏️ αλλάζεις κείμενο ή παραλήπτη · ✕ δεν χρειάζεται</div>
+    <div class="list">${list.slice(0, 8).map(row).join('')}</div>${list.length > 8 ? `<div class="small muted" style="margin:6px 2px">και άλλα ${list.length - 8}…</div>` : ''}</div>`;
+}
+export function bindMessages(root, ui) {
+  if (!root.querySelector('[data-mgo]')) return;
+  const list = L.toMessage(); const done = (x) => store.put(L.LSP, `lm:${x.k}`, { type: 'lmsg', k: x.k, at: today() });
+  root.querySelectorAll('[data-mgo]').forEach((a) => a.addEventListener('click', () => { const x = list[Number(a.dataset.mgo)]; if (x) setTimeout(() => done(x), 400); }));
+  root.querySelectorAll('[data-mx]').forEach((b) => b.addEventListener('click', () => { const x = list[Number(b.dataset.mx)]; if (x) done(x); }));
+  root.querySelectorAll('[data-medit]').forEach((b) => b.addEventListener('click', () => { const x = list[Number(b.dataset.medit)]; if (!x) return;
+    msgSheet(ui, x.st.id, x.kind, { lesson: x.l, onSent: () => done(x) }); }));
 }

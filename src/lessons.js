@@ -86,14 +86,15 @@ function build() {
   }
   for (const x of lx) {
     const key = `${x.stu}|${x.d}`; const cur = L.get(key);
-    if (cur) { cur.h = x.h || 0; cur.ov = x.id; if (x.time) cur.time = x.time; if (x.v != null) cur.fv = x.v; }
+    if (cur) { cur.oh = cur.h; cur.otime = cur.time; cur.h = x.h || 0; cur.ov = x.id; if (x.time) cur.time = x.time; if (x.v != null) cur.fv = x.v; }
     else L.set(key, { stu: x.stu, d: x.d, h: x.h || 0, sched: 0, time: x.time || '', ov: x.id, fv: x.v });
   }
-  for (const [k, l] of L) if (!(l.h > 0)) L.delete(k);         // a lesson that did not happen is deleted, not shown
+  const cancelled = [];                                          // προγραμματισμένα που ακυρώθηκαν (για το «δεν θα γίνει»)
+  for (const [k, l] of L) if (!(l.h > 0)) { if (l.sched) cancelled.push({ stu: l.stu, d: l.d, time: l.otime || l.time }); L.delete(k); }
   const lessons = [...L.values()].map((l) => ({ ...l, v: l.fv != null ? l.fv : valueOf(byId.get(l.stu), l.d, l.h) }))
     .sort((a, b) => (a.d === b.d ? (a.time < b.time ? -1 : 1) : a.d < b.d ? -1 : 1));
   const pays = records('tx', [LSP]).filter((r) => r.stu && byId.has(r.stu)).concat(records('lpay', [LSP]).filter((r) => byId.has(r.stu)));
-  cache = { v: state.version, students, archive, byId, slots, lx, hol, lessons, pays, labels: null };
+  cache = { v: state.version, students, archive, byId, slots, lx, hol, lessons, pays, cancelled, labels: null };
   return cache;
 }
 export const students = () => build().students;
@@ -273,6 +274,34 @@ export function toConfirm(now = new Date()) {
         out.push({ mode: 'month', st, m, k, d: last.d, n: ls.length, a: Math.round(ls.reduce((s, l) => s + l.v, 0) * 100) / 100 });
       }
     }
+  }
+  return out.sort((a, b) => (a.d < b.d ? -1 : 1));
+}
+
+/** τι αξίζει μήνυμα (μόνο για μαθητές με κινητό): αύριο · αλλαγή ώρας/μέρας · ακύρωση · χρέος. sent = ό,τι έχει ήδη σταλεί */
+export const hasPhone = (st) => !!(st && (st.ph || st.php || st.php2));
+export function toMessage() {
+  build(); const t = today(), tm1 = addDays(t, 1), wk = addDays(t, 7);
+  const sent = new Map(records('lmsg', [LSP]).map((m) => [m.k, m])); const out = [];
+  const ok = (stu) => { const st = cache.byId.get(stu); return st && hasPhone(st) ? st : null; };
+  for (const l of cache.lessons) {
+    if (l.d < t || l.d > wk) continue; const st = ok(l.stu); if (!st) continue;
+    const changed = l.ov && l.sched && (l.time !== l.otime || l.h !== l.oh), extra = !l.sched;
+    if (changed || (extra && l.d > t)) { const k = `C|${l.stu}|${l.d}|${l.time}|${l.h}`; if (!sent.has(k)) out.push({ kind: 'change', st, l, k, d: l.d }); }
+    else if (l.d === tm1) { const k = `R|${l.stu}|${l.d}`; if (!sent.has(k)) out.push({ kind: 'remind', st, l, k, d: l.d }); }
+  }
+  for (const c of cache.cancelled) {
+    if (c.d < t || c.d > wk) continue; const st = ok(c.stu); if (!st) continue;
+    const k = `X|${c.stu}|${c.d}`; if (!sent.has(k)) out.push({ kind: 'cancel', st, l: c, k, d: c.d });
+  }
+  for (const st of cache.students) {
+    if (!hasPhone(st)) continue; const b = balance(st.id); if (b <= 0.5) continue;
+    // όχι για κάθε μικρό χρέος: μόνο αν είπες «Όχι ακόμα» ή αν το πιο παλιό απλήρωτο μάθημα είναι πάνω από 2 εβδομάδες πίσω
+    const later = records('lack', [LSP]).some((a) => a.ans === 'later' && a.k.startsWith(`${st.id}|`));
+    let acc = 0, oldest = null; for (const l of lessons({ stu: st.id, to: t }).reverse()) { if (acc >= b - 0.005) break; acc += l.v; oldest = l.d; }
+    if (!later && !(oldest && oldest <= addDays(t, -14))) continue;
+    const k = `D|${st.id}|${Math.round(b * 100)}`; const s = sent.get(k);
+    if (!s) out.push({ kind: 'debt', st, k, d: '9999', a: b });
   }
   return out.sort((a, b) => (a.d < b.d ? -1 : 1));
 }

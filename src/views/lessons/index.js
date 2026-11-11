@@ -2,7 +2,7 @@
 import { esc, eur, today, addDays, dShort, MONTHS, MONTHS_GEN } from '../../util.js';
 import * as L from '../../lessons.js';
 import { syncBadge } from '../../main.js';
-import { sheet, lessonSheet, addLessonSheet, paySheet, fmtH, hoursTxt, notesCard, bindNotes, gcalCard, bindGcal, confirmCard, bindConfirm, tomorrowSheet } from './ui.js';
+import { sheet, lessonSheet, addLessonSheet, paySheet, fmtH, hoursTxt, notesCard, bindNotes, gcalCard, bindGcal, confirmCard, bindConfirm, messagesCard, bindMessages } from './ui.js';
 import studentView from './student.js';
 import { editView, schedView, salView, statsView, holView, allView, helpView } from './more.js';
 
@@ -42,9 +42,8 @@ const home = {
       }).join('') || '';
     }
     const order = sums.sort((a, b) => (Math.abs(b.bal) > 0.005) - (Math.abs(a.bal) > 0.005) || b.bal - a.bal || a.s.name.localeCompare(b.s.name, 'el'));
-    const tmrw = L.lessons({ from: addDays(today(), 1), to: addDays(today(), 1) }).filter((l) => { const s = L.student(l.stu); return s && (s.ph || s.php || s.php2); }).length;   // μόνο όσοι έχουν κινητό
     return `<div class="top"><h1>Μαθήματα</h1>${syncBadge()}</div>${confirmCard()}
-    ${tmrw ? `<button class="btn" data-tmrw style="width:100%;margin-bottom:12px">⏰ Υπενθυμίσεις για αύριο (${tmrw}) — SMS</button>` : ''}
+    ${messagesCard()}
     <div class="grid2">
       <div class="card kpi"><div class="label">Μου χρωστάνε</div><div class="big ${owed > 0.005 ? 'neg' : ''}">${eur(owed)}</div>
         <div class="small">${sums.filter((x) => x.bal > 0.005).sort((a, b) => b.bal - a.bal).map((x) => `${esc(L.label(x.s))} <b>${eur(x.bal)}</b>`).join('<br>')}</div></div>
@@ -67,7 +66,7 @@ const home = {
       <div class="small muted">${bal > 0.005 ? `χρωστάει · ${fmtH(unpaidH)} ώρ.` : bal < -0.005 ? 'προπληρωμένα' : 'εξοφλημένος'}</div></div></div>`).join('')}</div>`;
   },
   mount(root, p, ui) {
-    bindNotes(root, ui); bindGcal(root, ui); bindConfirm(root, ui); root.querySelector('[data-tmrw]')?.addEventListener('click', () => tomorrowSheet(ui));
+    bindNotes(root, ui); bindGcal(root, ui); bindConfirm(root, ui); bindMessages(root, ui);
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
     root.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => { weekOff = b.dataset.w === '0' ? 0 : weekOff + Number(b.dataset.w); ui.render(); }));
     root.querySelectorAll('[data-lesson]').forEach((b) => b.addEventListener('click', () => { const [s, d] = b.dataset.lesson.split('|'); lessonSheet(s, d, ui); }));
