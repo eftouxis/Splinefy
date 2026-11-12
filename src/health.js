@@ -1,4 +1,5 @@
-// Υγεία Φιλίππου: ηλεκτρονικό βιβλιάριο — επισκέψεις (hvisit), εξετάσεις (hlab), εμβόλια (hvac), έγγραφα (hdoc), στοιχεία (hprofile). Όλα στον κοινό χώρο.
+// Υγεία παιδιών: ηλεκτρονικό βιβλιάριο — επισκέψεις (hvisit), εξετάσεις (hlab), εμβόλια (hvac), έγγραφα (hdoc), ημερολόγιο (hlog: πυρετός, φάρμακα, συμπτώματα…), στοιχεία (hprofile: ένα ανά παιδί).
+// Κάθε εγγραφή έχει child = το id του hprofile του παιδιού· χωρίς child = το πρώτο παιδί ('hprofile'). Όλα στον κοινό χώρο.
 // Τα αρχεία (PDF, φωτογραφίες) πάνε στο OneDrive, στον φάκελο «<κοινός φάκελος>/Υγεία Φιλίππου» — όχι μέσα στον συγχρονισμό.
 import * as store from './store.js';
 import { provider } from './sync.js';
@@ -90,20 +91,54 @@ export function flag(row) {
 
 // ---- data ----
 const byD = (a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
-export const profile = () => store.records('hprofile', [SP])[0] || {};
-export const visits = () => store.records('hvisit', [SP]).sort(byD);
-export const labs = () => store.records('hlab', [SP]).sort(byD);
-export const vaccines = () => store.records('hvac', [SP]).sort((a, b) => (a.ord ?? 99) - (b.ord ?? 99) || String(a.disease).localeCompare(b.disease));
-export const docs = () => store.records('hdoc', [SP]).sort(byD);
-export const hasData = () => visits().length + labs().length + vaccines().length > 0;
+// ---- children ----
+export const FIRST = 'hprofile';
+export const childOf = (r) => r?.child || FIRST;
+export const profiles = () => store.records('hprofile', [SP]).sort((a, b) => (a.id === FIRST ? -1 : b.id === FIRST ? 1 : String(a.birth || '') < String(b.birth || '') ? -1 : 1));
+let curId = null;
+try { curId = localStorage.getItem('health.child'); } catch {}
+export function cur() { const ps = profiles(); return ps.some((p) => p.id === curId) ? curId : ps[0]?.id || FIRST; }
+export function setCur(id) { curId = id; try { localStorage.setItem('health.child', id); } catch {} }
+export const firstName = (p) => String(p?.name || '').trim().split(/\s+/)[0] || '';
+const mine = (type, c = cur()) => store.records(type, [SP]).filter((r) => childOf(r) === c);
+export const profile = (c = cur()) => profiles().find((p) => p.id === c) || {};
+export const visits = (c) => mine('hvisit', c).sort(byD);
+export const labs = (c) => mine('hlab', c).sort(byD);
+export const vaccines = (c) => mine('hvac', c).sort((a, b) => (a.ord ?? 99) - (b.ord ?? 99) || String(a.disease).localeCompare(b.disease));
+export const docs = (c) => mine('hdoc', c).sort(byD);
+export const logs = (c) => mine('hlog', c).sort((a, b) => (a.t < b.t ? 1 : a.t > b.t ? -1 : 0));
+export const hasData = () => profiles().length > 0 || store.records('hvisit', [SP]).length + store.records('hlab', [SP]).length + store.records('hvac', [SP]).length > 0;
+/** title of the app: one child → «Υγεία · Φίλιππος», more → «Υγεία παιδιών» */
+export const appTitle = () => (profiles().length > 1 ? 'Υγεία παιδιών' : firstName(profiles()[0]) ? `Υγεία · ${firstName(profiles()[0])}` : 'Υγεία παιδιών');
+
+// ---- diary (ημερολόγιο): kind → [icon, label, health?] ----
+export const LOGK = {
+  temp: ['🌡️', 'Θερμοκρασία', 1], med: ['💊', 'Φάρμακο', 1], sym: ['🤒', 'Σύμπτωμα', 1], visit: ['🩺', 'Γιατρός', 1], vacc: ['💉', 'Εμβόλιο', 1],
+  exam: ['🧪', 'Εξετάσεις', 1], note: ['📝', 'Σημείωση', 1], growth: ['📏', 'Μέτρηση', 0], teeth: ['🦷', 'Δόντι', 0], moment: ['⭐', 'Στιγμή', 0],
+  sleep: ['😴', 'Ύπνος', 0], breast: ['🤱', 'Θηλασμός', 0], bottle: ['🍼', 'Μπιμπερό', 0], food: ['🥣', 'Φαγητό', 0], diaper: ['🧷', 'Πάνα', 0],
+  pump: ['🫙', 'Άντληση', 0], bath: ['🛁', 'Μπάνιο', 0],
+};
+export const UNITS = ['ml', 'σταγόνες', 'πατήματα', 'mg', 'δισκία', 'φακελάκια'];
+/** the latest episode: last day with temperature ≥ 38 (and what was given that day) */
+export function lastFever(c) {
+  const L = logs(c); const f = L.find((x) => x.k === 'temp' && num(x.val) >= 38); if (!f) return null;
+  const day = f.t.slice(0, 10), same = L.filter((x) => x.t.slice(0, 10) === day);
+  const max = Math.max(...same.filter((x) => x.k === 'temp').map((x) => num(x.val)).filter((n) => !isNaN(n)));
+  return { day, max, meds: [...new Set(same.filter((x) => x.k === 'med').map((x) => [x.title, x.val && `${x.val} ${x.unit || ''}`.trim()].filter(Boolean).join(' ')))] };
+}
 /** every single result: {key, value, unit, ref, flag, lab} */
 export function results() {
   const out = [];
   for (const l of labs()) for (const r of l.rows || []) out.push({ key: r[0], value: r[1], unit: r[2] || '', ref: r[3] === '!' ? '' : r[3] || '', flag: flag(r), lab: l });
   return out;
 }
-/** growth points from visits */
-export const growth = () => visits().filter((v) => v.w != null || v.h != null || v.hc != null).map((v) => ({ d: v.d, w: v.w, h: v.h, hc: v.hc })).sort((a, b) => (a.d < b.d ? -1 : 1));
+/** growth points: visits + diary measurements (same day → the visit wins, the diary fills what is missing) */
+export function growth(c) {
+  const m = new Map();
+  for (const x of logs(c).filter((l) => l.k === 'growth')) { const d = x.t.slice(0, 10); const o = m.get(d) || { d }; for (const f of ['w', 'h', 'hc']) if (x[f] != null && o[f] == null) o[f] = x[f]; m.set(d, o); }
+  for (const v of visits(c)) { if (v.w == null && v.h == null && v.hc == null) continue; const o = m.get(v.d) || { d: v.d }; for (const f of ['w', 'h', 'hc']) if (v[f] != null) o[f] = v[f]; m.set(v.d, o); }
+  return [...m.values()].sort((a, b) => (a.d < b.d ? -1 : 1));
+}
 
 // ---- quick-search chips: built from the data (never written in the code) ----
 const shortName = (k) => H_short(aName(k));
@@ -122,13 +157,13 @@ export function quickFrom(vis, lb, n = 14) {
   for (let i = 0; out.length < n && lists.some((l) => l.length > i); i++) for (const l of lists) { const x = l[i]; if (x && !seen.has(norm(x.label)) && out.length < n) { seen.add(norm(x.label)); out.push(x.label); } }
   return out;
 }
-export const quick = (n) => quickFrom(visits(), labs(), n);
+export const quick = (n) => quickFrom([...visits(), ...logs().filter((l) => ['med', 'sym'].includes(l.k) && l.title).map((l) => ({ d: l.t.slice(0, 10), kind: l.k === 'med' ? 'Έλεγχος' : 'Νόσος', title: l.title, meds: l.k === 'med' ? [l.title] : [] }))], labs(), n);
 
 // ---- age ----
-export const birth = () => profile().birth || null;                 // from «Στοιχεία» (or the imported history) — never in the code
-export function ageAt(s) {
-  if (!birth()) return '';
-  const b = parseISO(birth()), d = typeof s === 'string' ? parseISO(s) : s;
+export const birth = (c) => profile(c).birth || null;                 // from «Στοιχεία» (or the imported history) — never in the code
+export function ageAt(s, c) {
+  if (!birth(c)) return '';
+  const b = parseISO(birth(c)), d = typeof s === 'string' ? parseISO(s) : s;
   let m = (d.getFullYear() - b.getFullYear()) * 12 + d.getMonth() - b.getMonth(); let days = d.getDate() - b.getDate();
   if (days < 0) { m--; days += new Date(d.getFullYear(), d.getMonth(), 0).getDate(); }
   if (m < 0) return '';
@@ -139,9 +174,9 @@ export function ageAt(s) {
 export const monthsAt = (s) => (parseISO(s) - parseISO(birth() || '2000-01-01')) / (864e5 * 30.4375);   // charts: only the distances matter
 
 // ---- vaccines: planned doses that are due / late ----
-export function vacPending() {
+export function vacPending(c) {
   const t = today(), out = [];
-  for (const v of vaccines()) (v.doses || []).forEach((d, i) => {
+  for (const v of vaccines(c)) (v.doses || []).forEach((d, i) => {
     if (d.d || !d.from) return;
     out.push({ v, d, i, st: d.to < t ? 'late' : d.from <= t ? 'due' : 'fut' });
   });
@@ -149,7 +184,7 @@ export function vacPending() {
 }
 
 // ---- import of a history file (.json — never part of the app's code, so it stays private) ----
-const TYPES = ['hvisit', 'hlab', 'hvac', 'hdoc', 'hprofile'];
+const TYPES = ['hvisit', 'hlab', 'hvac', 'hdoc', 'hprofile', 'hlog'];
 export async function importFile(file) {
   const j = JSON.parse(await file.text());
   const recs = (j.records || []).filter((r) => r && r.id && TYPES.includes(r.type));
@@ -159,12 +194,14 @@ export async function importFile(file) {
 }
 
 // ---- files on OneDrive ----
-async function dir() { const P = provider(); return { P, f: await P.folder(store.spaceById(SP).folder + '/' + DOC_DIR) }; }
+/** each child's documents folder: the first child's is «Υγεία Φιλίππου» (as it always was), the others «Υγεία <όνομα>» */
+export const docDir = (c = cur()) => profile(c).docDir || (c === FIRST ? DOC_DIR : `Υγεία ${firstName(profile(c)) || c}`);
+async function dir(c) { const P = provider(); return { P, f: await P.folder(store.spaceById(SP).folder + '/' + docDir(c)) }; }
 const cache = new Map();
 /** a Blob of the document's file (null if not on OneDrive yet) */
 export async function fileOf(doc) {
   if (cache.has(doc.file)) return cache.get(doc.file);
-  const { P, f } = await dir(); const b = await P.getBin(f, doc.file);
+  const { P, f } = await dir(childOf(doc)); const b = await P.getBin(f, doc.file);
   if (b) cache.set(doc.file, b.type ? b : new Blob([b], { type: doc.mime || 'application/pdf' }));
   return cache.get(doc.file) || null;
 }

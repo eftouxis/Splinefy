@@ -4,7 +4,7 @@ import * as store from '../store.js';
 import * as M from '../meds.js';
 import * as C from '../chores.js';
 import { hasOffice } from '../office.js';
-import { healthBadge } from './health.js';
+import { healthBadge, healthTitle } from './health.js';
 import { petTitle, petBadge } from './pet.js';
 
 const tile = (href, ic, t, s, badge = '', tone = '') => `<a class="card" href="${href}" style="display:block;margin:0;padding:16px;text-decoration:none;color:inherit;${tone ? `border-left:4px solid ${tone}` : ''}">
@@ -24,7 +24,7 @@ export default {
       ${tile('#/cars', '🚗', 'Αυτοκίνητα', 'Καύσιμα, χιλιόμετρα, service')}
       ${tile('#/trips', '✈️', 'Ταξίδια', 'Έξοδα ανά ταξίδι')}
       ${tile('#/goals', '🎯', 'Στόχοι', 'Ξεχρέωμα, αποταμίευση')}
-      ${tile('#/health', '🩺', 'Υγεία Φιλίππου', 'Βιβλιάριο: επισκέψεις, εξετάσεις, εμβόλια', healthBadge(), healthBadge() ? '#e9a23b' : '')}
+      ${tile('#/health', '🩺', esc(healthTitle()), 'Πυρετός, φάρμακα, επισκέψεις, εξετάσεις, εμβόλια', healthBadge(), healthBadge() ? '#e9a23b' : '')}
       ${tile('#/pet', '🐕', esc(petTitle()), 'Βιβλιάριο: εμβόλια, βάρος, περιστατικά', petBadge(), petBadge() ? '#e9a23b' : '')}
       ${tile('#/gym', '🏋️', 'Γυμναστική', 'Προπονήσεις, ρεκόρ, χρονόμετρο')}
       ${tile('#/cards', '💳', 'Κάρτες', 'QR και barcodes: δικές μας και κοινές')}

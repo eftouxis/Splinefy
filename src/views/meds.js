@@ -8,14 +8,15 @@ import * as P from '../pet.js';
 import { sheet } from './lessons/ui.js';
 
 const mySp = () => store.state.spaces.find((s) => s.owner === store.state.user && s.members.length === 1)?.id || null;
-const full = () => H.profile().name || null;
-const child = () => (full() ? full().trim().split(/\s+/)[0] : null);          // first name only («Φίλιππος», not the surname)
-const disp = (w) => (w && full() && w.trim() === full().trim() ? child() : w || null);
+const kids = () => H.profiles().filter((p) => p.name).map((p) => ({ full: p.name.trim(), first: H.firstName(p), id: p.id }));   // every child's booklet
+const child = () => kids()[0]?.first || null;
+const isKid = (w) => !!w && kids().some((k) => k.first === w);
+const disp = (w) => { const k = w && kids().find((x) => x.full === w.trim()); return k ? k.first : w || null; };   // first name only («Φίλιππος», not the surname)
 const pet = () => (P.hasData() ? P.name() : null);
-const ico = (who) => (who && who === pet() ? '🐕' : who && who === child() ? '👶' : '🧑');
-const book = (who) => (who && who === pet() ? '#/pet' : who && who === child() ? '#/health' : null);
+const ico = (who) => (who && who === pet() ? '🐕' : isKid(who) ? '👶' : '🧑');
+const book = (who) => { if (who && who === pet()) return '#/pet'; const k = isKid(who) && kids().find((x) => x.first === who); if (k) { H.setCur(k.id); return '#/health'; } return null; };
 const num = (v) => Number(String(v ?? '').replace(',', '.')) || 0;
-const people = () => [...new Set([...store.DEFAULT_SPACES.find((s) => s.id === 'shared').members, child(), pet(), ...M.all().map((m) => disp(m.who))].filter(Boolean))];
+const people = () => [...new Set([...store.DEFAULT_SPACES.find((s) => s.id === 'shared').members, ...kids().map((k) => k.first), pet(), ...M.all().map((m) => disp(m.who))].filter(Boolean))];
 
 // ---- pieces shared by the sheets ----
 const whoPick = (cur) => `<label class="f"><span>Για ποιον</span><div class="chips" data-whos>${people().map((p) => `<button type="button" class="chip ${p === cur ? 'on' : ''}" data-who="${esc(p)}">${ico(p)} ${esc(p)}</button>`).join('')}

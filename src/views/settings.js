@@ -122,7 +122,7 @@ export default {
           if (j.splinefy === 'pet' || j.splinefy === 'health') {      // booklet history (κατοικίδιο / Υγεία Φιλίππου): same as «Εισαγωγή ιστορικού» inside the app
             const m = j.splinefy === 'pet' ? await import('../pet.js') : await import('../health.js');
             const n = await m.importFile(file);
-            ui.toast(`${j.splinefy === 'pet' ? '🐕 Κατοικίδιο' : '🩺 Υγεία Φιλίππου'}: ${n} εγγραφές ✓`, 3500); continue;
+            ui.toast(`${j.splinefy === 'pet' ? '🐕 Κατοικίδιο' : '🩺 Υγεία'}: ${n} εγγραφές ✓`, 3500); continue;
           }
           if (j.mode === 'changes') {                    // corrections over several spaces
             const by = {};
