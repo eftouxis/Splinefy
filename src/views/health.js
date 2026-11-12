@@ -101,20 +101,129 @@ function logSheet(k, x = null) {
     ${amt ? `<div class="grid2"><label class="f"><span>Ποσότητα</span><input name="val" inputmode="decimal" value="${esc(dec(x?.val))}"></label><label class="f"><span>Μονάδα</span><input name="unit" list="hlu" value="${esc(x?.unit || (k === 'med' ? 'ml' : ''))}"><datalist id="hlu">${H.UNITS.map((u) => `<option value="${u}">`).join('')}</datalist></label></div>` : ''}
     <label class="f"><span>Σημειώσεις</span><textarea name="text" rows="${k === 'note' || k === 'visit' ? 5 : 3}" placeholder="${k === 'sym' ? 'π.χ. βήχας τη νύχτα, τι είπε η παιδίατρος' : ''}">${esc(x?.text || '')}</textarea></label>
     ${k === 'med' ? '<div class="small muted" style="margin:-4px 2px 10px">Για υπενθυμίσεις δόσεων: Εφαρμογές → 💊 Φάρμακα.</div>' : ''}
+    ${k === 'sym' ? '<div data-gm></div>' : ''}
+    ${x && k === 'temp' ? '<button class="btn" data-adv>💡 Τι λένε οι οδηγίες γι\' αυτή τη θερμοκρασία</button>' : ''}
+    ${x && ['sym', 'visit', 'note'].includes(k) && x.text ? '<button class="btn" data-mkguide>📋 Κάνε το οδηγία παιδιάτρου</button>' : ''}
     <button class="btn primary" data-ok>Αποθήκευση</button>${x ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     const g = (n) => el.querySelector(`[name=${n}]`)?.value.trim() ?? ''; const nv = (n) => { const v = H.num(g(n)); return isNaN(v) ? null : v; };
     const ti = el.querySelector('[name=title]');
     ti?.addEventListener('change', () => { if (!amt) return; const last = H.logs().find((l) => l.k === k && l.title === ti.value.trim() && l.val); if (last && !g('val')) { el.querySelector('[name=val]').value = dec(last.val); el.querySelector('[name=unit]').value = last.unit || ''; } });
     el.querySelector('[data-no]').onclick = close;
+    const gm = el.querySelector('[data-gm]');
+    const showG = () => { if (!gm) return; const gs = H.guidesFor(`${g('title')} ${g('text')}`); gm.innerHTML = gs.map(guideCard).join(''); };
+    if (gm) { el.querySelector('[name=title]').addEventListener('input', showG); el.querySelector('[name=text]').addEventListener('input', showG); showG(); }
+    el.querySelector('[data-adv]')?.addEventListener('click', () => adviceSheet(x));
+    el.querySelector('[data-mkguide]')?.addEventListener('click', () => { close(); guideSheet(null, { title: x.title || '', text: x.text, src: `${dFull(x.t.slice(0, 10))}` }); });
     el.querySelector('[data-del]')?.addEventListener('click', async () => { if (await ui.confirm('Διαγραφή της καταχώρισης;', 'Διαγραφή')) { await store.del(H.SP, x.id); close(); } });
     el.querySelector('[data-ok]').onclick = async () => {
       const rec = { type: 'hlog', k, t: `${g('d') || today()}T${g('tm') || '12:00'}`, title: g('title') || null, text: g('text') || null, val: k === 'temp' || amt ? nv('val') : null, unit: amt ? g('unit') || null : null };
       if (k === 'growth') Object.assign(rec, { w: nv('w'), h: nv('h'), hc: nv('hc') });
       if (k === 'temp' && rec.val == null) { ui.toast('Γράψε θερμοκρασία'); return; }
       if (!rec.title && !rec.text && rec.val == null && k !== 'growth') { ui.toast('Γράψε κάτι'); return; }
-      await store.put(H.SP, x?.id || null, { ...(x ? {} : C()), ...rec }); close(); ui.toast('Αποθηκεύτηκε ✓');
+      const id = await store.put(H.SP, x?.id || null, { ...(x ? {} : C()), ...rec }); close();
+      if (!x && k === 'temp') { adviceSheet({ ...rec, id }); return; }
+      if (!x && k === 'sym' && H.guidesFor(`${rec.title || ''} ${rec.text || ''}`).length) { info('📋 Οδηγίες παιδιάτρου', H.guidesFor(`${rec.title || ''} ${rec.text || ''}`).map(guideCard).join('')); return; }
+      ui.toast('Αποθηκεύτηκε ✓');
     };
     setTimeout(() => el.querySelector(k === 'temp' ? '[name=val]' : '[name=title]')?.focus(), 50);
+  });
+}
+
+// ---------- pediatrician's instructions ----------
+const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const whenTxt = (d) => { const t = new Date(); t.setHours(0, 0, 0, 0); const dd = new Date(d); dd.setHours(0, 0, 0, 0); const diff = Math.round((dd - t) / 864e5); return `${diff === 0 ? '' : diff === 1 ? 'αύριο ' : diff === -1 ? 'χθες ' : dFull(d.toISOString().slice(0, 10)) + ' '}${hhmm(d)}`; };
+const guideCard = (g) => `<div class="card" style="background:var(--chip);box-shadow:none;margin:8px 0;padding:10px 12px"><div class="row"><b class="grow">📋 ${esc(g.title)}</b>${g.src ? `<span class="small muted">${esc(g.src)}</span>` : ''}</div><div class="small" style="white-space:pre-line;margin-top:4px">${esc(g.text || '')}</div></div>`;
+/** after a temperature: what the instructions say (give X ml of Y — with ✓ «Το έδωσα» — or wait) */
+function adviceSheet(rec) {
+  const at = new Date(rec.t); const a = H.feverAdvice(H.childOf(rec), rec.val, at); const P = H.feverRules();
+  const name = H.profiles().length > 1 ? ` · ${esc(H.firstName(H.profile(H.childOf(rec))))}` : '';
+  let body = `<div class="mid">🌡️ ${dec(rec.val)}°C${name}</div><div class="small muted">${dFull(rec.t.slice(0, 10))} ${rec.t.slice(11, 16)}</div>`;
+  if (a.state === 'none') {
+    body += `<div class="card" style="margin-top:10px">Δεν έχεις γράψει ακόμα τις οδηγίες της παιδιάτρου για τον πυρετό (από πόσο, ποιο φάρμακο, πόσο ανά κιλό, κάθε πόσες ώρες).<button class="btn primary" data-fe style="margin-top:10px">📋 Γράψε τις οδηγίες πυρετού</button></div>`;
+  } else if (a.state === 'ok') {
+    body += `<div class="card" style="margin-top:10px">✅ ${esc(a.reason)}</div>`;
+  } else if (a.state === 'give') {
+    const w = a.weight; const old = w && (new Date() - new Date(w.d)) / 864e5 > 90;
+    body += `<div class="card" style="margin-top:10px;border:2px solid var(--teal)"><div class="small muted">Σύμφωνα με τις οδηγίες:</div>
+      <div style="font-size:22px;font-weight:800;margin:4px 0">💊 ${esc(a.drug.name)} ${a.dose ? `${dec(a.dose.ml)} ml` : ''}</div>
+      ${a.dose ? `<div class="small muted">${esc(a.dose.how)}${w ? ` · βάρος από ${dFull(w.d)}` : ''}</div>` : `<div class="small" style="color:var(--red)">${w ? 'Λείπει κάτι από τη δόση στις οδηγίες.' : 'Δεν υπάρχει βάρος — γράψε μια 📏 Μέτρηση.'}</div>`}
+      ${old ? `<div class="small" style="color:#a86a10;margin-top:4px">⚠️ Το βάρος είναι παλιό (${dFull(w.d)}) — αν έχει αλλάξει, γράψε νέα 📏 Μέτρηση.</div>` : ''}
+      <div class="small" style="margin-top:6px">${esc(a.reason)}</div>
+      ${a.next.length ? `<div class="small muted" style="margin-top:4px">${a.next.map((n) => `${esc(n.name)}: τελευταία ${whenTxt(new Date(n.last.t))}`).join(' · ')}</div>` : ''}</div>
+      ${a.dose ? `<button class="btn primary" data-gave>✓ Το έδωσα (${esc(a.drug.name)} ${dec(a.dose.ml)} ml)</button>` : ''}`;
+  } else {
+    body += `<div class="card" style="margin-top:10px;border:2px solid var(--red)"><b>⏳ ${esc(a.reason)}</b>
+      <div class="small" style="margin-top:6px">${a.next.filter((n) => n.at).map((n) => `${esc(n.name)}: από ${whenTxt(n.at)}`).join('<br>')}</div></div>`;
+  }
+  if (P?.notes && a.state !== 'none') body += `<div class="small" style="white-space:pre-line;margin:4px 2px 10px">📋 ${esc(P.notes)}</div>`;
+  if (a.state !== 'none') body += `<div class="small muted" style="margin:0 2px 10px">Υπολογισμός από τις οδηγίες που έχεις γράψει και το τελευταίο βάρος — αν κάτι δεν σου φαίνεται σωστό, ρώτα την παιδίατρο.</div>`;
+  body += `<button class="btn ghost" data-x>Κλείσιμο</button>`;
+  sheet(body, (el, close) => {
+    el.querySelector('[data-x]').onclick = close;
+    el.querySelector('[data-fe]')?.addEventListener('click', () => { close(); feverSheet(); });
+    el.querySelector('[data-gave]')?.addEventListener('click', async () => {
+      const r = rec.child ? { child: rec.child } : {};
+      await store.put(H.SP, null, { ...r, type: 'hlog', k: 'med', t: nowT(), title: a.drug.name, val: a.dose.ml, unit: 'ml', text: `Για πυρετό ${dec(rec.val)}°C (οδηγίες)` });
+      close(); ui.toast(`✓ ${a.drug.name} ${dec(a.dose.ml)} ml`);
+    });
+  });
+}
+function feverSheet() {
+  const P = H.feverRules() || {}; const D = [...(P.drugs || []), {}, {}].slice(0, 2);
+  const drugHtml = (d, i) => `<div class="card" style="padding:10px;margin:8px 0;background:var(--chip);box-shadow:none" data-drug="${i}">
+    <b>${i === 0 ? '1ο φάρμακο (πρώτα)' : '2ο φάρμακο (αν δεν επιτρέπεται ακόμα το 1ο)'}</b>
+    <div class="grid2" style="margin-top:6px"><label class="f"><span>Όνομα</span><input data-f="name" value="${esc(d.name || '')}" placeholder="${i ? 'π.χ. Algofren' : 'π.χ. Depon'}"></label><label class="f"><span>Άλλα ονόματα (,)</span><input data-f="alias" value="${esc(d.alias || '')}" placeholder="${i ? 'αλγκοφρεν, ibuprofen' : 'ντεπον, παρακεταμόλη'}"></label></div>
+    <label class="f"><span>Δόση</span><select data-f="mode">${[['kgdiv', 'ml = κιλά ÷ αριθμό (π.χ. ½ των κιλών → 2)'], ['mgkg', 'mg ανά κιλό (+ συγκέντρωση σιροπιού)'], ['mlkg', 'ml ανά κιλό'], ['fixed', 'σταθερά ml']].map(([v, l]) => `<option value="${v}" ${(d.mode || 'kgdiv') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <div class="grid3" data-m="mgkg mlkg"><label class="f" data-m="mgkg mlkg"><span data-pl>${d.mode === 'mlkg' ? 'ml/kg' : 'mg/kg'}</span><input data-f="perKg" inputmode="decimal" value="${esc(d.perKg || '')}"></label><label class="f" data-m="mgkg"><span>mg στο σιρόπι</span><input data-f="concMg" inputmode="decimal" value="${esc(d.concMg || '')}" placeholder="π.χ. 120"></label><label class="f" data-m="mgkg"><span>ανά ml</span><input data-f="concMl" inputmode="decimal" value="${esc(d.concMl || '')}" placeholder="π.χ. 5"></label></div>
+    <div data-m="kgdiv"><label class="f"><span>Κιλά διά</span><input data-f="div" inputmode="decimal" value="${esc(d.div || '')}" placeholder="${i ? 'π.χ. 3' : 'π.χ. 2'}"></label></div>
+    <div data-m="fixed"><label class="f"><span>ml</span><input data-f="fixed" inputmode="decimal" value="${esc(d.fixed || '')}"></label></div>
+    <div class="grid2"><label class="f"><span>Ίδιο φάρμακο κάθε (ώρες)</span><input data-f="everyH" inputmode="decimal" value="${esc(d.everyH || '')}"></label><label class="f"><span>Μέγιστο ml ανά δόση (αν υπάρχει)</span><input data-f="maxMl" inputmode="decimal" value="${esc(d.maxMl || '')}"></label></div></div>`;
+  sheet(`<div class="mid">📋 Οδηγίες πυρετού</div><div class="small muted" style="margin:4px 2px 8px">Γράψε τα όπως τα είπε η παιδίατρος (ή όπως γράφει η συσκευασία για το βάρος του). Ισχύουν για όλα τα παιδιά — η δόση βγαίνει από το βάρος του καθενός.</div>
+    <div class="grid2"><label class="f"><span>Αντιπυρετικό από (°C)</span><input name="threshold" inputmode="decimal" value="${esc(P.threshold || '')}" placeholder="π.χ. 38"></label><label class="f"><span>Διαφορά ανάμεσα στα 2 φάρμακα (ώρες)</span><input name="crossH" inputmode="decimal" value="${esc(P.crossH || '')}" placeholder="π.χ. 4"></label></div>
+    ${D.map(drugHtml).join('')}
+    <label class="f"><span>Άλλες οδηγίες (π.χ. πότε να την πάρετε τηλέφωνο)</span><textarea name="notes" rows="3">${esc(P.notes || '')}</textarea></label>
+    <button class="btn primary" data-ok>Αποθήκευση</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    const sync = () => el.querySelectorAll('[data-drug]').forEach((c) => { const m = c.querySelector('[data-f=mode]').value; c.querySelectorAll('[data-m]').forEach((x) => { x.style.display = x.dataset.m.split(' ').includes(m) ? '' : 'none'; }); c.querySelector('[data-pl]').textContent = m === 'mlkg' ? 'ml/kg' : 'mg/kg'; });
+    el.querySelectorAll('[data-f=mode]').forEach((x) => x.addEventListener('change', sync)); sync();
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelector('[data-ok]').onclick = async () => {
+      const drugs = [...el.querySelectorAll('[data-drug]')].map((c) => Object.fromEntries([...c.querySelectorAll('[data-f]')].map((i) => [i.dataset.f, i.value.trim() || null]))).filter((d) => d.name);
+      const v = (n) => el.querySelector(`[name=${n}]`).value.trim() || null;
+      if (!v('threshold') || !drugs.length) { ui.toast('Γράψε το όριο πυρετού και τουλάχιστον ένα φάρμακο'); return; }
+      await store.put(H.SP, 'hfever', { type: 'hfever', threshold: v('threshold'), crossH: v('crossH'), withinH: null, notes: v('notes'), drugs }); close(); ui.toast('Αποθηκεύτηκε ✓');
+    };
+  });
+}
+function guideSheet(g = null, pre = {}) {
+  const v = g || pre;
+  sheet(`<div class="mid">📋 ${g ? 'Οδηγία παιδιάτρου' : 'Νέα οδηγία παιδιάτρου'}</div>
+    <label class="f" style="margin-top:10px"><span>Για τι (π.χ. Λαρυγγίτιδα)</span><input name="title" value="${esc(v.title || '')}"></label>
+    <label class="f"><span>Λέξεις που τη φέρνουν (,) — π.χ. βήχας, λαρυγγ, κρουπ</span><input name="keys" value="${esc(v.keys || '')}"></label>
+    <label class="f"><span>Τι είπε η παιδίατρος</span><textarea name="text" rows="7">${esc(v.text || '')}</textarea></label>
+    <label class="f"><span>Από πότε / ποιος</span><input name="src" value="${esc(v.src || '')}"></label>
+    <button class="btn primary" data-ok>Αποθήκευση</button>${g ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    const val = (n) => el.querySelector(`[name=${n}]`).value.trim() || null;
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelector('[data-del]')?.addEventListener('click', async () => { if (await ui.confirm(`Διαγραφή «${esc(g.title)}»;`, 'Διαγραφή')) { await store.del(H.SP, g.id); close(); } });
+    el.querySelector('[data-ok]').onclick = async () => {
+      if (!val('title') || !val('text')) { ui.toast('Γράψε τίτλο και οδηγία'); return; }
+      await store.put(H.SP, g?.id || null, { type: 'hguide', title: val('title'), keys: val('keys'), text: val('text'), src: val('src') }); close(); ui.toast('Αποθηκεύτηκε ✓');
+    };
+  });
+}
+function guidesSheet() {
+  const P = H.feverRules(); const w = H.latestWeight();
+  const doses = (P?.drugs || []).map((d) => { const x = H.doseFor(d, w?.w); return `${esc(d.name)}: ${x ? `<b>${dec(x.ml)} ml</b>` : '—'}${d.everyH ? ` · κάθε ${esc(d.everyH)}ω` : ''}`; }).join('<br>');
+  sheet(`<div class="row"><div class="mid grow">📋 Οδηγίες παιδιάτρου</div><button class="btn sm ghost" data-x style="width:auto;margin:0">✕</button></div>
+    <div class="card" style="margin-top:10px"><div class="row"><b class="grow">🌡️ Πυρετός</b><button class="btn sm" data-fe style="width:auto;margin:0">${P ? '✎' : '+ Γράψε'}</button></div>
+    ${P ? `<div class="small" style="margin-top:6px">Αντιπυρετικό από ${esc(P.threshold)}°C${P.crossH ? ` · ${esc(P.drugs?.[0]?.name || '')} ↔ ${esc(P.drugs?.[1]?.name || '')}: διαφορά ${esc(P.crossH)}ω` : ''}</div>
+      <div class="small" style="margin-top:6px">${esc(H.firstName(H.profile()))}${w ? ` (${dec(w.w)} kg, ${dFull(w.d)})` : ' (χωρίς βάρος)'}:<br>${doses}</div>` : '<div class="small muted" style="margin-top:6px">Δεν έχουν γραφτεί ακόμα.</div>'}</div>
+    <div class="row" style="margin:12px 2px 4px"><b class="grow">Συμπτώματα</b><button class="btn sm" data-ng style="width:auto;margin:0">+ Οδηγία</button></div>
+    <div class="list">${H.guides().map((g) => `<div class="item" data-g="${esc(g.id)}"><div class="grow"><div class="t">${esc(g.title)}</div><div class="s">${esc((g.text || '').slice(0, 80))}</div></div></div>`).join('') || '<div class="item muted small">Καμία ακόμα. Γράψε μία εδώ, ή άνοιξε μια παλιά καταχώριση στο Ημερολόγιο → «Κάνε το οδηγία».</div>'}</div>`, (el, close) => {
+    el.querySelector('[data-x]').onclick = close;
+    el.querySelector('[data-fe]').onclick = () => { close(); feverSheet(); };
+    el.querySelector('[data-ng]').onclick = () => { close(); guideSheet(); };
+    el.querySelectorAll('[data-g]').forEach((b) => (b.onclick = () => { close(); guideSheet(H.guides().find((x) => x.id === b.dataset.g)); }));
   });
 }
 
@@ -127,7 +236,7 @@ const TAB = {
     const ill = H.visits().filter((v) => v.kind === 'Νόσος').slice(0, 8);
     const fev = H.lastFever(), recent = H.logs().filter((x) => H.LOGK[x.k]?.[2]).slice(0, 4);
     const diary = `<div class="card"><div class="row"><b class="grow">Ημερολόγιο</b><button class="h-lnk" data-gotab="log">όλο ›</button></div>
-      <div class="row wrap" style="gap:6px;margin-top:8px">${QUICK.map(([k, l]) => `<button class="chip" data-newlog="${k}">${H.LOGK[k][0]} ${l}</button>`).join('')}</div>
+      <div class="row wrap" style="gap:6px;margin-top:8px">${QUICK.map(([k, l]) => `<button class="chip" data-newlog="${k}">${H.LOGK[k][0]} ${l}</button>`).join('')}<button class="chip" data-guides>📋 Οδηγίες παιδιάτρου</button></div>
       ${fev ? `<div class="small" style="margin-top:10px"><b>Τελευταίος πυρετός:</b> ${dFull(fev.day)} · έως ${dec(fev.max)}°C${fev.meds.length ? ` · ${esc(fev.meds.join(', '))}` : ''}</div>` : ''}
       ${recent.length ? `<div style="margin-top:6px">${recent.map((x) => `<div class="small muted" style="margin-top:3px">${dFull(x.t.slice(0, 10))} ${x.t.slice(11, 16)} · ${H.LOGK[x.k][0]} ${esc(logLine(x))}</div>`).join('')}</div>` : ''}</div>`;
     return `${diary}<div class="card"><div class="row"><b class="grow">Στοιχεία</b><button class="btn sm ghost" data-prof style="width:auto">✎</button></div>
@@ -154,6 +263,7 @@ const TAB = {
     const days = new Map(); for (const x of L) { const d = x.t.slice(0, 10); if (!days.has(d)) days.set(d, []); days.get(d).push(x); }
     const n = H.logs().filter((x) => !H.LOGK[x.k]?.[2]).length;
     let h = `<div class="row wrap" style="gap:6px;margin-bottom:8px">${QUICK.map(([k, l]) => `<button class="btn sm" data-newlog="${k}" style="width:auto;margin:0">${H.LOGK[k][0]} ${l}</button>`).join('')}
+      <button class="btn sm" data-guides style="width:auto;margin:0">📋 Οδηγίες</button>
       <select data-newlogx style="width:auto;padding:6px 8px;font-size:13px"><option value="">+ Άλλο…</option>${Object.entries(H.LOGK).filter(([k]) => !QUICK.some(([q]) => q === k)).map(([k, [i, l]]) => `<option value="${k}">${i} ${l}</option>`).join('')}</select></div>
       ${n ? `<div class="chips" style="margin-bottom:10px">${[['health', 'Υγεία'], ['care', 'Φροντίδα μωρού'], ['all', 'Όλα']].map(([k, l]) => `<button class="chip ${logF === k ? 'on' : ''}" data-logf="${k}">${l}</button>`).join('')}</div>` : ''}`;
     if (!days.size) return h + '<div class="card muted center">Τίποτα ακόμα — π.χ. «🌡️ Θερμοκρασία» ή «💊 Φάρμακο» όταν αρρωστήσει.</div>';
@@ -404,6 +514,7 @@ function bindBody(root, closeInfo) {
   on('[data-labedit]', (b) => labSheet(H.labs().find((x) => x.id === b.dataset.labedit)));
   on('[data-log]', (b) => logSheet(null, H.logs().find((x) => x.id === b.dataset.log)));
   on('[data-newlog]', (b) => logSheet(b.dataset.newlog));
+  on('[data-guides]', () => guidesSheet());
 }
 
 const body0 = (root) => root.querySelector('[data-body]');

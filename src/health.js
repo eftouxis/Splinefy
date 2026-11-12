@@ -183,8 +183,68 @@ export function vacPending(c) {
   return out.sort((a, b) => (a.d.from < b.d.from ? -1 : 1));
 }
 
+
+// ---- pediatrician's instructions (οδηγίες παιδιάτρου) ----
+// Πυρετός (hfever, ένα για όλα τα παιδιά): όριο °C, φάρμακα με τη δόση όπως την έδωσε η παιδίατρος (mg/kg + συγκέντρωση, ml/kg ή σταθερά ml),
+// κάθε πόσες ώρες το ίδιο φάρμακο, και ελάχιστη διαφορά ανάμεσα σε διαφορετικά φάρμακα (crossH). Πρώτα το 1ο· αν δεν επιτρέπεται ακόμα, το 2ο.
+// Η δόση βγαίνει από το τελευταίο βάρος του παιδιού (mg/kg, ml/kg, κιλά ÷ Ν ή σταθερά ml).
+// Καμία δόση δεν είναι γραμμένη στον κώδικα: όλα τα νούμερα τα γράφει ο χρήστης.
+// Συμπτώματα (hguide): τίτλος, λέξεις-κλειδιά, κείμενο οδηγίας — εμφανίζονται όταν γράφεις σύμπτωμα που ταιριάζει.
+export const feverRules = () => store.records('hfever', [SP])[0] || null;
+export const guides = () => store.records('hguide', [SP]).sort((a, b) => String(a.title).localeCompare(b.title));
+export function latestWeight(c) { const g = growth(c).filter((x) => x.w != null).pop(); return g ? { w: Number(g.w), d: g.d } : null; }
+const r1 = (x) => Math.round(x * 10) / 10;
+/** dose of one drug for weight w (kg): {ml, mg, how} or null when the rule is incomplete */
+export function doseFor(dr, w) {
+  if (!dr) return null; let ml = null, mg = null, how = '';
+  const per = num(dr.perKg), cmg = num(dr.concMg), cml = num(dr.concMl) || 1;
+  if (dr.mode === 'mgkg') { if (isNaN(per) || isNaN(cmg) || !w) return null; mg = per * w; if (!isNaN(num(dr.maxMg)) && mg > num(dr.maxMg)) mg = num(dr.maxMg); ml = (mg / cmg) * cml; how = `${String(per).replace('.', ',')} mg/kg × ${String(w).replace('.', ',')} kg = ${Math.round(mg)} mg · σιρόπι ${dr.concMg} mg/${dr.concMl || 1} ml`; }
+  else if (dr.mode === 'kgdiv') { const dv = num(dr.div); if (isNaN(dv) || !dv || !w) return null; ml = Math.floor((w / dv) * 100) / 100; how = `${String(w).replace('.', ',')} kg ÷ ${String(dr.div).replace('.', ',')} = ${String(ml).replace('.', ',')} ml`; }
+  else if (dr.mode === 'mlkg') { if (isNaN(per) || !w) return null; ml = per * w; how = `${String(per).replace('.', ',')} ml/kg × ${String(w).replace('.', ',')} kg`; }
+  else { const f = num(dr.fixed); if (isNaN(f)) return null; ml = f; how = 'σταθερή δόση'; }
+  if (!isNaN(num(dr.maxMl)) && ml > num(dr.maxMl)) { ml = num(dr.maxMl); how += ` · έως ${dr.maxMl} ml`; }
+  return { ml: Math.floor(ml * 10 + 1e-9) / 10, mg: mg != null ? Math.round(mg) : null, how };   // στρογγυλεύει προς τα κάτω στο 0,1 ml
+}
+const hoursSince = (t, at) => (at - new Date(t)) / 36e5;
+const addH = (t, h) => new Date(new Date(t).getTime() + h * 36e5);
+/** last time this drug was given to the child (diary «💊» entry whose name matches the drug's name or aliases) */
+export function lastDose(dr, c, at = new Date()) {
+  const keys = [dr.name, ...String(dr.alias || '').split(',')].map(norm).map((x) => x.trim()).filter(Boolean);
+  return logs(c).find((l) => l.k === 'med' && new Date(l.t) <= at && keys.some((k) => norm(`${l.title || ''} ${l.text || ''}`).includes(k))) || null;
+}
+/** what to do for temperature `temp` now: {state:'none'|'ok'|'give'|'wait', drug, dose, weight, reason, next[]} */
+export function feverAdvice(c, temp, at = new Date()) {
+  const P = feverRules(); const drugs = (P?.drugs || []).filter((d) => d?.name);
+  if (!P || !drugs.length) return { state: 'none' };
+  const th = num(P.threshold); const weight = latestWeight(c);
+  if (!isNaN(th) && num(temp) < th) return { state: 'ok', reason: `Κάτω από ${P.threshold}°C — δεν χρειάζεται αντιπυρετικό σύμφωνα με τις οδηγίες.`, weight };
+  const L = drugs.map((d) => ({ d, last: lastDose(d, c, at) }));
+  const cross = num(P.crossH);
+  // when may this drug be given: its own interval since its last dose, and the gap since any other drug
+  const from = (x) => {
+    let t = x.last && !isNaN(num(x.d.everyH)) ? addH(x.last.t, num(x.d.everyH)) : null;
+    if (!isNaN(cross)) for (const o of L) if (o !== x && o.last) { const u = addH(o.last.t, cross); if (!t || u > t) t = u; }
+    return t;
+  };
+  const ok = (x) => { const t = from(x); return !t || t <= at; };
+  const recent = L.filter((x) => x.last).sort((a, b) => (a.last.t < b.last.t ? 1 : -1))[0];
+  const ago = (x) => { const h = hoursSince(x.last.t, at); if (h >= 24) return `${Math.floor(h / 24)} μέρ${Math.floor(h / 24) === 1 ? 'α' : 'ες'} (${x.last.t.slice(8, 10)}/${x.last.t.slice(5, 7)})`; return h < 1 ? `${Math.round(h * 60)} λεπτά` : `${Math.floor(h)} ώρ${Math.floor(h) === 1 ? 'α' : 'ες'}${Math.round((h % 1) * 60) ? ` ${Math.round((h % 1) * 60)}λ` : ''}`; };
+  const next = L.map((x) => ({ name: x.d.name, at: from(x), last: x.last }));
+  const pick = L.find(ok) || null;
+  if (!pick) return { state: 'wait', reason: 'Δεν επιτρέπεται άλλη δόση τώρα σύμφωνα με τις οδηγίες.', next: next.filter((x) => x.at), weight, recent };
+  let reason = 'Πρώτη δόση.';
+  if (pick !== L[0] && L[0].last) reason = `Δεν έχουν περάσει ${L[0].d.everyH} ώρες από το ${L[0].d.name} (δόθηκε πριν από ${ago(L[0])}) → ${pick.d.name}.`;
+  else if (recent) reason = `Τελευταία δόση: ${recent.d.name} πριν από ${ago(recent)}.`;
+  return { state: 'give', drug: pick.d, dose: doseFor(pick.d, weight?.w), weight, reason, next: next.filter((x) => x.last), recent };
+}
+/** pediatrician's instructions that match a symptom text */
+export function guidesFor(text) {
+  const n = norm(text); if (!n.trim()) return [];
+  return guides().filter((g) => [g.title, ...String(g.keys || '').split(',')].map((k) => norm(k).trim()).filter((k) => k.length >= 3).some((k) => n.includes(k)));
+}
+
 // ---- import of a history file (.json — never part of the app's code, so it stays private) ----
-const TYPES = ['hvisit', 'hlab', 'hvac', 'hdoc', 'hprofile', 'hlog'];
+const TYPES = ['hvisit', 'hlab', 'hvac', 'hdoc', 'hprofile', 'hlog', 'hguide', 'hfever'];
 export async function importFile(file) {
   const j = JSON.parse(await file.text());
   const recs = (j.records || []).filter((r) => r && r.id && TYPES.includes(r.type));
