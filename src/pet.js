@@ -25,9 +25,13 @@ const KW = [[/μπαν|κουρε|περιποι|grooming|νυχ/, 'Περιπο
 const FOOD = /τροφ|κροκετ|λιχουδ|κονσερβ|σνακ|κοκαλ/;              // food is bought often and says nothing about her health: not in the history
 export function txEvents() {
   const nm = norm(name()); const days = new Set(stored().map((e) => e.d));
-  return store.records('tx').filter((t) => (t.kind === 'Έξοδο' || t.kind === 'exp') && !t.fx && t.d && (t.cat === 'Κατοικίδιο' || (nm && norm(t.desc).includes(nm))) && !days.has(t.d) && !FOOD.test(norm(t.desc)))
+  // old movements from Monefy / Splid / Excel (frozen, t.fx) count too: most of her history is there.
+  // The same visit can be in two places (shared from Splid, my half from Monefy): one entry per day and kind, the shared one first.
+  const seen = new Set();
+  return [...store.records('tx')].sort((x, y) => (x._sp === SP ? 0 : 1) - (y._sp === SP ? 0 : 1)).filter((t) => (t.kind === 'Έξοδο' || t.kind === 'exp') && t.d && (t.cat === 'Κατοικίδιο' || (nm && norm(t.desc).includes(nm))) && !days.has(t.d) && !FOOD.test(norm(t.desc)))
     .map((t) => { const title = String(t.desc || '').trim(); const n = norm(title);
-      return { id: `tx:${t._sp}/${t.id}`, tx: `${t._sp}/${t.id}`, d: t.d, kind: (KW.find(([re]) => re.test(n)) || [0, 'Έξοδο'])[1], title: title || 'Έξοδο', cost: t.a ?? null }; });
+      return { id: `tx:${t._sp}/${t.id}`, tx: `${t._sp}/${t.id}`, d: t.d, kind: (KW.find(([re]) => re.test(n)) || [0, 'Έξοδο'])[1], title: title || 'Έξοδο', cost: t.a ?? null }; })
+    .filter((e) => { const k = `${e.d}|${e.kind === 'Έξοδο' ? norm(e.title) : e.kind}`; if (seen.has(k)) return false; seen.add(k); return true; });
 }
 export const events = () => [...stored(), ...txEvents()].sort(byD);
 export const docs = () => store.records('pdoc', [SP]).sort(byD);

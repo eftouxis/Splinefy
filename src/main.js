@@ -103,7 +103,7 @@ function navHtml(active) {
   const a = (h, i, t, k, cls = '') => `<a href="${h}" class="${cls} ${active === k ? 'on' : ''}"><span class="i">${svg(i)}</span>${t}</a>`;
   const les = hasLessons(), off = hasOffice(), extra = les || off;
   // Αρχική in the middle: three on the left, three on the right (Μαθήματα / Γραφείο, Εφαρμογές, Ρυθμίσεις)
-  return `<div class="in ${extra ? 'n7' : ''}" style="grid-template-columns:repeat(${extra ? 7 : 6},1fr)">${a('#/list', 'list', 'Κινήσεις', 'list')}${a('#/debts', 'debt', 'Οφειλές', 'debts')}${a('#/stats', 'stats', 'Στατιστικά', 'stats')}
+  return `<div class="in ${extra ? 'n7' : ''}" style="grid-template-columns:repeat(${extra ? 7 : 6},1fr)">${a('#/debts', 'debt', 'Οφειλές', 'debts')}${a('#/stats', 'stats', 'Στατιστικά', 'stats')}${a('#/list', 'list', 'Κινήσεις', 'list')}
     ${a('#/', 'home', 'Αρχική', 'home', 'plus')}${les ? a('#/lessons', 'book', 'Μαθήματα', 'lessons') : ''}${off ? a('#/office', 'brief', 'Γραφείο', 'office') : ''}${a('#/apps', 'apps', 'Εφαρμογές', 'apps')}${a('#/settings', 'gear', 'Ρυθμίσεις', 'settings')}</div>`;
 }
 
