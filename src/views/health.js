@@ -3,6 +3,8 @@ import { esc, today, dFull } from '../util.js';
 import * as store from '../store.js';
 import * as H from '../health.js';
 import { sheet } from './lessons/ui.js';
+import { rxSheet } from './meds.js';
+import { parseRx } from '../meds.js';
 
 const TABS = [['sum', 'Σύνοψη'], ['log', 'Ημερολόγιο'], ['hist', 'Ιστορικό'], ['labs', 'Εξετάσεις'], ['vac', 'Εμβόλια'], ['growth', 'Ανάπτυξη'], ['docs', 'Έγγραφα']];
 let q = '', kindF = '', logF = 'health';
@@ -87,7 +89,7 @@ function logLine(x) {
   return [x.title, v].filter(Boolean).join(' · ') || H.LOGK[x.k]?.[1] || '';
 }
 const logRow = (x) => `<div class="h-item" data-log="${esc(x.id)}"><div class="row" style="gap:8px;align-items:flex-start"><span class="small muted" style="min-width:38px">${esc(x.t.slice(11, 16))}</span><span>${H.LOGK[x.k]?.[0] || '•'}</span>
-  <div class="grow"><div style="font-weight:600">${hl(logLine(x))}</div>${x.text ? `<div class="small" style="margin-top:2px;white-space:pre-line">${hl(x.text)}</div>` : ''}</div></div></div>`;
+  <div class="grow"><div style="font-weight:600">${hl(logLine(x))}</div>${x.text ? `<div class="small" style="margin-top:2px;white-space:pre-line">${hl(x.text)}</div>` : ''}${x.dr ? `<div class="small" style="margin-top:4px;white-space:pre-line;border-left:3px solid var(--teal);padding-left:7px">👩‍⚕️ ${hl(x.dr)}</div>` : ''}</div></div></div>`;
 const nowT = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 function logSheet(k, x = null) {
   k = x?.k || k || 'note'; const K = H.LOGK[k];
@@ -101,7 +103,10 @@ function logSheet(k, x = null) {
     ${amt ? `<div class="grid2"><label class="f"><span>Ποσότητα</span><input name="val" inputmode="decimal" value="${esc(dec(x?.val))}"></label><label class="f"><span>Μονάδα</span><input name="unit" list="hlu" value="${esc(x?.unit || (k === 'med' ? 'ml' : ''))}"><datalist id="hlu">${H.UNITS.map((u) => `<option value="${u}">`).join('')}</datalist></label></div>` : ''}
     <label class="f"><span>Σημειώσεις</span><textarea name="text" rows="${k === 'note' || k === 'visit' ? 5 : 3}" placeholder="${k === 'sym' ? 'π.χ. βήχας τη νύχτα, τι είπε η παιδίατρος' : ''}">${esc(x?.text || '')}</textarea></label>
     ${k === 'med' ? '<div class="small muted" style="margin:-4px 2px 10px">Για υπενθυμίσεις δόσεων: Εφαρμογές → 💊 Φάρμακα.</div>' : ''}
-    ${k === 'sym' ? '<div data-gm></div>' : ''}
+    ${k === 'sym' ? `<label class="f"><span>👩‍⚕️ Τι είπε η παιδίατρος (επικόλληση από το μήνυμα)</span><textarea name="dr" rows="4" placeholder="π.χ. Fucicort 2 φορές την ημέρα για 3 ημέρες. Αν πονάει, παυσίπονο.">${esc(x?.dr || '')}</textarea></label>
+      <div data-rxp class="small" style="margin:-4px 2px 8px"></div>
+      ${x?.guide ? '' : `<label class="row" style="gap:8px;margin:0 2px 12px"><input type="checkbox" name="mkg" checked style="width:auto"> <span class="small">Κράτα το ως οδηγία παιδιάτρου για την επόμενη φορά</span></label>`}
+      <div data-gm></div>` : ''}
     ${x && k === 'temp' ? '<button class="btn" data-adv>💡 Τι λένε οι οδηγίες γι\' αυτή τη θερμοκρασία</button>' : ''}
     ${x && ['sym', 'visit', 'note'].includes(k) && x.text ? '<button class="btn" data-mkguide>📋 Κάνε το οδηγία παιδιάτρου</button>' : ''}
     <button class="btn primary" data-ok>Αποθήκευση</button>${x ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
@@ -112,16 +117,32 @@ function logSheet(k, x = null) {
     const gm = el.querySelector('[data-gm]');
     const showG = () => { if (!gm) return; const gs = H.guidesFor(`${g('title')} ${g('text')}`); gm.innerHTML = gs.map(guideCard).join(''); };
     if (gm) { el.querySelector('[name=title]').addEventListener('input', showG); el.querySelector('[name=text]').addEventListener('input', showG); showG(); }
+    const rxp = el.querySelector('[data-rxp]');
+    const showRx = () => { if (!rxp) return; const l = parseRx(g('dr')); rxp.innerHTML = l.length ? `💊 Θα φτιαχτεί αγωγή στα Φάρμακα: ${l.map((p) => `<b>${esc(p.name)}</b> ${p.perDay}×/ημέρα${p.durN ? ` για ${p.durN} ${p.durU === 'm' ? 'μήνες' : p.durU === 'w' ? 'εβδομάδες' : 'ημέρες'}` : ''}`).join(', ')} — με ειδοποίηση, αφού πατήσεις Αποθήκευση.` : (g('dr') ? '<span class="muted">Δεν βρέθηκε φάρμακο με πρόγραμμα (χρειάζεται π.χ. «2 φορές την ημέρα για 3 ημέρες»).</span>' : ''); };
+    el.querySelector('[name=dr]')?.addEventListener('input', showRx); showRx();
     el.querySelector('[data-adv]')?.addEventListener('click', () => adviceSheet(x));
     el.querySelector('[data-mkguide]')?.addEventListener('click', () => { close(); guideSheet(null, { title: x.title || '', text: x.text, src: `${dFull(x.t.slice(0, 10))}` }); });
     el.querySelector('[data-del]')?.addEventListener('click', async () => { if (await ui.confirm('Διαγραφή της καταχώρισης;', 'Διαγραφή')) { await store.del(H.SP, x.id); close(); } });
     el.querySelector('[data-ok]').onclick = async () => {
       const rec = { type: 'hlog', k, t: `${g('d') || today()}T${g('tm') || '12:00'}`, title: g('title') || null, text: g('text') || null, val: k === 'temp' || amt ? nv('val') : null, unit: amt ? g('unit') || null : null };
+      if (k === 'sym') rec.dr = g('dr') || null;
       if (k === 'growth') Object.assign(rec, { w: nv('w'), h: nv('h'), hc: nv('hc') });
       if (k === 'temp' && rec.val == null) { ui.toast('Γράψε θερμοκρασία'); return; }
       if (!rec.title && !rec.text && rec.val == null && k !== 'growth') { ui.toast('Γράψε κάτι'); return; }
       const id = await store.put(H.SP, x?.id || null, { ...(x ? {} : C()), ...rec }); close();
       if (!x && k === 'temp') { adviceSheet({ ...rec, id }); return; }
+      if (k === 'sym' && rec.dr) {
+        const child = x ? H.childOf(x) : H.cur();
+        if (el.querySelector('[name=mkg]')?.checked) {   // 3. keep it as an instruction for next time
+          const keys = [...new Set(H.norm(rec.title || '').split(/[^a-zα-ω]+/).filter((w) => w.length >= 4).map((w) => w.slice(0, Math.max(4, w.length - 2))))].join(', ');
+          const gid = await store.put(H.SP, null, { type: 'hguide', title: rec.title || 'Οδηγία', keys: keys || null, text: rec.dr, src: `${H.firstName(H.profile(child))}, ${dFull(rec.t.slice(0, 10))}` });
+          await store.put(H.SP, id, { guide: gid });
+        }
+        if (!x || x.dr !== rec.dr) {                      // 2. the medicines → Φάρμακα, with the reminder (preview, times and notification in the next screen)
+          if (parseRx(rec.dr).length) { rxSheet(ui, { who: H.firstName(H.profile(child)) || null, text: rec.dr }); return; }
+        }
+        ui.toast('Αποθηκεύτηκε ✓'); return;
+      }
       if (!x && k === 'sym' && H.guidesFor(`${rec.title || ''} ${rec.text || ''}`).length) { info('📋 Οδηγίες παιδιάτρου', H.guidesFor(`${rec.title || ''} ${rec.text || ''}`).map(guideCard).join('')); return; }
       ui.toast('Αποθηκεύτηκε ✓');
     };
@@ -327,7 +348,7 @@ function search() {
   if (TOK.some((t) => t.length >= 3 && ['βαρο', 'υψο', 'μηκο', 'κεφαλ', 'αναπτυξ', 'κιλα', 'περιμετρ'].some((w) => t.startsWith(w) || w.startsWith(t)))) h += '<h2>Ανάπτυξη</h2>' + TAB.growth();
   const vis = H.visits().filter((v) => m(`${dFull(v.d)} ${v.d.slice(5, 7)}/${v.d.slice(0, 4)} ${v.kind} ${v.title} ${v.text || ''} ${(v.meds || []).join(' ')}`));
   if (vis.length) h += `<h2>Ιστορικό (${vis.length})</h2><div class="list">${vis.map(visitRow).join('')}</div>`;
-  const lg = H.logs().filter((x) => m(`${dFull(x.t.slice(0, 10))} ${x.t.slice(5, 7)}/${x.t.slice(0, 4)} ${H.LOGK[x.k]?.[1] || ''} ${x.title || ''} ${x.text || ''} ${x.val != null ? dec(x.val) : ''} ${x.unit || ''}`));
+  const lg = H.logs().filter((x) => m(`${dFull(x.t.slice(0, 10))} ${x.t.slice(5, 7)}/${x.t.slice(0, 4)} ${H.LOGK[x.k]?.[1] || ''} ${x.title || ''} ${x.text || ''} ${x.dr || ''} ${x.val != null ? dec(x.val) : ''} ${x.unit || ''}`));
   if (lg.length) h += `<h2>Ημερολόγιο (${lg.length})</h2><div class="list">${lg.slice(0, 200).map((x) => logRow(x).replace('<span class="small muted" style="min-width:38px">', `<span class="small muted" style="min-width:38px">${dFull(x.t.slice(0, 10))}<br>`)).join('')}</div>`;
   const ds = H.docs().filter((d) => m(`${d.title} ${dFull(d.d)} ${d.file || ''} εγγραφο`));
   if (ds.length) h += `<h2>Έγγραφα (${ds.length})</h2><div class="list">${ds.map(docRow).join('')}</div>`;

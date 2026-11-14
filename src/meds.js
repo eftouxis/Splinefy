@@ -113,8 +113,8 @@ const UNIT = (w) => (/^μ[ηή]ν/.test(w) ? 'm' : /^εβδ/.test(w) ? 'w' : 'd'
 /** one line (or «|»-separated part) per medicine: «DEPON OR.SO 120MG/5ML 3 φορές την ημέρα x 5 ημέρες | …»,
  *  «Βιταμίνη D 1 ml Χ 1 για 3 μήνες» → [{name, form, dose, perDay, durN, durU, notes, rx}] */
 export function parseRx(text) {
-  const out = []; let rx = null;
-  for (const ln of String(text || '').split('\n')) for (const raw of ln.split('|')) {
+  const out = []; let rx = null; let prevTxt = '';                                   // prevTxt: the line before, when the schedule comes on its own line («Fucicort» ↵ «2 φορές την ημέρα…»)
+  for (const ln of String(text || '').replace(/(\d+)\s*[-–]\s*(\d+)\s*(ημέρ|μέρ|εβδ|μήν|μην)/gi, '$2 $3').split('\n')) for (const raw of ln.split('|')) {   // «2-3 ημέρες» → the upper bound
     const r = raw.match(/Συνταγή\s*(\d{6,})/i); if (r) rx = r[1];
     const s = raw.replace(/\[?Συνταγή\s*\d{6,}\]?(\([^)]*\))?/gi, '').trim(); if (!s) continue; let perDay = null, durN = null, durU = 'd', notes = '';
     let f = s.match(/(\d+)\s*φορ(?:ές|ες|ά|α)\s*(?:την|τη)?\s*(?:ημέρα|μέρα|ημερησίως)/i);
@@ -123,13 +123,16 @@ export function parseRx(text) {
     else { f = s.match(/(?:^|\s)[xχΧ×]\s*(\d+)(?![\d.,]|\s*(?:ημέρ|μέρ|εβδ|μήν|μην))/i); if (f) { perDay = Number(f[1]); cut = f.index; } }
     const du = s.match(/(?:(?:^|\s)[xχΧ×]|για)\s*(\d+)\s*(ημέρ\S*|μέρ\S*|εβδομ\S*|μήν\S*|μην\S*)/i);
     if (du) { durN = Number(du[1]); durU = UNIT(du[2].toLowerCase()); notes = s.slice(du.index + du[0].length).replace(/^[\s,.;:-]+/, '').trim(); if (cut < 0 || du.index < cut) cut = du.index; }
-    if (!perDay && !durN) continue;                                                     // not a medicine line
-    const head = (cut >= 0 ? s.slice(0, cut) : s).trim();
+    if (!perDay && !durN) { prevTxt = s; continue; }                                    // not a medicine line (maybe the name for the next one)
+    let head = (cut >= 0 ? s.slice(0, cut) : s).trim();
+    if (!/[A-Za-zΑ-Ωα-ωά-ώ]{3,}/.test(head) && prevTxt) head = prevTxt.replace(/^(μια|μία|ένα|ενα|μιά|βάλτε|βαλτε|δώστε|δωστε|να\s+του\s+δώσετε)\s+/i, '').replace(/[.!;]+$/, '').trim();
+    prevTxt = '';
     const dm = head.match(/(\d+(?:[.,]\d+)?\s*(?:ml|mg|gr|g|σταγόνες|ψεκασμ\S*|εισπνο\S*|δισκ\S*|κάψ\S*|scoop\S*))\s*$/i);
     const dose = dm ? dm[1].replace('.', ',') : null; const h2 = dm ? head.slice(0, dm.index).trim() : head;
     const words = h2.split(/\s+/); let i = 0; const nm = [];
     for (; i < words.length; i++) { if (i > 0 && /[\d.\/]/.test(words[i])) break; nm.push(words[i]); }
-    out.push({ name: cap(nm.join(' ')) || h2, form: words.slice(i).join(' ') || null, dose, perDay: perDay || 1, durN, durU, notes: notes || null, rx });
+    const nm2 = nm.map((w) => (/^(ή|και|η)$/i.test(w) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)));
+    out.push({ name: cap(nm2.join(' ')) || h2, form: words.slice(i).join(' ') || null, dose, perDay: perDay || 1, durN, durU, notes: notes || null, rx });
   }
   return out;
 }
