@@ -10,6 +10,16 @@ export const all = () => store.records('card');
 /** η σειρά: ⭐ πρώτες, μετά όσες άνοιξες πιο πρόσφατα */
 export const sorted = (l = all()) => l.slice().sort((a, b) => (b.star ? 1 : 0) - (a.star ? 1 : 0) || (b.used || 0) - (a.used || 0) || (a.name || '').localeCompare(b.name || '', 'el'));
 export const isPrivate = (c) => c._sp !== 'shared';
+/** πού μένει: δική μου → προσωπικός χώρος (δεν φτάνει καν στη συσκευή του άλλου)· κοινή ή του άλλου → κοινός */
+export const spaceFor = (who) => (who && who === store.state.user && mySpace() ? mySpace() : 'shared');
+/** τι βλέπω: δικές μου + κοινές + όσες έφτιαξα για άλλον (μόνο με το φίλτρο του) — όχι του άλλου στη λίστα «Όλες» */
+export const visible = (c, filter) => !c.who || c.who === store.state.user || filter === c.who;
+/** παλιές «δικές μου» που είχαν μείνει στον κοινό χώρο → στον προσωπικό */
+export async function fixPrivate() {
+  const me = store.state.user, mine = mySpace(); if (!mine) return 0; let n = 0;
+  for (const c of all()) if (c.who === me && c._sp === 'shared') { await store.move('shared', mine, c); n++; }
+  return n;
+}
 export const pinOf = (c) => (c.pin || {})[store.state.user] || null;
 export const byPin = (n) => all().find((c) => Number(pinOf(c)) === Number(n)) || null;
 export const nrm = (x) => norm(x).replace(/ς/g, 'σ');
@@ -65,8 +75,8 @@ async function unzip(buf) {
   return files;
 }
 /** μικρό εικονίδιο (96px) ως data URL, για να μη βαραίνει ο συγχρονισμός */
-async function tinyIcon(bytes) {
-  try { const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' })); const s = 96, k = Math.min(s / bmp.width, s / bmp.height);
+export async function tinyIcon(bytes) {
+  try { const bmp = await createImageBitmap(bytes instanceof Blob ? bytes : new Blob([bytes], { type: 'image/png' })); const s = 96, k = Math.min(s / bmp.width, s / bmp.height);
     const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k); cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
     const u = cv.toDataURL('image/webp', 0.8); return u.startsWith('data:image/webp') ? u : cv.toDataURL('image/png'); } catch (_) { return null; }
 }
@@ -84,9 +94,9 @@ export async function readFile(file) {
 export async function importCards(list) {
   let n = 0;
   for (const c of list) {
-    const { cid, keep, priv, ...f } = c; if (keep === false) continue;
+    const { cid, keep, priv, ...f } = c; if (keep === false) continue;   // eslint-disable-line no-unused-vars
     const old = all().find((x) => x.code === f.code && x.fmt === f.fmt);
-    const sp = priv && mySpace() ? mySpace() : 'shared';
+    const sp = spaceFor(f.who);
     const rec = { type: 'card', ...f, who: f.who ?? null, src: 'catima' };
     if (old) { if (old._sp !== sp) await store.move(old._sp, sp, { ...old, ...rec }); else await store.put(old._sp, old.id, rec); }
     else await store.put(sp, null, rec);

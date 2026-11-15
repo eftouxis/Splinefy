@@ -5,16 +5,18 @@ import * as K from '../cards.js';
 import * as B from '../barcode.js';
 import { sheet } from './lessons/ui.js';
 
-let ui = null, q = '', show = '', showArch = false;
+let ui = null, q = '', show = '', showArch = false, fixed = false;
 const me = () => store.state.user;
-const ownerTxt = (c) => (!c.who ? '👥 Κοινή' : c.who === me() ? (K.isPrivate(c) ? '👤 Δική μου · μόνο εγώ' : '👤 Δική μου') : `🧑 ${c.who}`);
+const ownerTxt = (c) => (!c.who ? '👥 Κοινή' : c.who === me() ? '👤 Δική μου' : `🧑 ${c.who}`);
+/** εικονίδιο: εικόνα · emoji · πρώτο γράμμα */
+const iconHtml = (c, sz = 40) => (c.icon ? `<img src="${esc(c.icon)}" alt="" style="width:${sz}px;height:${sz}px;object-fit:contain;border-radius:8px;background:#fff">` : `<div style="width:${sz}px;height:${sz}px;border-radius:8px;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:${c.emo ? Math.round(sz * 0.6) : Math.round(sz * 0.45)}px">${esc(c.emo || (c.name || '?').trim()[0] || '?')}</div>`);
 let lock = null;
 const wake = async (on) => { try { if (on && !lock && navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); if (!on && lock) { await lock.release(); lock = null; } } catch (_) { lock = null; } };
 
 const tile = (c) => { const bg = c.color || '#5b6b7a', fg = K.ink(bg);
   return `<button type="button" class="card" data-c="${esc(c.id)}" style="margin:0;padding:0;overflow:hidden;border:0;text-align:left;cursor:pointer;${c.arch ? 'opacity:.55' : ''}">
     <div style="background:${esc(bg)};color:${fg};padding:12px 12px 10px;min-height:64px;display:flex;align-items:center;gap:10px">
-      ${c.icon ? `<img src="${esc(c.icon)}" alt="" style="width:40px;height:40px;object-fit:contain;border-radius:8px;background:#fff">` : `<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px">${esc((c.name || '?').trim()[0] || '?')}</div>`}
+      ${iconHtml(c)}
       <div style="font-weight:700;font-size:15px;line-height:1.2;word-break:break-word">${esc(c.name)}</div></div>
     <div class="small muted" style="padding:6px 12px 8px;display:flex;gap:6px">${c.star ? '⭐' : ''}${K.pinOf(c) ? `📌${K.pinOf(c)}` : ''}<span class="grow">${esc(ownerTxt(c))}</span><span>${c.fmt === 'QR_CODE' ? '▦' : '║▌'}</span></div></button>`; };
 
@@ -24,7 +26,7 @@ export function showCard(c, u = ui) {
   K.opened(c); wake(true);
   const bg = c.color || '#5b6b7a';
   sheet(`<div style="margin:-16px -16px 0;padding:14px 16px;background:${esc(bg)};color:${K.ink(bg)};border-radius:18px 18px 0 0;display:flex;align-items:center;gap:10px">
-      ${c.icon ? `<img src="${esc(c.icon)}" alt="" style="width:36px;height:36px;object-fit:contain;border-radius:8px;background:#fff">` : ''}<b class="grow" style="font-size:19px">${esc(c.name)}</b><button class="btn sm ghost" data-x style="width:auto;color:inherit">✕</button></div>
+      ${iconHtml(c, 36)}<b class="grow" style="font-size:19px">${esc(c.name)}</b><button class="btn sm ghost" data-x style="width:auto;color:inherit">✕</button></div>
     <div style="background:#fff;padding:${c.fmt === 'QR_CODE' ? '18px 12%' : '28px 4px'};margin:0 -16px">${code}</div>
     <div style="text-align:center;font:600 17px ui-monospace,monospace;letter-spacing:1px;word-break:break-all;margin:6px 0 4px;color:#111;background:#fff;margin:0 -16px;padding:0 16px 16px">${esc(c.code.length > 60 ? c.code.slice(0, 60) + '…' : c.code)}</div>
     ${c.note ? `<div class="small" style="margin-top:10px">📝 ${esc(c.note)}</div>` : ''}
@@ -40,7 +42,7 @@ export function showCard(c, u = ui) {
 
 function editSheet(c = null) {
   const people = K.people(); const mine = K.mySpace();
-  let fmt = c?.fmt || 'QR_CODE', who = c ? c.who || '' : me(), priv = c ? K.isPrivate(c) : false, pin = c ? K.pinOf(c) || 0 : 0;
+  let fmt = c?.fmt || 'QR_CODE', who = c ? c.who || '' : me(), pin = c ? K.pinOf(c) || 0 : 0, icon = c?.icon || null, emo = c?.emo || null;
   sheet(`<div class="mid">${c ? 'Κάρτα' : 'Νέα κάρτα'}</div>
     <label class="f" style="margin-top:10px"><span>Όνομα</span><input name="name" value="${esc(c?.name || '')}" placeholder="π.χ. Γυμναστήριο, Βρεφικός, ΑΒ"></label>
     <label class="f"><span>Κωδικός (αυτό που κρύβει το QR / ο αριθμός κάτω από το barcode)</span><textarea name="code" rows="2">${esc(c?.code || '')}</textarea></label>
@@ -49,7 +51,11 @@ function editSheet(c = null) {
     <label class="f"><span>Χρώμα</span><input type="color" name="color" value="${esc(c?.color || '#5b6b7a')}" style="height:44px;padding:4px"></label></div>
     <div data-prev style="background:#fff;padding:10px;border-radius:12px;margin-bottom:12px;max-width:260px"></div>
     <label class="f"><span>Ποιανού είναι</span><div class="chips" data-who>${people.map((p) => `<button type="button" class="chip ${p === who ? 'on' : ''}" data-val="${esc(p)}">${p === me() ? '👤' : '🧑'} ${esc(p)}</button>`).join('')}<button type="button" class="chip ${!who ? 'on' : ''}" data-val="">👥 Κοινή</button></div></label>
-    ${mine ? `<label class="row small" data-privf style="margin:-4px 2px 12px;gap:6px"><input type="checkbox" name="priv" style="width:auto" ${priv ? 'checked' : ''}> <span>🔒 Μόνο εγώ (δεν φτάνει καθόλου στον άλλο)</span></label>` : ''}
+    <div class="small muted" data-whotxt style="margin:-6px 2px 12px"></div>
+    <label class="f"><span>Εικονίδιο</span><div class="row" style="gap:8px;flex-wrap:wrap"><div data-iconprev></div>
+      <label class="btn sm" style="width:auto">🖼 Εικόνα<input type="file" accept="image/*" data-iconfile hidden></label>
+      <input data-emo value="${esc(emo || '')}" placeholder="ή emoji 🏋️" maxlength="4" style="width:110px">
+      <button type="button" class="btn sm ghost" data-iconx style="width:auto">✕ Χωρίς</button></div></label>
     <label class="f"><span>📌 Συντόμευση στο κινητό</span><div class="seg" data-pin>${[0, 1, 2, 3, 4].map((n) => `<button type="button" data-val="${n}" class="${n === pin ? 'on' : ''}">${n ? `📌 ${n}` : '—'}</button>`).join('')}</div></label>
     <div class="small muted" style="margin:-6px 2px 12px">Πατάς παρατεταμένα το εικονίδιο του Splinefy → «Κάρτα ${pin || 'N'}» → σύρ' την στην οθόνη. Ανοίγει κατευθείαν αυτή η κάρτα. Κάθε άτομο έχει τις δικές του.</div>
     <label class="f"><span>Σημείωση</span><input name="note" value="${esc(c?.note || '')}" placeholder="π.χ. PIN, ισχύει ως…"></label>
@@ -61,7 +67,12 @@ function editSheet(c = null) {
     const prev = () => { fmt = qq('fmt').value; const v = qq('code').value.trim(); const box = el.querySelector('[data-prev]');
       if (!v) { box.innerHTML = '<div class="small muted">Εδώ θα δεις τον κωδικό</div>'; return; }
       try { box.innerHTML = B.svg(v, fmt); } catch (e) { box.innerHTML = `<div class="small" style="color:var(--red)">${esc(e.message)}</div>`; } };
-    const privVis = () => { const f = el.querySelector('[data-privf]'); if (f) f.hidden = who !== me(); };
+    const privVis = () => { el.querySelector('[data-whotxt]').textContent = !who ? 'Τη βλέπετε και οι δύο.' : who === me() ? (mine ? 'Μόνο εσύ — δεν φτάνει καθόλου στη συσκευή του άλλου.' : 'Δική σου.') : `Τη βλέπει ${who === 'Χαρά' ? 'η' : 'ο'} ${who}· εσύ τη βρίσκεις με το φίλτρο «🧑 ${who}».`; };
+    const iconPrev = () => { el.querySelector('[data-iconprev]').innerHTML = iconHtml({ icon, emo, name: qq('name').value || c?.name }, 40); };
+    iconPrev(); qq('name').addEventListener('input', iconPrev);
+    el.querySelector('[data-iconfile]').addEventListener('change', async (e) => { const f = e.target.files[0]; if (!f) return; const u = await K.tinyIcon(f); if (u) { icon = u; emo = null; el.querySelector('[data-emo]').value = ''; iconPrev(); } else ui.toast('Δεν διαβάστηκε η εικόνα'); });
+    el.querySelector('[data-emo]').addEventListener('input', (e) => { emo = e.target.value.trim() || null; if (emo) icon = null; iconPrev(); });
+    el.querySelector('[data-iconx]').addEventListener('click', () => { icon = null; emo = null; el.querySelector('[data-emo]').value = ''; iconPrev(); });
     qq('code').addEventListener('input', prev); qq('fmt').addEventListener('change', prev); prev(); privVis();
     el.querySelectorAll('[data-who] .chip').forEach((b) => b.addEventListener('click', () => { who = b.dataset.val; el.querySelectorAll('[data-who] .chip').forEach((x) => x.classList.toggle('on', x === b)); privVis(); }));
     el.querySelectorAll('[data-pin] button').forEach((b) => b.addEventListener('click', () => { pin = Number(b.dataset.val); el.querySelectorAll('[data-pin] button').forEach((x) => x.classList.toggle('on', x === b)); }));
@@ -70,10 +81,10 @@ function editSheet(c = null) {
     el.querySelector('[data-del]')?.addEventListener('click', async () => { if (!(await ui.confirm(`Διαγραφή «${c.name}»;`, 'Διαγραφή'))) return; await store.del(c._sp, c.id); close(); });
     el.querySelector('[data-ok]').onclick = async () => {
       const v = { name: qq('name').value.trim(), code: qq('code').value.trim(), fmt: qq('fmt').value, color: qq('color').value, note: qq('note').value.trim() || null,
-        who: who || null, star: qq('star').checked ? 1 : null, arch: qq('arch').checked ? 1 : null };
+        who: who || null, star: qq('star').checked ? 1 : null, arch: qq('arch').checked ? 1 : null, icon: icon || null, emo: emo || null };
       if (!v.name) { ui.toast('Γράψε όνομα'); return; } if (!v.code) { ui.toast('Γράψε τον κωδικό'); return; }
       try { B.svg(v.code, v.fmt); } catch (e) { ui.toast(e.message, 4000); return; }
-      const sp = who === me() && mine && qq('priv')?.checked ? mine : 'shared';
+      const sp = K.spaceFor(who || null);
       let id = c?.id;
       if (c && sp !== c._sp) id = await store.move(c._sp, sp, { ...c, ...v }); else id = await store.put(c?._sp || sp, c?.id || null, { type: 'card', ...v }) || c?.id;
       const fresh = K.all().find((x) => x.id === id); if (fresh && (K.pinOf(fresh) || 0) !== pin) await K.setPin(fresh, pin);
@@ -101,14 +112,13 @@ function importSheet(list) {
   const row = (c, i) => `<div class="item" style="display:block;${c.keep ? '' : 'opacity:.5'}"><div class="row"><input type="checkbox" data-keep="${i}" ${c.keep ? 'checked' : ''} style="width:auto">
       <span style="width:14px;height:14px;border-radius:4px;background:${esc(c.color || '#888')};display:inline-block"></span><b class="grow">${esc(c.name)}</b><span class="small muted">${c.arch ? 'αρχείο' : ''}</span></div>
     <div class="chips" style="margin-top:6px">${people.map((p) => `<button type="button" class="chip ${c.who === p ? 'on' : ''}" data-iw="${i}|${esc(p)}">${esc(p)}</button>`).join('')}<button type="button" class="chip ${!c.who ? 'on' : ''}" data-iw="${i}|">👥 Κοινή</button>
-    ${mine && c.who === me() ? `<button type="button" class="chip ${c.priv ? 'on' : ''}" data-ip="${i}">🔒 μόνο εγώ</button>` : ''}</div></div>`;
-  sheet(`<div class="mid">Εισαγωγή από Catima</div><div class="small muted" style="margin:4px 2px 10px">Βρέθηκαν ${list.length}. Διάλεξε ποιες θέλεις και ποιανού είναι (αλλάζει και αργότερα).</div>
+</div></div>`;
+  sheet(`<div class="mid">Εισαγωγή από Catima</div><div class="small muted" style="margin:4px 2px 10px">Βρέθηκαν ${list.length}. Διάλεξε ποιες θέλεις και ποιανού είναι (αλλάζει και αργότερα). Οι δικές σου μένουν μόνο σε σένα.</div>
     <div class="list" data-ilist>${list.map(row).join('')}</div><button class="btn primary" data-ok style="margin-top:10px">Εισαγωγή</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     const redraw = () => { el.querySelector('[data-ilist]').innerHTML = list.map(row).join(''); bind(); };
     const bind = () => {
       el.querySelectorAll('[data-keep]').forEach((b) => b.addEventListener('change', () => { list[b.dataset.keep].keep = b.checked; redraw(); }));
       el.querySelectorAll('[data-iw]').forEach((b) => b.addEventListener('click', () => { const [i, p] = b.dataset.iw.split('|'); list[i].who = p || null; if (p !== me()) list[i].priv = false; redraw(); }));
-      el.querySelectorAll('[data-ip]').forEach((b) => b.addEventListener('click', () => { const c = list[b.dataset.ip]; c.priv = !c.priv; redraw(); }));
     }; bind();
     el.querySelector('[data-no]').onclick = close;
     el.querySelector('[data-ok]').onclick = async () => { const n = await K.importCards(list); close(); ui.toast(`Μπήκαν ${n} κάρτες ✓`, 4000); };
@@ -119,7 +129,7 @@ export default {
   live: true, keepScroll: true,
   html(p) {
     const all = K.sorted();
-    const has = (c) => (show === 'mine' ? c.who === me() : show === 'shared' ? !c.who : show ? c.who === show : true);
+    const has = (c) => (show === 'mine' ? c.who === me() : show === 'shared' ? !c.who : show ? c.who === show : K.visible(c, show));
     const tok = K.nrm(q).split(/\s+/).filter(Boolean);
     const l = all.filter((c) => has(c) && (!tok.length || tok.every((t) => K.nrm(`${c.name} ${c.note || ''} ${c.who || 'κοινη'}`).includes(t))));
     const act = l.filter((c) => !c.arch), arch = l.filter((c) => c.arch);
@@ -134,6 +144,7 @@ export default {
   },
   mount(root, p, u) {
     ui = u;
+    if (!fixed) { fixed = true; K.fixPrivate().then((n) => { if (n) u.toast(`${n} δικές σου κάρτες πήγαν στον προσωπικό σου χώρο — δεν τις βλέπει πια ο άλλος`, 5000); }); }
     root.querySelector('[data-back]').addEventListener('click', () => u.go('#/apps'));
     root.querySelector('[data-new]').addEventListener('click', () => editSheet());
     root.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => { const c = K.all().find((x) => x.id === b.dataset.c); if (c) showCard(c); }));
