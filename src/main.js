@@ -183,6 +183,29 @@ async function start() {
   const seenNow = () => { try { localStorage.setItem('lastSeen', String(Date.now())); } catch (_) { /* */ } };
   seenNow(); setInterval(() => { if (document.visibilityState === 'visible') seenNow(); }, 30000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') seenNow(); else if (Date.now() - Number(localStorage.getItem('lastSeen') || 0) > 10 * 60000 && location.hash !== '#/' && !/^#\/cards\//.test(location.hash) && !FORM.test(location.hash) && !document.querySelector('.sheet-bg')) location.hash = '#/'; else seenNow(); });
+  // σύρσιμο αριστερά/δεξιά: επόμενη/προηγούμενη καρτέλα (Υγεία, Γυμναστική, Κατοικίδιο, Εργασίες…) ή ενότητα (Μαθήματα, Γραφείο)
+  let sw0 = null;
+  const noSwipe = (el) => {
+    if (document.querySelector('.sheet-bg')) return true;                                  // ανοιχτό φύλλο
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      if (n.matches?.('input, textarea, select, [data-sw], svg, .chart, #nav, #subnav')) return true;
+      const cs = getComputedStyle(n); if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && n.scrollWidth > n.clientWidth + 4) return true;   // πίνακες, γραμμές καρτελών
+    }
+    return false;
+  };
+  document.addEventListener('touchstart', (e) => { const t = e.touches[0]; sw0 = e.touches.length === 1 && !noSwipe(e.target) ? { x: t.clientX, y: t.clientY, t: Date.now() } : null; }, { passive: true });
+  document.addEventListener('touchend', (e) => {
+    if (!sw0) return; const t = e.changedTouches[0]; const dx = t.clientX - sw0.x, dy = t.clientY - sw0.y, dt = Date.now() - sw0.t; sw0 = null;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || dt > 700) return;
+    const dir = dx < 0 ? 1 : -1;                                                            // ← = επόμενη
+    const tabs = app.querySelector('[data-tabs]');
+    if (tabs) { const bs = [...tabs.querySelectorAll('button')].filter((b) => b.offsetParent); const i = bs.findIndex((b) => b.classList.contains('on')); const nb = bs[i + dir]; if (i >= 0 && nb) nb.click(); return; }
+    const sub = document.getElementById('subnav'); if (!sub) return;
+    const m = location.hash.match(/^#\/(\w+)/); if (!m) return;
+    const links = [`#/${m[1]}`, ...[...sub.querySelectorAll('a')].map((a) => a.getAttribute('href'))];
+    const on = sub.querySelector('a.on'); const i = on ? links.indexOf(on.getAttribute('href')) : location.hash.replace(/\/$/, '') === `#/${m[1]}` ? 0 : -1;
+    if (i >= 0 && links[i + dir]) ui.go(links[i + dir]);
+  }, { passive: true });
   window.addEventListener('hashchange', () => { try { if (!FORM.test(location.hash)) localStorage.setItem('lastHash', location.hash); } catch (_) { /* */ } document.querySelectorAll('.sheet-bg').forEach((e) => e.remove()); render(); });
   let lastV = store.state.version;
   store.on((v) => {
