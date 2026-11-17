@@ -47,8 +47,8 @@ const home = {
     <div class="grid2">
       <div class="card kpi"><div class="label">Μου χρωστάνε</div><div class="big ${owed > 0.005 ? 'neg' : ''}">${eur(owed)}</div>
         <div class="small">${sums.filter((x) => x.bal > 0.005).sort((a, b) => b.bal - a.bal).map((x) => `${esc(L.label(x.s))} <b>${eur(x.bal)}</b>`).join('<br>')}</div></div>
-      <div class="card kpi" data-go="#/lessons/stats"><div class="label">${MONTHS[Number(m.slice(5)) - 1]}: μαθήματα που έγιναν</div><div class="big">${eur(done)}</div>
-        <div class="small muted">αξία, όχι πληρωμές${plan - done > 0.004 ? ` · με όσα έρχονται: ${eur(plan)}` : ''}</div></div>
+      <div class="card kpi" data-go="#/lessons/stats"><div class="label">${MONTHS[Number(m.slice(5)) - 1]}: μαθήματα που έχουν γίνει ήδη</div><div class="big">${eur(done)}</div>
+        ${plan - done > 0.004 ? `<div class="small muted">με όσα έρχονται: ${eur(plan)}</div>` : ''}</div>
     </div>
     ${notesCard()}${gcalCard()}
     <div class="grid3 quick" style="margin-bottom:12px">

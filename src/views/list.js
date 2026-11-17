@@ -55,8 +55,7 @@ export default {
       <div><div class="small muted">Έσοδα</div><b class="pos">${eur(inc)}</b></div>
       <div><div class="small muted">Έξοδα</div><b class="neg">${eur(exp)}</b></div>
       <div><div class="small muted">Διαφορά</div><b class="${inc - exp < 0 ? 'neg' : 'pos'}">${eur(inc - exp)}</b></div></div>
-    ${sav > 0.004 ? `<div class="small" style="margin:-2px 2px 6px">📈 Επιπλέον <b>${eur(sav)}</b> σε επενδύσεις / αποταμίευση — δεν μετράνε στα έξοδα, όπως στην αρχική και στα Στατιστικά</div>` : ''}
-    <div class="small muted" style="margin:0 2px 6px">${note} · ${list.length} κινήσεις${q ? ` με «${esc(q)}»` : ''}${extra && view !== 'all' ? ` · ${extra} ακόμα στις «Όλες»` : ''}</div>
+    ${q ? `<div class="small muted" style="margin:0 2px 6px">${list.length} κινήσεις με «${esc(q)}»</div>` : ''}
     ${q && rng && rng[0] > '2000' && days > 6 && (exp || inc) ? `<div class="small" style="margin:-2px 2px 8px">≈ <b>${eur(((exp || inc) / days) * 30.44)}</b> τον μήνα (${days} μέρες)</div>` : ''}
     <div class="list">${html || '<div class="item muted">Καμία κίνηση</div>'}</div>
     ${elsewhere.length ? `<h2 style="margin-top:14px">Πληρώθηκαν τώρα, μετράνε σε άλλον μήνα</h2><div class="small muted" style="margin:-4px 2px 6px">Δεν είναι στα σύνολα αυτού του μήνα — άλλαξέ το από «Αφορά μήνα» αν είναι λάθος.</div>

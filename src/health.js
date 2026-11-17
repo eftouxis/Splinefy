@@ -6,7 +6,7 @@ import { provider } from './sync.js';
 import { parseISO, today } from './util.js';
 
 export const SP = 'shared';
-// ενήλικες («🧑 Εγώ»): το προφίλ και ό,τι το αφορά μένουν στον προσωπικό χώρο — δεν φτάνουν καν στη συσκευή του άλλου
+// όλα τα προφίλ (παιδιά και ενήλικες) στον κοινό χώρο — τα βλέπετε και οι δύο. SPS: διαβάζει και τον προσωπικό, για όσα είχαν μπει εκεί πριν
 export const mySp = () => store.state.spaces.find((s) => s.owner === store.state.user && s.members.length === 1)?.id || null;
 export const SPS = () => [SP, mySp()].filter(Boolean);
 export const DOC_DIR = 'Υγεία Φιλίππου';
@@ -130,6 +130,22 @@ const mine = (type, c = cur()) => store.records(type, SPS()).filter((r) => child
 /** πού γράφονται οι εγγραφές του (κοινός χώρος για τα παιδιά, προσωπικός για «Εγώ») */
 export const spOf = (c = cur()) => profiles().find((p) => p.id === c)?._sp || SP;
 export const isAdult = (c = cur()) => !!profiles().find((p) => p.id === c)?.adult;
+/** ό,τι είχε μπει στον προσωπικό χώρο (παλιά «μόνο εγώ») → στον κοινό, για να το βλέπετε και οι δύο */
+export async function toShared() {
+  const me = mySp(); if (!me) return 0; let n = 0;
+  for (const t of ['hprofile', 'hlab', 'hvisit', 'hdoc', 'hlog', 'hvac', 'hguide']) for (const r of store.records(t, [me])) {
+    const { id, _t, _u, _m, _x, _sp, ...f } = r; await store.put(SP, id, f); await store.del(me, id, { quiet: true }); n++;   // ίδιο id: οι εξετάσεις μένουν δεμένες με το προφίλ
+  }
+  return n;
+}
+/** ένα προφίλ για κάθε ενήλικα του σπιτιού (Άλκης, Χαρά), αν λείπει */
+export async function ensureAdults() {
+  // μόνο για όποιον ανοίγει την εφαρμογή (ο άλλος φτιάχνει το δικό του στη δική του συσκευή) — να μη βγουν διπλά πριν τον συγχρονισμό
+  const mem = store.DEFAULT_SPACES.find((s) => s.id === SP)?.members || []; const me = store.state.user; const i = mem.indexOf(me);
+  if (i >= 0 && !profiles().some((p) => p.adult && firstName(p) === me)) await store.put(SP, `hprofile-m${i + 1}`, { type: 'hprofile', name: me, adult: 1 });
+}
+/** ημερομηνία → μήνες από το 2000 (για τα διαγράμματα των ενηλίκων: ο άξονας δείχνει χρονιές, όχι ηλικία) */
+export const m2000 = (s) => { const d = parseISO(s); return (d.getFullYear() - 2000) * 12 + d.getMonth() + (d.getDate() - 1) / 31; };
 export const profile = (c = cur()) => profiles().find((p) => p.id === c) || {};
 export const visits = (c) => mine('hvisit', c).sort(byD);
 export const labs = (c) => mine('hlab', c).sort(byD);
@@ -220,7 +236,7 @@ export function vacPending(c) {
 // Καμία δόση δεν είναι γραμμένη στον κώδικα: όλα τα νούμερα τα γράφει ο χρήστης.
 // Συμπτώματα (hguide): τίτλος, λέξεις-κλειδιά, κείμενο οδηγίας — εμφανίζονται όταν γράφεις σύμπτωμα που ταιριάζει.
 export const feverRules = () => store.records('hfever', [SP])[0] || null;
-export const guides = () => store.records('hguide', [SP]).sort((a, b) => String(a.title).localeCompare(b.title));
+export const guides = (c = cur()) => store.records('hguide', SPS()).filter((g) => childOf(g) === c).sort((a, b) => String(a.title).localeCompare(b.title));
 export function latestWeight(c) { const g = growth(c).filter((x) => x.w != null).pop(); return g ? { w: Number(g.w), d: g.d } : null; }
 const r1 = (x) => Math.round(x * 10) / 10;
 /** dose of one drug for weight w (kg): {ml, mg, how} or null when the rule is incomplete */
@@ -278,13 +294,13 @@ export async function importFile(file) {
   const j = JSON.parse(await file.text());
   const recs = (j.records || []).filter((r) => r && r.id && TYPES.includes(r.type));
   if (j.splinefy !== 'health' || !recs.length) throw new Error('Δεν είναι αρχείο ιστορικού υγείας.');
-  // «Εγώ» (adult: προφίλ με priv) → στον προσωπικό χώρο, μαζί με όλες τις εγγραφές του
-  const mine2 = mySp(); const priv = new Set(recs.filter((r) => r.type === 'hprofile' && r.priv && mine2).map((r) => r.id));
-  const isPriv = (r) => (r.type === 'hprofile' ? priv.has(r.id) : priv.has(r.child || FIRST));
-  const pub = recs.filter((r) => !isPriv(r)), own = recs.filter(isPriv);
-  if (pub.length) await store.putMany(SP, pub.map(({ id, ...set }) => ({ id, set })));        // fixed ids: importing twice does not duplicate
-  if (own.length) await store.putMany(mine2, own.map(({ id, priv: _p, ...set }) => ({ id, set })));
-  if (priv.size) setCur([...priv][0]);
+  // ενήλικας που υπάρχει ήδη με το ίδιο όνομα (π.χ. φτιάχτηκε μόνος του): οι εγγραφές πάνε σε εκείνον
+  const map = {};
+  for (const r of recs) if (r.type === 'hprofile' && r.adult) { const ex = profiles().find((p) => p.adult && p.id !== r.id && firstName(p) === firstName(r)); if (ex) map[r.id] = ex.id; }
+  const out = recs.filter((r) => !(r.type === 'hprofile' && map[r.id])).map(({ priv: _p, ...r }) => (r.child && map[r.child] ? { ...r, child: map[r.child] } : r));
+  await store.putMany(SP, out.map(({ id, ...set }) => ({ id, set })));        // fixed ids: importing twice does not duplicate
+  const ad = out.find((r) => r.type === 'hprofile' && r.adult) || recs.find((r) => r.type === 'hprofile' && map[r.id]);
+  if (ad) setCur(map[ad.id] || ad.id);
   return recs.length;
 }
 

@@ -6,9 +6,11 @@ import { sheet } from './lessons/ui.js';
 import { rxSheet } from './meds.js';
 import { parseRx } from '../meds.js';
 
+const TABS_ADULT = [['sum', 'Σύνοψη'], ['log', 'Ημερολόγιο'], ['hist', 'Ιστορικό'], ['labs', 'Εξετάσεις'], ['guides', 'Οδηγίες γιατρού'], ['docs', 'Έγγραφα']];
 const TABS = [['sum', 'Σύνοψη'], ['log', 'Ημερολόγιο'], ['hist', 'Ιστορικό'], ['labs', 'Εξετάσεις'], ['vac', 'Εμβόλια'], ['growth', 'Ανάπτυξη'], ['docs', 'Έγγραφα']];
-let q = '', kindF = '', logF = 'health';
-const C = () => ({ child: H.cur() === H.FIRST ? null : H.cur() });   // new records: which child (the first child's records carry no child field, as before)
+let q = '', kindF = '', logF = 'health', labView = 'cards', migrated = false;
+const C = () => ({ child: H.cur() === H.FIRST ? null : H.cur() });
+const DR = () => (H.isAdult() ? 'γιατρού' : 'παιδιάτρου');   // «Οδηγίες γιατρού» στους ενήλικες   // new records: which child (the first child's records carry no child field, as before)
 let TOK = [];
 const dec = (x) => (x == null ? '' : String(x).replace('.', ','));
 
@@ -25,7 +27,7 @@ function hl(text) {
 }
 
 // ---------- chart ----------
-export function chart(pts, ref = {}) {
+export function chart(pts, ref = {}, years = false) {
   if (pts.length < 2) return '';
   const W = 640, Ht = 200, pl = 40, pr = 12, pt = 12, pb = 26;
   const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
@@ -36,8 +38,10 @@ export function chart(pts, ref = {}) {
   let s = `<svg class="chart" viewBox="0 0 ${W} ${Ht}">`;
   if (ref.lo != null || ref.hi != null) { const a = Y(ref.hi ?? y1), b = Y(ref.lo ?? y0); s += `<rect class="h-band" x="${pl}" y="${Math.min(a, b)}" width="${W - pl - pr}" height="${Math.abs(b - a)}"/>`; }
   for (let k = 0; k <= 4; k++) { const v = y0 + ((y1 - y0) * k) / 4; s += `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ax" x="${pl - 5}" y="${Y(v) + 4}" text-anchor="end">${+v.toFixed(v < 10 || y1 - y0 < 5 ? 1 : 0)}</text>`; }
+  const MN = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μάι', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ'];
+  if (years) { const st2 = x1 - x0 > 20 ? 12 : 3; for (let m = Math.ceil(x0 / st2) * st2; m <= x1; m += st2) s += `<text class="ax" x="${X(m)}" y="${Ht - 7}" text-anchor="middle">${st2 === 12 ? 2000 + m / 12 : `${MN[m % 12]} ${String(2000 + Math.floor(m / 12)).slice(2)}`}</text>`; }
   const st = x1 - x0 > 30 ? 6 : x1 - x0 > 8 ? 3 : 1;
-  for (let m = Math.ceil(x0 / st) * st; m <= x1; m += st) s += `<text class="ax" x="${X(m)}" y="${Ht - 7}" text-anchor="middle">${m >= 12 ? (m % 12 ? `${Math.floor(m / 12)}ε${m % 12}μ` : `${m / 12}ε`) : `${m}μ`}</text>`;
+  if (!years) for (let m = Math.ceil(x0 / st) * st; m <= x1; m += st) s += `<text class="ax" x="${X(m)}" y="${Ht - 7}" text-anchor="middle">${m >= 12 ? (m % 12 ? `${Math.floor(m / 12)}ε${m % 12}μ` : `${m / 12}ε`) : `${m}μ`}</text>`;
   s += `<polyline class="h-ln" points="${pts.map((p) => `${X(p.x)},${Y(p.y)}`).join(' ')}"/>`;
   pts.forEach((p) => { s += `<circle class="h-pt ${p.f || ''}" cx="${X(p.x)}" cy="${Y(p.y)}" r="4"><title>${esc(p.t)}</title></circle>`; });
   return s + '</svg>';
@@ -59,14 +63,14 @@ function visitRow(v) {
   </div>`;
 }
 function trend(key, withChart = true) {
-  const rs = H.results().filter((r) => r.key === key).sort((a, b) => (a.lab.d < b.lab.d ? -1 : 1));
+  const rs = H.results().filter((r) => r.key === key).sort((a, b) => (a.lab.d < b.lab.d ? -1 : 1)); const ad = H.isAdult();
   const sc = (r) => { const n = H.num(r.value); return r.unit.startsWith('/') && n > 1000 ? n / 1000 : n; };
-  const pts = rs.filter((r) => !isNaN(H.num(r.value))).map((r) => ({ x: H.monthsAt(r.lab.d), y: sc(r), f: r.flag, t: `${dFull(r.lab.d)}: ${r.value} ${r.unit}` }));
+  const pts = rs.filter((r) => !isNaN(H.num(r.value))).map((r) => ({ x: ad ? H.m2000(r.lab.d) : H.monthsAt(r.lab.d), y: sc(r), f: r.flag, t: `${dFull(r.lab.d)}: ${r.value} ${r.unit}` }));
   const last = [...rs].reverse().find((r) => r.ref);
-  return `${withChart ? chart(pts, last ? H.parseRef(last.ref) : {}) : ''}
-  <div style="overflow-x:auto"><table class="t" style="font-size:13.5px"><tr><th>Ημ/νία</th><th>Ηλικία</th><th>Τιμή</th><th>Όρια</th></tr>
-  ${rs.map((r) => `<tr class="click" data-lab="${esc(r.lab.d)}"><td>${dFull(r.lab.d)}</td><td class="muted">${H.ageAt(r.lab.d)}</td><td class="h-${r.flag}">${esc(r.value)} <span class="small muted">${esc(r.unit)}</span></td><td class="small muted">${esc(r.ref)}</td></tr>`).join('')}</table></div>
-  ${withChart && pts.length > 1 ? '<div class="small muted" style="margin-top:6px">Πράσινη ζώνη: τα όρια της πιο πρόσφατης εξέτασης (αλλάζουν με την ηλικία).</div>' : ''}`;
+  return `${withChart ? chart(pts, last ? H.parseRef(last.ref) : {}, ad) : ''}
+  <div style="overflow-x:auto"><table class="t" style="font-size:13.5px"><tr><th>Ημ/νία</th>${ad ? '' : '<th>Ηλικία</th>'}<th>Τιμή</th><th>Όρια</th></tr>
+  ${[...rs].reverse().map((r) => `<tr class="click" data-lab="${esc(r.lab.d)}"><td>${dFull(r.lab.d)}</td>${ad ? '' : `<td class="muted">${H.ageAt(r.lab.d)}</td>`}<td class="h-${r.flag}">${esc(r.value)} <span class="small muted">${esc(r.unit)}</span></td><td class="small muted">${esc(r.ref)}</td></tr>`).join('')}</table></div>
+  `;
 }
 function vacTable(list) {
   const t = today();
@@ -108,7 +112,7 @@ function logSheet(k, x = null) {
       ${x?.guide ? '' : `<label class="row" style="gap:8px;margin:0 2px 12px"><input type="checkbox" name="mkg" checked style="width:auto"> <span class="small">Κράτα το ως οδηγία παιδιάτρου για την επόμενη φορά</span></label>`}
       <div data-gm></div>` : ''}
     ${x && k === 'temp' ? '<button class="btn" data-adv>💡 Τι λένε οι οδηγίες γι\' αυτή τη θερμοκρασία</button>' : ''}
-    ${x && ['sym', 'visit', 'note'].includes(k) && x.text ? '<button class="btn" data-mkguide>📋 Κάνε το οδηγία παιδιάτρου</button>' : ''}
+    ${x && ['sym', 'visit', 'note'].includes(k) && x.text ? `<button class="btn" data-mkguide>📋 Κάνε το οδηγία ${DR()}</button>` : ''}
     <button class="btn primary" data-ok>Αποθήκευση</button>${x ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     const g = (n) => el.querySelector(`[name=${n}]`)?.value.trim() ?? ''; const nv = (n) => { const v = H.num(g(n)); return isNaN(v) ? null : v; };
     const ti = el.querySelector('[name=title]');
@@ -130,12 +134,12 @@ function logSheet(k, x = null) {
       if (k === 'temp' && rec.val == null) { ui.toast('Γράψε θερμοκρασία'); return; }
       if (!rec.title && !rec.text && rec.val == null && k !== 'growth') { ui.toast('Γράψε κάτι'); return; }
       const id = await store.put(H.spOf(), x?.id || null, { ...(x ? {} : C()), ...rec }); close();
-      if (!x && k === 'temp') { adviceSheet({ ...rec, id }); return; }
+      if (!x && k === 'temp' && !H.isAdult()) { adviceSheet({ ...rec, id }); return; }
       if (k === 'sym' && rec.dr) {
         const child = x ? H.childOf(x) : H.cur();
         if (el.querySelector('[name=mkg]')?.checked) {   // 3. keep it as an instruction for next time
           const keys = [...new Set(H.norm(rec.title || '').split(/[^a-zα-ω]+/).filter((w) => w.length >= 4).map((w) => w.slice(0, Math.max(4, w.length - 2))))].join(', ');
-          const gid = await store.put(H.SP, null, { type: 'hguide', title: rec.title || 'Οδηγία', keys: keys || null, text: rec.dr, src: `${H.firstName(H.profile(child))}, ${dFull(rec.t.slice(0, 10))}` });
+          const gid = await store.put(H.spOf(), null, { ...C(), type: 'hguide', title: rec.title || 'Οδηγία', keys: keys || null, text: rec.dr, src: `${H.firstName(H.profile(child))}, ${dFull(rec.t.slice(0, 10))}` });
           await store.put(H.spOf(), id, { guide: gid });
         }
         if (!x || x.dr !== rec.dr) {                      // 2. the medicines → Φάρμακα, with the reminder (preview, times and notification in the next screen)
@@ -143,7 +147,7 @@ function logSheet(k, x = null) {
         }
         ui.toast('Αποθηκεύτηκε ✓'); return;
       }
-      if (!x && k === 'sym' && H.guidesFor(`${rec.title || ''} ${rec.text || ''}`).length) { info('📋 Οδηγίες παιδιάτρου', H.guidesFor(`${rec.title || ''} ${rec.text || ''}`).map(guideCard).join('')); return; }
+      if (!x && k === 'sym' && H.guidesFor(`${rec.title || ''} ${rec.text || ''}`).length) { info(`📋 Οδηγίες ${DR()}`, H.guidesFor(`${rec.title || ''} ${rec.text || ''}`).map(guideCard).join('')); return; }
       ui.toast('Αποθηκεύτηκε ✓');
     };
     setTimeout(() => el.querySelector(k === 'temp' ? '[name=val]' : '[name=title]')?.focus(), 50);
@@ -217,7 +221,7 @@ function feverSheet() {
 }
 function guideSheet(g = null, pre = {}) {
   const v = g || pre;
-  sheet(`<div class="mid">📋 ${g ? 'Οδηγία παιδιάτρου' : 'Νέα οδηγία παιδιάτρου'}</div>
+  sheet(`<div class="mid">📋 ${g ? `Οδηγία ${DR()}` : `Νέα οδηγία ${DR()}`}</div>
     <label class="f" style="margin-top:10px"><span>Για τι (π.χ. Λαρυγγίτιδα)</span><input name="title" value="${esc(v.title || '')}"></label>
     <label class="f"><span>Λέξεις που τη φέρνουν (,) — π.χ. βήχας, λαρυγγ, κρουπ</span><input name="keys" value="${esc(v.keys || '')}"></label>
     <label class="f"><span>Τι είπε η παιδίατρος</span><textarea name="text" rows="7">${esc(v.text || '')}</textarea></label>
@@ -228,14 +232,14 @@ function guideSheet(g = null, pre = {}) {
     el.querySelector('[data-del]')?.addEventListener('click', async () => { if (await ui.confirm(`Διαγραφή «${esc(g.title)}»;`, 'Διαγραφή')) { await store.del(H.SP, g.id); close(); } });
     el.querySelector('[data-ok]').onclick = async () => {
       if (!val('title') || !val('text')) { ui.toast('Γράψε τίτλο και οδηγία'); return; }
-      await store.put(H.SP, g?.id || null, { type: 'hguide', title: val('title'), keys: val('keys'), text: val('text'), src: val('src') }); close(); ui.toast('Αποθηκεύτηκε ✓');
+      await store.put(g?._sp || H.spOf(), g?.id || null, { ...(g ? {} : C()), type: 'hguide', title: val('title'), keys: val('keys'), text: val('text'), src: val('src') }); close(); ui.toast('Αποθηκεύτηκε ✓');
     };
   });
 }
 function guidesSheet() {
   const P = H.feverRules(); const w = H.latestWeight();
   const doses = (P?.drugs || []).map((d) => { const x = H.doseFor(d, w?.w); return `${esc(d.name)}: ${x ? `<b>${dec(x.ml)} ml</b>` : '—'}${d.everyH ? ` · κάθε ${esc(d.everyH)}ω` : ''}`; }).join('<br>');
-  sheet(`<div class="row"><div class="mid grow">📋 Οδηγίες παιδιάτρου</div><button class="btn sm ghost" data-x style="width:auto;margin:0">✕</button></div>
+  sheet(`<div class="row"><div class="mid grow">📋 Οδηγίες ${DR()}</div><button class="btn sm ghost" data-x style="width:auto;margin:0">✕</button></div>
     <div class="card" style="margin-top:10px"><div class="row"><b class="grow">🌡️ Πυρετός</b><button class="btn sm" data-fe style="width:auto;margin:0">${P ? '✎' : '+ Γράψε'}</button></div>
     ${P ? `<div class="small" style="margin-top:6px">Αντιπυρετικό από ${esc(P.threshold)}°C${P.crossH ? ` · ${esc(P.drugs?.[0]?.name || '')} ↔ ${esc(P.drugs?.[1]?.name || '')}: διαφορά ${esc(P.crossH)}ω` : ''}</div>
       <div class="small" style="margin-top:6px">${esc(H.firstName(H.profile()))}${w ? ` (${dec(w.w)} kg, ${dFull(w.d)})` : ' (χωρίς βάρος)'}:<br>${doses}</div>` : '<div class="small muted" style="margin-top:6px">Δεν έχουν γραφτεί ακόμα.</div>'}</div>
@@ -249,7 +253,44 @@ function guidesSheet() {
 }
 
 // ---------- tabs ----------
+// εξετάσεις σε κάρτες: ανά κατηγορία, τελευταία τιμή (χρώμα αν είναι εκτός), μικρό διάγραμμα, προηγούμενη τιμή
+function spark(vals) {
+  const v = vals.filter((x) => !isNaN(x)); if (v.length < 2) return '';
+  const W = 74, Hh = 22, lo = Math.min(...v), hi = Math.max(...v), k = hi - lo || 1;
+  const pts = v.map((y, i) => `${(i / (v.length - 1)) * (W - 4) + 2},${Hh - 2 - ((y - lo) / k) * (Hh - 4)}`).join(' ');
+  return `<svg width="${W}" height="${Hh}" viewBox="0 0 ${W} ${Hh}" style="display:block"><polyline points="${pts}" fill="none" stroke="var(--teal)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="${pts.split(' ').pop().split(',')[0]}" cy="${pts.split(' ').pop().split(',')[1]}" r="2.6" fill="var(--teal)"/></svg>`;
+}
+function labCards(res, dates) {
+  const last = H.labs()[0]; const keys = [...new Set(res.map((r) => r.key))];
+  const groups = [...H.GROUPS, ...new Set(keys.filter((k) => !H.ANALYTES[k]).map(H.aGroup))];
+  const out = res.filter((r) => r.lab.d === dates[0] && r.flag);
+  let h = `<div class="card"><div class="row"><div class="grow"><b>Τελευταίες: ${dFull(dates[0])}</b><div class="small muted">${esc(last?.place || '')} · ${dates.length} ${dates.length === 1 ? 'φορά' : 'φορές'} συνολικά</div></div>
+    <button class="btn sm" data-lab="${dates[0]}" style="width:auto">Όλο το φύλλο</button></div>
+    ${out.length ? `<div class="row wrap" style="gap:6px;margin-top:8px">${out.map((r) => `<button class="h-pill h-${r.flag === 'hi' ? 'red' : 'blue'}" data-trend="${esc(r.key)}" style="border:0;cursor:pointer">${esc(H.aName(r.key).replace(/\s*\(.*\)/, ''))} ${r.flag === 'hi' ? '↑' : '↓'}</button>`).join('')}</div>` : '<div class="small" style="margin-top:6px;color:var(--green)">✓ Όλα μέσα στα όρια</div>'}</div>`;
+  for (const g of groups) {
+    const ks = keys.filter((k) => H.aGroup(k) === g).sort((a, b) => Object.keys(H.ANALYTES).indexOf(a) - Object.keys(H.ANALYTES).indexOf(b)); if (!ks.length) continue;
+    h += `<h2>${esc(g)}</h2><div class="list">`;
+    for (const k of ks) {
+      const rs = res.filter((x) => x.key === k).sort((a, b) => (a.lab.d < b.lab.d ? -1 : 1)); const L = rs[rs.length - 1], P = rs[rs.length - 2];
+      const n = (r) => H.num(r?.value); const d = P && !isNaN(n(L)) && !isNaN(n(P)) ? n(L) - n(P) : null;
+      h += `<div class="item click" data-trend="${esc(k)}" style="gap:10px">
+        <div class="grow" style="min-width:0"><div class="t" style="white-space:normal">${esc(H.aName(k))}</div>
+          <div class="s">${L.lab.d !== dates[0] ? `${dFull(L.lab.d)} · ` : ''}${L.ref ? `όρια ${esc(L.ref)}` : ''}${P ? ` · πριν ${esc(P.value)}` : ''}</div></div>
+        ${spark(rs.map(n))}
+        <div style="text-align:right;min-width:78px"><b class="h-${L.flag}" style="font-size:16px">${esc(String(L.value).length > 16 ? String(L.value).slice(0, 16) + '…' : L.value)}${L.flag === 'hi' ? ' ↑' : L.flag === 'lo' ? ' ↓' : ''}</b>
+          <div class="small muted">${esc(L.unit)}${d ? ` <span style="color:var(--muted)">${d > 0 ? '▲' : '▼'}</span>` : ''}</div></div></div>`;
+    }
+    h += '</div>';
+  }
+  return h;
+}
 const TAB = {
+  guides() {
+    const gs = H.guides();
+    return `${gs.length ? `<div class="list">${gs.map((g) => `<div class="item click" data-gid="${esc(g.id)}" style="align-items:flex-start"><div class="grow"><div class="t" style="white-space:normal">📋 ${esc(g.title)}</div>
+      <div class="s" style="white-space:pre-wrap">${esc(g.text || '')}</div>${g.src ? `<div class="small muted" style="margin-top:3px">${esc(g.src)}</div>` : ''}</div></div>`).join('')}</div>`
+      : '<div class="card muted center">Εδώ μπαίνουν οι οδηγίες του γιατρού (δόσεις, τι να προσέχεις, πότε ο επόμενος έλεγχος). Πάτα «+ Οδηγία».</div>'}`;
+  },
   sum() {
     const p = H.profile(), pend = H.vacPending(), late = pend.filter((x) => x.st !== 'fut'), next = pend.find((x) => x.st === 'fut');
     const g = H.growth(), gw = [...g].reverse().find((x) => x.w != null), gh = [...g].reverse().find((x) => x.h != null);
@@ -257,7 +298,7 @@ const TAB = {
     const ill = H.visits().filter((v) => v.kind === 'Νόσος').slice(0, 8);
     const fev = H.lastFever(), recent = H.logs().filter((x) => H.LOGK[x.k]?.[2]).slice(0, 4);
     const diary = `<div class="card"><div class="row"><b class="grow">Ημερολόγιο</b><button class="h-lnk" data-gotab="log">όλο ›</button></div>
-      <div class="row wrap" style="gap:6px;margin-top:8px">${QUICK.map(([k, l]) => `<button class="chip" data-newlog="${k}">${H.LOGK[k][0]} ${l}</button>`).join('')}<button class="chip" data-guides>📋 Οδηγίες παιδιάτρου</button></div>
+      <div class="row wrap" style="gap:6px;margin-top:8px">${QUICK.map(([k, l]) => `<button class="chip" data-newlog="${k}">${H.LOGK[k][0]} ${l}</button>`).join('')}<button class="chip" data-guides>📋 Οδηγίες ${DR()}</button></div>
       ${fev ? `<div class="small" style="margin-top:10px"><b>Τελευταίος πυρετός:</b> ${dFull(fev.day)} · έως ${dec(fev.max)}°C${fev.meds.length ? ` · ${esc(fev.meds.join(', '))}` : ''}</div>` : ''}
       ${recent.length ? `<div style="margin-top:6px">${recent.map((x) => `<div class="small muted" style="margin-top:3px">${dFull(x.t.slice(0, 10))} ${x.t.slice(11, 16)} · ${H.LOGK[x.k][0]} ${esc(logLine(x))}</div>`).join('')}</div>` : ''}</div>`;
     return `${diary}<div class="card"><div class="row"><b class="grow">Στοιχεία</b><button class="btn sm ghost" data-prof style="width:auto">✎</button></div>
@@ -305,8 +346,10 @@ const TAB = {
   },
   labs() {
     const res = H.results(); const dates = [...new Set(H.labs().map((l) => l.d))].sort().reverse();
-    let h = `<div class="small muted" style="margin:0 2px 8px">Πάτα μια εξέταση για την πορεία της ή μια ημερομηνία για όλο το φύλλο. ↑ ↓ = εκτός ορίων.</div>
-      <div class="card" style="padding:0;overflow:auto;max-height:72vh"><table class="t h-mx"><tr><th>Εξέταση</th>${dates.map((d) => `<th><button class="h-lnk" data-lab="${d}">${dFull(d)}</button><br><span class="muted" style="font-weight:400">${H.ageAt(d)}</span></th>`).join('')}</tr>`;
+    if (!dates.length) return '<div class="card muted center">Καμία εξέταση ακόμα.</div>';
+    const sw = `<div class="row" style="gap:6px;margin:0 0 10px"><div class="seg grow" style="margin:0"><button data-labv="cards" class="${labView === 'cards' ? 'on' : ''}">Κάρτες</button><button data-labv="table" class="${labView === 'table' ? 'on' : ''}">Πίνακας</button></div></div>`;
+    if (labView === 'cards') return sw + labCards(res, dates);
+    let h = `${sw}<div class="card" style="padding:0;overflow:auto;max-height:72vh"><table class="t h-mx" style="width:auto"><tr><th>Εξέταση</th>${dates.map((d) => `<th><button class="h-lnk" data-lab="${d}">${dFull(d)}</button><br><span class="muted" style="font-weight:400">${H.ageAt(d)}</span></th>`).join('')}</tr>`;
     const keys = [...new Set(res.map((r) => r.key))];
     const groups = [...H.GROUPS, ...new Set(keys.filter((k) => !H.ANALYTES[k]).map(H.aGroup))];
     for (const g of groups) {
@@ -502,7 +545,7 @@ function profSheet(isNew = false, adult0 = false) {
   const p = isNew ? {} : H.profile(); const adult = isNew ? adult0 : !!p.adult; const F = [['name', 'Όνομα'], ['birth', 'Γέννηση', 'date'], ['blood', 'Ομάδα αίματος'], ['pediatrician', 'Παιδίατρος'], ['allergies', 'Αλλεργίες'], ['birthInfo', 'Τοκετός']];
   const vacs = H.vaccines(H.FIRST);
   const FF = adult ? F.filter(([k]) => k !== 'birthInfo').map((f) => (f[0] === 'pediatrician' ? ['pediatrician', 'Γιατρός (π.χ. παθολόγος, ενδοκρινολόγος)'] : f)) : F;
-  sheet(`<div class="mid">${isNew ? (adult ? '🧑 Δικές μου εξετάσεις' : '👶 Νέο παιδί') : 'Στοιχεία'}</div>${isNew && adult ? '<div class="small muted" style="margin:4px 2px 0">Μόνο εσύ τα βλέπεις — μένουν στον προσωπικό σου χώρο και δεν φτάνουν στον άλλο.</div>' : ''}<div style="margin-top:10px">${FF.map(([k, l, t]) => `<label class="f"><span>${l}</span><input name="${k}" ${t ? `type="${t}"` : ''} value="${esc(p[k] || '')}"></label>`).join('')}</div>
+  sheet(`<div class="mid">${isNew ? (adult ? '🧑 Νέος ενήλικας' : '👶 Νέο παιδί') : 'Στοιχεία'}</div><div style="margin-top:10px">${FF.map(([k, l, t]) => `<label class="f"><span>${l}</span><input name="${k}" ${t ? `type="${t}"` : ''} value="${esc(p[k] || '')}"></label>`).join('')}</div>
     ${isNew && !adult && vacs.length ? `<label class="row" style="gap:8px;margin:0 2px 12px"><input type="checkbox" name="cpv" checked style="width:auto"> <span class="small">Με τη λίστα εμβολίων (κενή, χωρίς δόσεις)</span></label>` : ''}
     ${isNew ? `<div class="small muted" style="margin:0 2px 10px">Τα έγγραφά του πάνε στον φάκελο «Υγεία &lt;όνομα&gt;» του OneDrive.</div>` : ''}
     <button class="btn primary" data-ok>Αποθήκευση</button>${!isNew && H.cur() !== H.FIRST ? `<button class="btn" data-del style="color:var(--red)">${adult ? 'Διαγραφή προφίλ' : 'Διαγραφή παιδιού'}</button>` : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
@@ -517,7 +560,7 @@ function profSheet(isNew = false, adult0 = false) {
       if (isNew && !vals.name) { ui.toast('Γράψε όνομα'); return; }
       if (!isNew) { await store.put(H.spOf(), p.id || H.FIRST, { type: 'hprofile', ...vals }); close(); return; }
       const nid = (H.profiles().length ? 'hprofile-' + Date.now().toString(36) : H.FIRST);
-      const nsp = adult && H.mySp() ? H.mySp() : H.SP;
+      const nsp = H.SP;   // όλα τα προφίλ στον κοινό χώρο
       H.setCur(nid); await store.put(nsp, nid, { type: 'hprofile', ...vals, ...(adult ? { adult: 1 } : {}) });
       if (el.querySelector('[name=cpv]')?.checked) await store.putMany(H.SP, vacs.map((v, i) => ({ id: `${nid}-x${i}`, set: { type: 'hvac', child: nid === H.FIRST ? null : nid, ord: v.ord ?? i, disease: v.disease, tags: v.tags || null, note: null, doses: [] } })));
       H.setCur(nid); close(); ui.toast(adult ? 'Έτοιμο ✓ — πρόσθεσε εξετάσεις' : 'Νέο παιδί ✓');
@@ -547,23 +590,23 @@ export function healthBadge() { const n = H.profiles().reduce((a, p) => a + H.va
 export default {
   live: true, keepScroll: true,
   html(p) {
-    const tab = TABS.some(([k]) => k === p[0]) ? p[0] : 'sum';
+    const TB = H.isAdult() ? TABS_ADULT : TABS.filter(([k]) => k !== 'growth' || !H.isAdult()); const tab = TB.some(([k]) => k === p[0]) ? p[0] : 'sum';
     if (!H.hasData()) {
       return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>🩺 Υγεία παιδιών</h1></div>
         <div class="card"><b>Ημερολόγιο & βιβλιάριο υγείας</b><div class="small muted" style="margin:6px 0 10px">Πυρετός, φάρμακα, συμπτώματα, επισκέψεις, εξετάσεις, εμβόλια, ανάπτυξη και έγγραφα — με αναζήτηση σε όλα, κοινά για τους δύο. Αν έχεις αρχείο ιστορικού (.json), εισήγαγέ το εδώ· αλλιώς ξεκίνα με τα στοιχεία του παιδιού.</div>
         <label class="btn primary" style="width:100%">📥 Εισαγωγή ιστορικού (.json)<input type="file" accept=".json,application/json" data-seed hidden></label>
         <button class="btn" data-newchild style="width:100%;margin-top:8px">👶 Νέο παιδί</button>${H.mySp() ? '<button class="btn" data-newme style="width:100%;margin-top:8px">🧑 Δικές μου εξετάσεις</button>' : ''}</div>`;
     }
-    const add = { log: ['data-newlog="note"', '+ Καταχώριση'], hist: ['data-newv', '+ Επίσκεψη'], labs: ['data-newl', '+ Εξετάσεις'], vac: ['data-newx', '+ Εμβόλιο'], docs: ['data-newd', '+ Έγγραφο'], growth: ['data-newlog="growth"', '+ Μέτρηση'], sum: ['data-newv', '+ Νέο'] }[tab];
+    const add = { guides: ['data-newg', '+ Οδηγία'], log: ['data-newlog="note"', '+ Καταχώριση'], hist: ['data-newv', '+ Επίσκεψη'], labs: ['data-newl', '+ Εξετάσεις'], vac: ['data-newx', '+ Εμβόλιο'], docs: ['data-newd', '+ Έγγραφο'], growth: ['data-newlog="growth"', '+ Μέτρηση'], sum: ['data-newv', '+ Νέο'] }[tab];
     const ps = H.profiles();
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>🩺 ${esc(H.appTitle())}</h1><button class="btn sm primary" ${add[0]} style="width:auto">${add[1]}</button></div>
-      <div class="chips" style="margin:0 0 8px">${ps.length > 1 ? ps.map((c) => `<button class="chip ${c.id === H.cur() ? 'on' : ''}" data-child="${esc(c.id)}">${c.adult ? '🧑' : '👶'} ${esc(H.firstName(c) || '—')}</button>`).join('') : ''}${ps.some((c) => c.adult && c._sp !== H.SP) || !H.mySp() ? '' : '<button class="chip" data-newme>+ 🧑 Δικές μου εξετάσεις</button>'}</div>
+      <div class="chips" style="margin:0 0 8px">${ps.length > 1 ? ps.map((c) => `<button class="chip ${c.id === H.cur() ? 'on' : ''}" data-child="${esc(c.id)}">${c.adult ? '🧑' : '👶'} ${esc(H.firstName(c) || '—')}</button>`).join('') : ''}</div>
       <div class="h-search"><input data-q value="${esc(q)}" placeholder="Αναζήτηση: ${esc([...H.quick(3), (H.visits()[0]?.d || today()).slice(0, 4)].join(', '))}…" autocomplete="off" enterkeyhint="search">${q ? '<button data-qx>✕</button>' : ''}</div>
-      <div class="tabs" data-tabs ${q ? 'style="opacity:.5"' : ''}>${TABS.filter(([k]) => !(H.isAdult() && k === 'growth')).map(([k, l]) => `<button class="${!q && k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+      <div class="tabs" data-tabs ${q ? 'style="opacity:.5"' : ''}>${TB.map(([k, l]) => `<button class="${!q && k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
       <div data-body>${q ? search() : ((TOK = []), TAB[tab]())}</div>`;
   },
   mount(root, p, u) {
-    ui = u; const tab = TABS.some(([k]) => k === p[0]) ? p[0] : 'sum';
+    ui = u; const TB = H.isAdult() ? TABS_ADULT : TABS.filter(([k]) => k !== 'growth' || !H.isAdult()); const tab = TB.some(([k]) => k === p[0]) ? p[0] : 'sum';
     root.querySelector('[data-back]')?.addEventListener('click', () => (q ? ((q = ''), u.render()) : u.go('#/apps')));
     root.querySelector('[data-seed]')?.addEventListener('change', async (e) => { try { const n = await H.importFile(e.target.files[0]); u.toast(`Φορτώθηκαν ${n} εγγραφές ✓`, 4000); } catch (er) { u.toast(er.message, 4000); } });
     if (!body0(root)) { root.querySelector('[data-newchild]')?.addEventListener('click', () => profSheet(true)); root.querySelector('[data-newme]')?.addEventListener('click', () => profSheet(true, true)); return; }
@@ -582,6 +625,8 @@ export default {
     root.querySelector('[data-newv]')?.addEventListener('click', () => visitSheet());
     root.querySelector('[data-newl]')?.addEventListener('click', () => labSheet());
     root.querySelector('[data-newx]')?.addEventListener('click', () => vacSheet());
+    root.querySelector('[data-newg]')?.addEventListener('click', () => guideSheet());
+    if (!migrated) { migrated = true; H.toShared().then(() => H.ensureAdults()); }
     root.querySelector('[data-newd]')?.addEventListener('click', () => docSheet());
     const bindAll = () => {
       bindBody(body);
@@ -590,6 +635,8 @@ export default {
       body.querySelector('[data-prof]')?.addEventListener('click', () => profSheet());
       body.querySelectorAll('[data-newchild]').forEach((b) => b.addEventListener('click', () => profSheet(true)));
       body.querySelector('[data-imp]')?.addEventListener('change', async (e) => { try { const n = await H.importFile(e.target.files[0]); u.toast(`Φορτώθηκαν ${n} εγγραφές ✓`, 4000); } catch (er) { u.toast(er.message, 4000); } });
+      body.querySelectorAll('[data-labv]').forEach((b) => b.addEventListener('click', () => { labView = b.dataset.labv; u.render(); }));
+      body.querySelectorAll('[data-gid]').forEach((b) => b.addEventListener('click', () => guideSheet(H.guides().find((g) => g.id === b.dataset.gid))));
       body.querySelectorAll('[data-logf]').forEach((b) => b.addEventListener('click', () => { logF = b.dataset.logf; u.render(); }));
       body.querySelectorAll('[data-gotab]').forEach((b) => b.addEventListener('click', () => u.go(`#/health/${b.dataset.gotab}`)));
       body.querySelector('[data-newlogx]')?.addEventListener('change', (e) => { if (e.target.value) logSheet(e.target.value); e.target.value = ''; });
