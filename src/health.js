@@ -6,6 +6,9 @@ import { provider } from './sync.js';
 import { parseISO, today } from './util.js';
 
 export const SP = 'shared';
+// ενήλικες («🧑 Εγώ»): το προφίλ και ό,τι το αφορά μένουν στον προσωπικό χώρο — δεν φτάνουν καν στη συσκευή του άλλου
+export const mySp = () => store.state.spaces.find((s) => s.owner === store.state.user && s.members.length === 1)?.id || null;
+export const SPS = () => [SP, mySp()].filter(Boolean);
 export const DOC_DIR = 'Υγεία Φιλίππου';
 export const KINDS = ['Νόσος', 'Εμβολιασμός', 'Έλεγχος', 'Συνταγή', 'Παραπεμπτικό', 'Βεβαίωση', 'Νοσηλεία'];
 export const ANALYTES = {"rbc":["Ερυθρά αιμοσφαίρια (RBC)","Γενική αίματος","ερυθρα rbc"],
@@ -47,6 +50,29 @@ export const ANALYTES = {"rbc":["Ερυθρά αιμοσφαίρια (RBC)","Γ�
   "crp":["CRP","Φλεγμονή","crp c αντιδρωσα πρωτεινη φλεγμονη"],
   "tsh":["TSH","Θυρεοειδής","tsh θυρεοειδης θυρεοτροπος"],
   "vitd":["Βιταμίνη D (25-OH)","Βιταμίνες","βιταμινη d vit d 25 oh"],
+  "glu":["Σάκχαρο (γλυκόζη)", "Μεταβολικά", "σακχαρο γλυκοζη glu glucose"],
+  "hba1c":["Γλυκοζυλιωμένη αιμοσφαιρίνη (HbA1c)", "Μεταβολικά", "hba1c γλυκοζυλιωμενη a1c σακχαρο"],
+  "uric":["Ουρικό οξύ", "Βιοχημικές", "ουρικο οξυ uric"],
+  "chol":["Χοληστερόλη ολική", "Λιπίδια", "χοληστερολη chol λιπιδια"],
+  "tg":["Τριγλυκερίδια", "Λιπίδια", "τριγλυκεριδια tg λιπιδια"],
+  "hdl":["HDL χοληστερόλη", "Λιπίδια", "hdl καλη χοληστερολη λιπιδια"],
+  "ldl":["LDL χοληστερόλη", "Λιπίδια", "ldl κακη χοληστερολη λιπιδια"],
+  "cholhdl":["Αθηρωματικός δείκτης (CHOL/HDL)", "Λιπίδια", "αθηρωματικος δεικτης chol hdl"],
+  "ck":["Κινάση κρεατίνης (CK)", "Βιοχημικές", "ck cpk κιναση κρεατινης μυες"],
+  "hcy":["Ομοκυστεΐνη", "Βιοχημικές", "ομοκυστεινη homocysteine hcy"],
+  "b12":["Βιταμίνη B12", "Βιταμίνες", "b12 βιταμινη κοβαλαμινη"],
+  "fol":["Φυλλικό οξύ", "Βιταμίνες", "φυλλικο οξυ folate folic"],
+  "zn":["Ψευδάργυρος (Zn)", "Βιοχημικές", "ψευδαργυρος zn zinc"],
+  "ft3":["FT3 (ελεύθερη τριιωδοθυρονίνη)", "Θυρεοειδής", "ft3 τριιωδοθυρονινη θυρεοειδης"],
+  "ft4":["FT4 (ελεύθερη θυροξίνη)", "Θυρεοειδής", "ft4 θυροξινη t4 θυρεοειδης"],
+  "antitg":["Anti-TG", "Θυρεοειδής", "anti tg αντιθυρεοσφαιρινικα θυρεοειδης"],
+  "antitpo":["Anti-TPO", "Θυρεοειδής", "anti tpo αντιθυρεοειδικα θυρεοειδης hashimoto"],
+  "testo":["Τεστοστερόνη", "Ορμόνες", "τεστοστερονη testosterone"],
+  "pth":["Παραθορμόνη (PTH)", "Ορμόνες", "pth παραθορμονη παραθυρεοειδης"],
+  "esr":["ΤΚΕ", "Φλεγμονή", "τκε esr ταχυτητα καθιζησης"],
+  "rf":["Ρευματοειδής παράγων (RF)", "Ανοσολογικές", "rf ρευματοειδης παραγων"],
+  "ana":["Αντιπυρηνικά αντισώματα (ANA)", "Ανοσολογικές", "ana αντιπυρηνικα αντισωματα αυτοανοσα"],
+  "psa":["PSA (ειδικό προστατικό αντιγόνο)", "Δείκτες", "psa προστατης"],
   "ige":["Ανοσοσφαιρίνη E (IgE) ολική","Αλλεργία","ige ανοσοσφαιρινη αλλεργια"],
   "a_g2":["g2 Bermuda grass (αγρωστώδη)","Αλλεργία","αλλεργια αλλεργιογονα γρασιδι grass bermuda"],
   "a_w19":["w19 Περιτάρια (Parietaria)","Αλλεργία","αλλεργια αλλεργιογονα περιταρια parietaria"],
@@ -94,22 +120,25 @@ const byD = (a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
 // ---- children ----
 export const FIRST = 'hprofile';
 export const childOf = (r) => r?.child || FIRST;
-export const profiles = () => store.records('hprofile', [SP]).sort((a, b) => (a.id === FIRST ? -1 : b.id === FIRST ? 1 : String(a.birth || '') < String(b.birth || '') ? -1 : 1));
+export const profiles = () => store.records('hprofile', SPS()).sort((a, b) => (a.id === FIRST ? -1 : b.id === FIRST ? 1 : String(a.birth || '') < String(b.birth || '') ? -1 : 1));
 let curId = null;
 try { curId = localStorage.getItem('health.child'); } catch {}
 export function cur() { const ps = profiles(); return ps.some((p) => p.id === curId) ? curId : ps[0]?.id || FIRST; }
 export function setCur(id) { curId = id; try { localStorage.setItem('health.child', id); } catch {} }
 export const firstName = (p) => String(p?.name || '').trim().split(/\s+/)[0] || '';
-const mine = (type, c = cur()) => store.records(type, [SP]).filter((r) => childOf(r) === c);
+const mine = (type, c = cur()) => store.records(type, SPS()).filter((r) => childOf(r) === c);
+/** πού γράφονται οι εγγραφές του (κοινός χώρος για τα παιδιά, προσωπικός για «Εγώ») */
+export const spOf = (c = cur()) => profiles().find((p) => p.id === c)?._sp || SP;
+export const isAdult = (c = cur()) => !!profiles().find((p) => p.id === c)?.adult;
 export const profile = (c = cur()) => profiles().find((p) => p.id === c) || {};
 export const visits = (c) => mine('hvisit', c).sort(byD);
 export const labs = (c) => mine('hlab', c).sort(byD);
 export const vaccines = (c) => mine('hvac', c).sort((a, b) => (a.ord ?? 99) - (b.ord ?? 99) || String(a.disease).localeCompare(b.disease));
 export const docs = (c) => mine('hdoc', c).sort(byD);
 export const logs = (c) => mine('hlog', c).sort((a, b) => (a.t < b.t ? 1 : a.t > b.t ? -1 : 0));
-export const hasData = () => profiles().length > 0 || store.records('hvisit', [SP]).length + store.records('hlab', [SP]).length + store.records('hvac', [SP]).length > 0;
+export const hasData = () => profiles().length > 0 || store.records('hvisit', SPS()).length + store.records('hlab', SPS()).length + store.records('hvac', SPS()).length > 0;
 /** title of the app: one child → «Υγεία · Φίλιππος», more → «Υγεία παιδιών» */
-export const appTitle = () => (profiles().length > 1 ? 'Υγεία παιδιών' : firstName(profiles()[0]) ? `Υγεία · ${firstName(profiles()[0])}` : 'Υγεία παιδιών');
+export const appTitle = () => (profiles().some((p) => p.adult) ? 'Υγεία' : profiles().length > 1 ? 'Υγεία παιδιών' : firstName(profiles()[0]) ? `Υγεία · ${firstName(profiles()[0])}` : 'Υγεία παιδιών');
 
 // ---- diary (ημερολόγιο): kind → [icon, label, health?] ----
 export const LOGK = {
@@ -249,14 +278,20 @@ export async function importFile(file) {
   const j = JSON.parse(await file.text());
   const recs = (j.records || []).filter((r) => r && r.id && TYPES.includes(r.type));
   if (j.splinefy !== 'health' || !recs.length) throw new Error('Δεν είναι αρχείο ιστορικού υγείας.');
-  await store.putMany(SP, recs.map(({ id, ...set }) => ({ id, set })));        // fixed ids: importing twice does not duplicate
+  // «Εγώ» (adult: προφίλ με priv) → στον προσωπικό χώρο, μαζί με όλες τις εγγραφές του
+  const mine2 = mySp(); const priv = new Set(recs.filter((r) => r.type === 'hprofile' && r.priv && mine2).map((r) => r.id));
+  const isPriv = (r) => (r.type === 'hprofile' ? priv.has(r.id) : priv.has(r.child || FIRST));
+  const pub = recs.filter((r) => !isPriv(r)), own = recs.filter(isPriv);
+  if (pub.length) await store.putMany(SP, pub.map(({ id, ...set }) => ({ id, set })));        // fixed ids: importing twice does not duplicate
+  if (own.length) await store.putMany(mine2, own.map(({ id, priv: _p, ...set }) => ({ id, set })));
+  if (priv.size) setCur([...priv][0]);
   return recs.length;
 }
 
 // ---- files on OneDrive ----
 /** each child's documents folder: the first child's is «Υγεία Φιλίππου» (as it always was), the others «Υγεία <όνομα>» */
 export const docDir = (c = cur()) => profile(c).docDir || (c === FIRST ? DOC_DIR : `Υγεία ${firstName(profile(c)) || c}`);
-async function dir(c) { const P = provider(); return { P, f: await P.folder(store.spaceById(SP).folder + '/' + docDir(c)) }; }
+async function dir(c) { const P = provider(); return { P, f: await P.folder(store.spaceById(spOf(c)).folder + '/' + docDir(c)) }; }
 const cache = new Map();
 /** a Blob of the document's file (null if not on OneDrive yet) */
 export async function fileOf(doc) {

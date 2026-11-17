@@ -129,14 +129,14 @@ function logSheet(k, x = null) {
       if (k === 'growth') Object.assign(rec, { w: nv('w'), h: nv('h'), hc: nv('hc') });
       if (k === 'temp' && rec.val == null) { ui.toast('Γράψε θερμοκρασία'); return; }
       if (!rec.title && !rec.text && rec.val == null && k !== 'growth') { ui.toast('Γράψε κάτι'); return; }
-      const id = await store.put(H.SP, x?.id || null, { ...(x ? {} : C()), ...rec }); close();
+      const id = await store.put(H.spOf(), x?.id || null, { ...(x ? {} : C()), ...rec }); close();
       if (!x && k === 'temp') { adviceSheet({ ...rec, id }); return; }
       if (k === 'sym' && rec.dr) {
         const child = x ? H.childOf(x) : H.cur();
         if (el.querySelector('[name=mkg]')?.checked) {   // 3. keep it as an instruction for next time
           const keys = [...new Set(H.norm(rec.title || '').split(/[^a-zα-ω]+/).filter((w) => w.length >= 4).map((w) => w.slice(0, Math.max(4, w.length - 2))))].join(', ');
           const gid = await store.put(H.SP, null, { type: 'hguide', title: rec.title || 'Οδηγία', keys: keys || null, text: rec.dr, src: `${H.firstName(H.profile(child))}, ${dFull(rec.t.slice(0, 10))}` });
-          await store.put(H.SP, id, { guide: gid });
+          await store.put(H.spOf(), id, { guide: gid });
         }
         if (!x || x.dr !== rec.dr) {                      // 2. the medicines → Φάρμακα, with the reminder (preview, times and notification in the next screen)
           if (parseRx(rec.dr).length) { rxSheet(ui, { who: H.firstName(H.profile(child)) || null, text: rec.dr }); return; }
@@ -184,7 +184,7 @@ function adviceSheet(rec) {
     el.querySelector('[data-fe]')?.addEventListener('click', () => { close(); feverSheet(); });
     el.querySelector('[data-gave]')?.addEventListener('click', async () => {
       const r = rec.child ? { child: rec.child } : {};
-      await store.put(H.SP, null, { ...r, type: 'hlog', k: 'med', t: nowT(), title: a.drug.name, val: a.dose.ml, unit: 'ml', text: `Για πυρετό ${dec(rec.val)}°C (οδηγίες)` });
+      await store.put(H.spOf(), null, { ...r, type: 'hlog', k: 'med', t: nowT(), title: a.drug.name, val: a.dose.ml, unit: 'ml', text: `Για πυρετό ${dec(rec.val)}°C (οδηγίες)` });
       close(); ui.toast(`✓ ${a.drug.name} ${dec(a.dose.ml)} ml`);
     });
   });
@@ -387,7 +387,7 @@ function attachMount(el, ids, getDate, getTitle) {
   el.querySelector('[data-file]').onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return; const d = getDate() || today(); const title = getTitle() || f.name.replace(/\.\w+$/, '');
     ui.toast('Ανέβασμα στο OneDrive…', 6000);
-    try { const name = await H.upload(f, d, title); const id = await store.put(H.SP, null, { type: 'hdoc', d, title, file: name, mime: f.type || null, ...C() }); ids.push(id); draw(); ui.toast('Ανέβηκε ✓'); } catch (er) { ui.toast('Δεν ανέβηκε: ' + er.message, 4000); }
+    try { const name = await H.upload(f, d, title); const id = await store.put(H.spOf(), null, { type: 'hdoc', d, title, file: name, mime: f.type || null, ...C() }); ids.push(id); draw(); ui.toast('Ανέβηκε ✓'); } catch (er) { ui.toast('Δεν ανέβηκε: ' + er.message, 4000); }
   };
   draw();
 }
@@ -408,7 +408,7 @@ function visitSheet(v = null) {
     el.querySelector('[data-del]')?.addEventListener('click', async () => { if (await ui.confirm(`Διαγραφή «${esc(v.title)}»;`, 'Διαγραφή')) { await store.del(H.SP, v.id); close(); } });
     el.querySelector('[data-ok]').onclick = async () => {
       if (!g('title')) { ui.toast('Γράψε τίτλο'); return; }
-      await store.put(H.SP, v?.id || null, { ...(v ? {} : C()), type: 'hvisit', d: g('d') || today(), kind: g('kind'), title: g('title'), text: g('text') || null, meds: g('meds') ? g('meds').split('\n').map((s) => s.trim()).filter(Boolean) : null, w: nv('w'), h: nv('h'), hc: nv('hc'), docs });
+      await store.put(H.spOf(), v?.id || null, { ...(v ? {} : C()), type: 'hvisit', d: g('d') || today(), kind: g('kind'), title: g('title'), text: g('text') || null, meds: g('meds') ? g('meds').split('\n').map((s) => s.trim()).filter(Boolean) : null, w: nv('w'), h: nv('h'), hc: nv('hc'), docs });
       close(); ui.toast('Αποθηκεύτηκε ✓');
     };
   });
@@ -442,7 +442,7 @@ function labSheet(l = null) {
     el.querySelector('[data-ok]').onclick = async () => {
       read(); const out = rows.filter((r) => r[0] && r[1]).map((r) => [H.aKey(r[0]), r[1], r[2], r[3]]);
       if (!out.length) { ui.toast('Γράψε τουλάχιστον μία τιμή'); return; }
-      await store.put(H.SP, l?.id || null, { ...(l ? {} : C()), type: 'hlab', d: g('d') || today(), place: g('place') || '—', note: g('note') || null, rows: out, docs });
+      await store.put(H.spOf(), l?.id || null, { ...(l ? {} : C()), type: 'hlab', d: g('d') || today(), place: g('place') || '—', note: g('note') || null, rows: out, docs });
       document.querySelectorAll('.sheet-bg').forEach((x) => x.remove()); ui.toast('Αποθηκεύτηκε ✓');
     };
   });
@@ -471,7 +471,7 @@ function vacSheet(v = null) {
     el.querySelector('[data-ok]').onclick = async () => {
       read(); const disease = el.querySelector('[name=disease]').value.trim(); if (!disease) { ui.toast('Γράψε το εμβόλιο'); return; }
       const ds = doses.filter((d) => d.d || d.from); const done = ds.filter((d) => d.d).sort((a, b) => (a.d < b.d ? -1 : 1)), plan = ds.filter((d) => !d.d).sort((a, b) => (a.from < b.from ? -1 : 1));
-      await store.put(H.SP, v?.id || null, { ...(v ? {} : C()), type: 'hvac', disease, note: el.querySelector('[name=note]').value.trim() || null, doses: [...done, ...plan], ...(v ? {} : { ord: H.vaccines().length }) });
+      await store.put(H.spOf(), v?.id || null, { ...(v ? {} : C()), type: 'hvac', disease, note: el.querySelector('[name=note]').value.trim() || null, doses: [...done, ...plan], ...(v ? {} : { ord: H.vaccines().length }) });
       close(); ui.toast('Αποθηκεύτηκε ✓');
     };
   });
@@ -492,33 +492,35 @@ function docSheet(d = null) {
       try {
         let file = d?.file || null, mime = d?.mime || null;
         if (f) { file = await H.upload(f, dd, title, d?.file); mime = f.type || mime; }
-        await store.put(H.SP, d?.id || null, { type: 'hdoc', title, d: dd, file, mime, ...(d ? {} : C()) });
+        await store.put(H.spOf(), d?.id || null, { type: 'hdoc', title, d: dd, file, mime, ...(d ? {} : C()) });
         close(); ui.toast('Αποθηκεύτηκε ✓');
       } catch (er) { e.target.disabled = false; e.target.textContent = 'Αποθήκευση'; ui.toast('Δεν ανέβηκε: ' + er.message, 4000); }
     };
   });
 }
-function profSheet(isNew = false) {
-  const p = isNew ? {} : H.profile(); const F = [['name', 'Όνομα'], ['birth', 'Γέννηση', 'date'], ['blood', 'Ομάδα αίματος'], ['pediatrician', 'Παιδίατρος'], ['allergies', 'Αλλεργίες'], ['birthInfo', 'Τοκετός']];
+function profSheet(isNew = false, adult0 = false) {
+  const p = isNew ? {} : H.profile(); const adult = isNew ? adult0 : !!p.adult; const F = [['name', 'Όνομα'], ['birth', 'Γέννηση', 'date'], ['blood', 'Ομάδα αίματος'], ['pediatrician', 'Παιδίατρος'], ['allergies', 'Αλλεργίες'], ['birthInfo', 'Τοκετός']];
   const vacs = H.vaccines(H.FIRST);
-  sheet(`<div class="mid">${isNew ? '👶 Νέο παιδί' : 'Στοιχεία'}</div><div style="margin-top:10px">${F.map(([k, l, t]) => `<label class="f"><span>${l}</span><input name="${k}" ${t ? `type="${t}"` : ''} value="${esc(p[k] || '')}"></label>`).join('')}</div>
-    ${isNew && vacs.length ? `<label class="row" style="gap:8px;margin:0 2px 12px"><input type="checkbox" name="cpv" checked style="width:auto"> <span class="small">Με τη λίστα εμβολίων (κενή, χωρίς δόσεις)</span></label>` : ''}
+  const FF = adult ? F.filter(([k]) => k !== 'birthInfo').map((f) => (f[0] === 'pediatrician' ? ['pediatrician', 'Γιατρός (π.χ. παθολόγος, ενδοκρινολόγος)'] : f)) : F;
+  sheet(`<div class="mid">${isNew ? (adult ? '🧑 Δικές μου εξετάσεις' : '👶 Νέο παιδί') : 'Στοιχεία'}</div>${isNew && adult ? '<div class="small muted" style="margin:4px 2px 0">Μόνο εσύ τα βλέπεις — μένουν στον προσωπικό σου χώρο και δεν φτάνουν στον άλλο.</div>' : ''}<div style="margin-top:10px">${FF.map(([k, l, t]) => `<label class="f"><span>${l}</span><input name="${k}" ${t ? `type="${t}"` : ''} value="${esc(p[k] || '')}"></label>`).join('')}</div>
+    ${isNew && !adult && vacs.length ? `<label class="row" style="gap:8px;margin:0 2px 12px"><input type="checkbox" name="cpv" checked style="width:auto"> <span class="small">Με τη λίστα εμβολίων (κενή, χωρίς δόσεις)</span></label>` : ''}
     ${isNew ? `<div class="small muted" style="margin:0 2px 10px">Τα έγγραφά του πάνε στον φάκελο «Υγεία &lt;όνομα&gt;» του OneDrive.</div>` : ''}
-    <button class="btn primary" data-ok>Αποθήκευση</button>${!isNew && H.cur() !== H.FIRST ? '<button class="btn" data-del style="color:var(--red)">Διαγραφή παιδιού</button>' : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
+    <button class="btn primary" data-ok>Αποθήκευση</button>${!isNew && H.cur() !== H.FIRST ? `<button class="btn" data-del style="color:var(--red)">${adult ? 'Διαγραφή προφίλ' : 'Διαγραφή παιδιού'}</button>` : ''}<button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-no]').onclick = close;
     el.querySelector('[data-del]')?.addEventListener('click', async () => {
       if (!(await ui.confirm(`Διαγραφή του «${esc(p.name || '')}» και όλων των εγγραφών του;`, 'Διαγραφή'))) return;
-      const all = ['hvisit', 'hlab', 'hvac', 'hdoc', 'hlog'].flatMap((t) => store.records(t, [H.SP]).filter((r) => H.childOf(r) === p.id));
-      await store.putMany(H.SP, [...all.map((r) => ({ id: r.id, del: true })), { id: p.id, del: true }]); H.setCur(H.FIRST); close();
+      const all = ['hvisit', 'hlab', 'hvac', 'hdoc', 'hlog'].flatMap((t) => store.records(t, [p._sp || H.SP]).filter((r) => H.childOf(r) === p.id));
+      await store.putMany(p._sp || H.SP, [...all.map((r) => ({ id: r.id, del: true })), { id: p.id, del: true }]); H.setCur(H.FIRST); close();
     });
     el.querySelector('[data-ok]').onclick = async () => {
-      const vals = Object.fromEntries(F.map(([k]) => [k, el.querySelector(`[name=${k}]`).value.trim() || null]));
+      const vals = Object.fromEntries(FF.map(([k]) => [k, el.querySelector(`[name=${k}]`).value.trim() || null]));
       if (isNew && !vals.name) { ui.toast('Γράψε όνομα'); return; }
-      if (!isNew) { await store.put(H.SP, p.id || H.FIRST, { type: 'hprofile', ...vals }); close(); return; }
+      if (!isNew) { await store.put(H.spOf(), p.id || H.FIRST, { type: 'hprofile', ...vals }); close(); return; }
       const nid = (H.profiles().length ? 'hprofile-' + Date.now().toString(36) : H.FIRST);
-      H.setCur(nid); await store.put(H.SP, nid, { type: 'hprofile', ...vals });
+      const nsp = adult && H.mySp() ? H.mySp() : H.SP;
+      H.setCur(nid); await store.put(nsp, nid, { type: 'hprofile', ...vals, ...(adult ? { adult: 1 } : {}) });
       if (el.querySelector('[name=cpv]')?.checked) await store.putMany(H.SP, vacs.map((v, i) => ({ id: `${nid}-x${i}`, set: { type: 'hvac', child: nid === H.FIRST ? null : nid, ord: v.ord ?? i, disease: v.disease, tags: v.tags || null, note: null, doses: [] } })));
-      H.setCur(nid); close(); ui.toast('Νέο παιδί ✓');
+      H.setCur(nid); close(); ui.toast(adult ? 'Έτοιμο ✓ — πρόσθεσε εξετάσεις' : 'Νέο παιδί ✓');
     };
   });
 }
@@ -550,21 +552,22 @@ export default {
       return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>🩺 Υγεία παιδιών</h1></div>
         <div class="card"><b>Ημερολόγιο & βιβλιάριο υγείας</b><div class="small muted" style="margin:6px 0 10px">Πυρετός, φάρμακα, συμπτώματα, επισκέψεις, εξετάσεις, εμβόλια, ανάπτυξη και έγγραφα — με αναζήτηση σε όλα, κοινά για τους δύο. Αν έχεις αρχείο ιστορικού (.json), εισήγαγέ το εδώ· αλλιώς ξεκίνα με τα στοιχεία του παιδιού.</div>
         <label class="btn primary" style="width:100%">📥 Εισαγωγή ιστορικού (.json)<input type="file" accept=".json,application/json" data-seed hidden></label>
-        <button class="btn" data-newchild style="width:100%;margin-top:8px">👶 Νέο παιδί</button></div>`;
+        <button class="btn" data-newchild style="width:100%;margin-top:8px">👶 Νέο παιδί</button>${H.mySp() ? '<button class="btn" data-newme style="width:100%;margin-top:8px">🧑 Δικές μου εξετάσεις</button>' : ''}</div>`;
     }
     const add = { log: ['data-newlog="note"', '+ Καταχώριση'], hist: ['data-newv', '+ Επίσκεψη'], labs: ['data-newl', '+ Εξετάσεις'], vac: ['data-newx', '+ Εμβόλιο'], docs: ['data-newd', '+ Έγγραφο'], growth: ['data-newlog="growth"', '+ Μέτρηση'], sum: ['data-newv', '+ Νέο'] }[tab];
     const ps = H.profiles();
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>🩺 ${esc(H.appTitle())}</h1><button class="btn sm primary" ${add[0]} style="width:auto">${add[1]}</button></div>
-      ${ps.length > 1 ? `<div class="chips" style="margin:0 0 8px">${ps.map((c) => `<button class="chip ${c.id === H.cur() ? 'on' : ''}" data-child="${esc(c.id)}">👶 ${esc(H.firstName(c) || '—')}</button>`).join('')}</div>` : ''}
+      <div class="chips" style="margin:0 0 8px">${ps.length > 1 ? ps.map((c) => `<button class="chip ${c.id === H.cur() ? 'on' : ''}" data-child="${esc(c.id)}">${c.adult ? '🧑' : '👶'} ${esc(H.firstName(c) || '—')}</button>`).join('') : ''}${ps.some((c) => c.adult && c._sp !== H.SP) || !H.mySp() ? '' : '<button class="chip" data-newme>+ 🧑 Δικές μου εξετάσεις</button>'}</div>
       <div class="h-search"><input data-q value="${esc(q)}" placeholder="Αναζήτηση: ${esc([...H.quick(3), (H.visits()[0]?.d || today()).slice(0, 4)].join(', '))}…" autocomplete="off" enterkeyhint="search">${q ? '<button data-qx>✕</button>' : ''}</div>
-      <div class="tabs" data-tabs ${q ? 'style="opacity:.5"' : ''}>${TABS.map(([k, l]) => `<button class="${!q && k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
+      <div class="tabs" data-tabs ${q ? 'style="opacity:.5"' : ''}>${TABS.filter(([k]) => !(H.isAdult() && k === 'growth')).map(([k, l]) => `<button class="${!q && k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
       <div data-body>${q ? search() : ((TOK = []), TAB[tab]())}</div>`;
   },
   mount(root, p, u) {
     ui = u; const tab = TABS.some(([k]) => k === p[0]) ? p[0] : 'sum';
     root.querySelector('[data-back]')?.addEventListener('click', () => (q ? ((q = ''), u.render()) : u.go('#/apps')));
     root.querySelector('[data-seed]')?.addEventListener('change', async (e) => { try { const n = await H.importFile(e.target.files[0]); u.toast(`Φορτώθηκαν ${n} εγγραφές ✓`, 4000); } catch (er) { u.toast(er.message, 4000); } });
-    if (!body0(root)) { root.querySelector('[data-newchild]')?.addEventListener('click', () => profSheet(true)); return; }
+    if (!body0(root)) { root.querySelector('[data-newchild]')?.addEventListener('click', () => profSheet(true)); root.querySelector('[data-newme]')?.addEventListener('click', () => profSheet(true, true)); return; }
+    root.querySelector('[data-newme]')?.addEventListener('click', () => profSheet(true, true));
     root.querySelectorAll('[data-child]').forEach((b) => b.addEventListener('click', () => { H.setCur(b.dataset.child); u.render(); }));
     root.querySelector('.top [data-newlog]')?.addEventListener('click', (e) => { e.stopPropagation(); logSheet(e.currentTarget.dataset.newlog || 'note'); });
     const body = root.querySelector('[data-body]');

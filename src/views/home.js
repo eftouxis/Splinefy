@@ -89,7 +89,7 @@ export default {
     </div>
     ${LS.hasLessons() ? lessonsCard(lessonSum) : ''}
     <h2>Τελευταίες κινήσεις</h2>
-    <div class="list">${recent.map((r) => itemHtml(r, { showDate: true, today: t })).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>
+    <div class="list">${recent.map((r) => (r.stu ? itemHtml(r, { showDate: true, today: t }).replace(/data-edit="[^"]*"/, `data-stu="${esc(r.stu)}"`) : itemHtml(r, { showDate: true, today: t }))).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>
     <div class="center" style="margin-top:10px"><a class="btn sm" href="#/list">Όλες οι κινήσεις ›</a></div>
     <h2>Έρχονται τις επόμενες 14 μέρες</h2>
     <div class="list">${up.length ? up.map((r) => itemHtml(r, { showDate: true, today: t })).join('') : '<div class="item muted">Τίποτα</div>'}</div>`;
@@ -112,6 +112,7 @@ export default {
     root.querySelector('[data-seen]')?.addEventListener('click', async (e) => { e.stopPropagation(); await setSeen(SEEN, today()); ui.render(); });
     root.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => ui.go(b.dataset.go)));
     bindNotes(root, ui); bindTicks(root, ui); bindMeds(root, ui);
+    root.querySelectorAll('[data-stu]').forEach((el) => el.addEventListener('click', () => ui.go(`#/lessons/s/${el.dataset.stu}`)));   // πληρωμή μαθήματος → η καρτέλα του μαθητή
     bindEdit(root, ui);
   },
 };
