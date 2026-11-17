@@ -303,15 +303,16 @@ const TAB = {
       ${recent.length ? `<div style="margin-top:6px">${recent.map((x) => `<div class="small muted" style="margin-top:3px">${dFull(x.t.slice(0, 10))} ${x.t.slice(11, 16)} · ${H.LOGK[x.k][0]} ${esc(logLine(x))}</div>`).join('')}</div>` : ''}</div>`;
     return `${diary}<div class="card"><div class="row"><b class="grow">Στοιχεία</b><button class="btn sm ghost" data-prof style="width:auto">✎</button></div>
       <table class="t" style="font-size:13.5px;margin-top:4px">
-        <tr><td class="muted">Γέννηση</td><td>${p.birth ? `${dFull(p.birth)} (${H.ageAt(today())})` : '–'}${p.name ? ` · ${esc(p.name)}` : ''}</td></tr>
+        ${p.name ? `<tr><td class="muted">Όνομα</td><td>${esc(p.name)}</td></tr>` : ''}
+        ${p.birth ? `<tr><td class="muted">Γέννηση</td><td>${dFull(p.birth)} (${H.ageAt(today())})</td></tr>` : ''}
         ${p.blood ? `<tr><td class="muted">Ομάδα αίματος</td><td>${esc(p.blood)}</td></tr>` : ''}
-        ${p.pediatrician ? `<tr><td class="muted">Παιδίατρος</td><td>${esc(p.pediatrician)}</td></tr>` : ''}
+        ${p.pediatrician ? `<tr><td class="muted">${H.isAdult() ? 'Γιατρός' : 'Παιδίατρος'}</td><td>${esc(p.pediatrician)}</td></tr>` : ''}
         ${p.allergies ? `<tr><td class="muted">Αλλεργίες</td><td>${esc(p.allergies)}</td></tr>` : ''}
         ${gw ? `<tr><td class="muted">Βάρος</td><td>${dec(gw.w)} kg <span class="small muted">(${dFull(gw.d)})</span></td></tr>` : ''}
         ${gh ? `<tr><td class="muted">Ύψος</td><td>${dec(gh.h)} cm <span class="small muted">(${dFull(gh.d)})</span></td></tr>` : ''}
         ${p.birthInfo ? `<tr><td class="muted">Τοκετός</td><td class="small">${esc(p.birthInfo)}</td></tr>` : ''}
       </table>
-      <div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn sm" data-newchild style="width:auto;margin:0">👶 + Παιδί</button>
+      <div class="row wrap" style="gap:8px;margin-top:10px">
       <label class="btn sm" style="width:auto;margin:0">📥 Εισαγωγή (.json)<input type="file" accept=".json,application/json" data-imp hidden></label></div></div>
     ${late.length || next ? `<div class="card"><b>Εμβόλια</b>${late.map((x) => `<div class="row" style="margin-top:8px;align-items:flex-start"><span class="h-dot ${x.st}"></span><div class="grow"><b>${esc(x.v.disease)} — ${esc(x.d.b || '')}</b><div class="small muted">${x.st === 'late' ? 'Έληξε το διάστημα' : 'Τώρα'} ${dFull(x.d.from)} – ${dFull(x.d.to)}${x.st === 'late' ? ' — δεν έχει καταγραφεί δόση' : ''}</div></div></div>`).join('')}
       ${next ? `<div class="row" style="margin-top:8px;align-items:flex-start"><span class="h-dot fut"></span><div class="grow"><b>Επόμενο: ${esc(next.v.disease)}</b><div class="small muted">${esc(next.d.b || '')} · ${dFull(next.d.from)} – ${dFull(next.d.to)}</div></div></div>` : ''}</div>` : ''}
@@ -321,20 +322,28 @@ const TAB = {
     ${(() => { const qc = H.quick(14); return qc.length ? `<div class="card"><b>Γρήγορη αναζήτηση</b><div class="chips" style="margin-top:8px">${qc.map((c) => `<button class="chip" data-q="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>` : ''; })()}`;
   },
   log() {
-    const L = H.logs().filter((x) => logF === 'all' || (logF === 'health' ? H.LOGK[x.k]?.[2] : !H.LOGK[x.k]?.[2]));
-    const days = new Map(); for (const x of L) { const d = x.t.slice(0, 10); if (!days.has(d)) days.set(d, []); days.get(d).push(x); }
-    const n = H.logs().filter((x) => !H.LOGK[x.k]?.[2]).length;
+    const ad = H.isAdult(); const lf = ad ? 'health' : logF;
+    const L = H.logs().filter((x) => lf === 'all' || (lf === 'health' ? H.LOGK[x.k]?.[2] : !H.LOGK[x.k]?.[2]));
+    const days = new Map(); const push = (d, x) => { if (!days.has(d)) days.set(d, []); days.get(d).push(x); };
+    for (const x of L) push(x.t.slice(0, 10), x);
+    // εξετάσεις και επισκέψεις μπαίνουν κι αυτές στη μέρα τους· πατάς και ανοίγουν
+    if (lf !== 'care') { for (const l of H.labs()) push(l.d, { _lab: l, t: `${l.d}T00:00` }); for (const v of H.visits()) push(v.d, { _visit: v, t: `${v.d}T00:01` }); }
+    for (const [d, xs] of days) xs.sort((a, b) => (a.t < b.t ? 1 : -1)); const ord = [...days.keys()].sort().reverse(); const days2 = new Map(ord.map((d) => [d, days.get(d)]));
+    const n = ad ? 0 : H.logs().filter((x) => !H.LOGK[x.k]?.[2]).length;
+    const KOK = ad ? Object.entries(H.LOGK).filter(([k, v]) => v[2] && k !== 'vacc') : Object.entries(H.LOGK);
     let h = `<div class="row wrap" style="gap:6px;margin-bottom:8px">${QUICK.map(([k, l]) => `<button class="btn sm" data-newlog="${k}" style="width:auto;margin:0">${H.LOGK[k][0]} ${l}</button>`).join('')}
       <button class="btn sm" data-guides style="width:auto;margin:0">📋 Οδηγίες</button>
-      <select data-newlogx style="width:auto;padding:6px 8px;font-size:13px"><option value="">+ Άλλο…</option>${Object.entries(H.LOGK).filter(([k]) => !QUICK.some(([q]) => q === k)).map(([k, [i, l]]) => `<option value="${k}">${i} ${l}</option>`).join('')}</select></div>
+      <select data-newlogx style="width:auto;padding:6px 8px;font-size:13px"><option value="">+ Άλλο…</option>${KOK.filter(([k]) => !QUICK.some(([q]) => q === k)).map(([k, [i, l]]) => `<option value="${k}">${i} ${l}</option>`).join('')}</select></div>
       ${n ? `<div class="chips" style="margin-bottom:10px">${[['health', 'Υγεία'], ['care', 'Φροντίδα μωρού'], ['all', 'Όλα']].map(([k, l]) => `<button class="chip ${logF === k ? 'on' : ''}" data-logf="${k}">${l}</button>`).join('')}</div>` : ''}`;
-    if (!days.size) return h + '<div class="card muted center">Τίποτα ακόμα — π.χ. «🌡️ Θερμοκρασία» ή «💊 Φάρμακο» όταν αρρωστήσει.</div>';
+    if (!days2.size) return h + '<div class="card muted center">Τίποτα ακόμα.</div>';
     let shown = 0;
-    for (const [d, xs] of days) {
+    for (const [d, xs] of days2) {
       if (shown++ > 120) { h += '<div class="small muted center">… για παλαιότερα, γράψε στην αναζήτηση (π.χ. τη χρονιά)</div>'; break; }
       const temps = xs.filter((x) => x.k === 'temp').map((x) => H.num(x.val)).filter((v) => !isNaN(v)); const mx = temps.length ? Math.max(...temps) : null;
       h += `<div class="row" style="margin:12px 2px 4px;gap:6px"><b class="grow">${dFull(d)} <span class="small muted" style="font-weight:400">${esc(H.ageAt(d))}</span></b>${mx != null ? `<span class="h-pill ${mx >= 38 ? 'h-red' : 'h-grey'}">🌡️ ${dec(mx)}°</span>` : ''}</div>
-        <div class="list">${xs.map(logRow).join('')}</div>`;
+        <div class="list">${xs.map((x) => (x._lab ? `<div class="h-item click" data-lab="${esc(x._lab.d)}"><div class="row" style="gap:8px"><span class="small muted" style="min-width:38px"></span><span>🧪</span><div class="grow"><div style="font-weight:600">Εξετάσεις${x._lab.place ? ` · ${esc(x._lab.place)}` : ''}</div><div class="small muted">${H.results().filter((r) => r.lab === x._lab && r.flag).length ? `${H.results().filter((r) => r.lab === x._lab && r.flag).length} εκτός ορίων` : 'όλα μέσα στα όρια'} ›</div></div></div></div>`
+          : x._visit ? `<div class="h-item click" data-visit="${esc(x._visit.id)}"><div class="row" style="gap:8px"><span class="small muted" style="min-width:38px"></span><span>🩺</span><div class="grow"><div style="font-weight:600">${esc(x._visit.title || x._visit.kind || 'Γιατρός')}</div>${x._visit.doctor ? `<div class="small muted">${esc(x._visit.doctor)}</div>` : ''}</div></div></div>`
+          : logRow(x))).join('')}</div>`;
     }
     return h;
   },
@@ -349,13 +358,13 @@ const TAB = {
     if (!dates.length) return '<div class="card muted center">Καμία εξέταση ακόμα.</div>';
     const sw = `<div class="row" style="gap:6px;margin:0 0 10px"><div class="seg grow" style="margin:0"><button data-labv="cards" class="${labView === 'cards' ? 'on' : ''}">Κάρτες</button><button data-labv="table" class="${labView === 'table' ? 'on' : ''}">Πίνακας</button></div></div>`;
     if (labView === 'cards') return sw + labCards(res, dates);
-    let h = `${sw}<div class="card" style="padding:0;overflow:auto;max-height:72vh"><table class="t h-mx" style="width:auto"><tr><th>Εξέταση</th>${dates.map((d) => `<th><button class="h-lnk" data-lab="${d}">${dFull(d)}</button><br><span class="muted" style="font-weight:400">${H.ageAt(d)}</span></th>`).join('')}</tr>`;
+    let h = `${sw}<div class="card" style="padding:0;overflow:auto;max-height:72vh"><table class="t h-mx"><tr><th>Εξέταση</th>${dates.map((d) => `<th><button class="h-lnk" data-lab="${d}">${dFull(d)}</button><br><span class="muted" style="font-weight:400">${H.ageAt(d)}</span></th>`).join('')}</tr>`;
     const keys = [...new Set(res.map((r) => r.key))];
     const groups = [...H.GROUPS, ...new Set(keys.filter((k) => !H.ANALYTES[k]).map(H.aGroup))];
     for (const g of groups) {
       const ks = keys.filter((k) => H.aGroup(k) === g).sort((a, b) => Object.keys(H.ANALYTES).indexOf(a) - Object.keys(H.ANALYTES).indexOf(b)); if (!ks.length) continue;
-      h += `<tr class="h-grp"><td colspan="${dates.length + 1}">${esc(g)}</td></tr>`;
-      for (const k of ks) h += `<tr class="click" data-trend="${esc(k)}"><td>${esc(H.aName(k))}</td>${dates.map((d) => { const r = res.find((x) => x.key === k && x.lab.d === d); return r ? `<td class="r h-${r.flag}" title="${esc(r.unit)} · ${esc(r.ref)}">${esc(r.value)}</td>` : '<td></td>'; }).join('')}</tr>`;
+      h += `<tr class="h-grp"><td>${esc(g)}</td>${dates.map(() => '<td></td>').join('')}</tr>`;
+      for (const k of ks) h += `<tr class="click" data-trend="${esc(k)}"><td>${esc(H.aName(k))}</td>${dates.map((d) => { const r = res.find((x) => x.key === k && x.lab.d === d); if (!r) return '<td></td>'; const v = String(r.value); return r ? `<td class="r h-${r.flag}" title="${esc(v)} ${esc(r.unit)} · ${esc(r.ref)}">${esc(v.length > 12 ? v.slice(0, 11) + '…' : v)}</td>` : '<td></td>'; }).join('')}</tr>`;
     }
     return h + '</table></div>';
   },
@@ -595,13 +604,13 @@ export default {
       return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>🩺 Υγεία παιδιών</h1></div>
         <div class="card"><b>Ημερολόγιο & βιβλιάριο υγείας</b><div class="small muted" style="margin:6px 0 10px">Πυρετός, φάρμακα, συμπτώματα, επισκέψεις, εξετάσεις, εμβόλια, ανάπτυξη και έγγραφα — με αναζήτηση σε όλα, κοινά για τους δύο. Αν έχεις αρχείο ιστορικού (.json), εισήγαγέ το εδώ· αλλιώς ξεκίνα με τα στοιχεία του παιδιού.</div>
         <label class="btn primary" style="width:100%">📥 Εισαγωγή ιστορικού (.json)<input type="file" accept=".json,application/json" data-seed hidden></label>
-        <button class="btn" data-newchild style="width:100%;margin-top:8px">👶 Νέο παιδί</button>${H.mySp() ? '<button class="btn" data-newme style="width:100%;margin-top:8px">🧑 Δικές μου εξετάσεις</button>' : ''}</div>`;
+        <button class="btn" data-newchild style="width:100%;margin-top:8px">👶 Νέο παιδί</button></div>`;
     }
     const add = { guides: ['data-newg', '+ Οδηγία'], log: ['data-newlog="note"', '+ Καταχώριση'], hist: ['data-newv', '+ Επίσκεψη'], labs: ['data-newl', '+ Εξετάσεις'], vac: ['data-newx', '+ Εμβόλιο'], docs: ['data-newd', '+ Έγγραφο'], growth: ['data-newlog="growth"', '+ Μέτρηση'], sum: ['data-newv', '+ Νέο'] }[tab];
     const ps = H.profiles();
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>🩺 ${esc(H.appTitle())}</h1><button class="btn sm primary" ${add[0]} style="width:auto">${add[1]}</button></div>
-      <div class="chips" style="margin:0 0 8px">${ps.length > 1 ? ps.map((c) => `<button class="chip ${c.id === H.cur() ? 'on' : ''}" data-child="${esc(c.id)}">${c.adult ? '🧑' : '👶'} ${esc(H.firstName(c) || '—')}</button>`).join('') : ''}</div>
-      <div class="h-search"><input data-q value="${esc(q)}" placeholder="Αναζήτηση: ${esc([...H.quick(3), (H.visits()[0]?.d || today()).slice(0, 4)].join(', '))}…" autocomplete="off" enterkeyhint="search">${q ? '<button data-qx>✕</button>' : ''}</div>
+      <div class="chips" style="margin:0 0 8px">${ps.length > 1 ? ps.map((c) => `<button class="chip ${c.id === H.cur() ? 'on' : ''}" data-child="${esc(c.id)}">${c.adult ? (c.emo || (/[αη]$/.test(H.firstName(c) || '') ? '👩' : '👨')) : '👶'} ${esc(H.firstName(c) || '—')}</button>`).join('') : ''}</div>
+      <div class="h-search"><input data-q value="${esc(q)}" placeholder="Αναζήτηση" autocomplete="off" enterkeyhint="search">${q ? '<button data-qx>✕</button>' : ''}</div>
       <div class="tabs" data-tabs ${q ? 'style="opacity:.5"' : ''}>${TB.map(([k, l]) => `<button class="${!q && k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
       <div data-body>${q ? search() : ((TOK = []), TAB[tab]())}</div>`;
   },
@@ -626,7 +635,7 @@ export default {
     root.querySelector('[data-newl]')?.addEventListener('click', () => labSheet());
     root.querySelector('[data-newx]')?.addEventListener('click', () => vacSheet());
     root.querySelector('[data-newg]')?.addEventListener('click', () => guideSheet());
-    if (!migrated) { migrated = true; H.toShared().then(() => H.ensureAdults()); }
+    if (!migrated) { migrated = true; H.toShared().then(() => H.ensureAdults()).then(() => H.fixNames()); }
     root.querySelector('[data-newd]')?.addEventListener('click', () => docSheet());
     const bindAll = () => {
       bindBody(body);

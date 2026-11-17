@@ -138,6 +138,10 @@ export async function toShared() {
   }
   return n;
 }
+/** «Ανεμευλογιά» (όπως στο βιβλιάριο) → «Ανεμοβλογιά», όπως τη λέμε */
+export async function fixNames() {
+  for (const v of store.records('hvac', SPS())) if (/νεμευλογ/i.test(v.disease || '')) await store.put(v._sp, v.id, { disease: v.disease.replace(/νεμευλογ/g, 'νεμοβλογ').replace(/ΝΕΜΕΥΛΟΓ/g, 'ΝΕΜΟΒΛΟΓ') });
+}
 /** ένα προφίλ για κάθε ενήλικα του σπιτιού (Άλκης, Χαρά), αν λείπει */
 export async function ensureAdults() {
   // μόνο για όποιον ανοίγει την εφαρμογή (ο άλλος φτιάχνει το δικό του στη δική του συσκευή) — να μη βγουν διπλά πριν τον συγχρονισμό

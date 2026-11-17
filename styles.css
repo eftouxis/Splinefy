@@ -141,6 +141,7 @@ body.has-sub .toast { bottom: calc(var(--nav) + 68px + env(safe-area-inset-botto
 td.h-hi { color: var(--red); font-weight: 700; } td.h-lo { color: var(--blue); font-weight: 700; } td.h-hi::after { content: ' ↑'; } td.h-lo::after { content: ' ↓'; }
 table.h-mx { font-size: 13px; white-space: nowrap; } table.h-mx th { position: sticky; top: 0; background: var(--card); z-index: 2; font-size: 12px; vertical-align: bottom; }
 table.h-mx td:first-child, table.h-mx th:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; } table.h-mx th:first-child { z-index: 3; }
+table.h-mx td:first-child, table.h-mx th:first-child { white-space: normal; min-width: 130px; max-width: 46vw; box-shadow: 1px 0 0 var(--line, rgba(127,127,127,.25)); } table.h-mx { width: max-content; min-width: 100%; } table.h-mx td:not(:first-child), table.h-mx th:not(:first-child) { min-width: 64px; text-align: right; padding-left: 10px; padding-right: 8px; } table.h-mx tr.h-grp td { background: var(--chip); }
 tr.h-grp td { background: var(--chip) !important; font-weight: 700; font-size: 12px; color: var(--muted); }
 table.h-vt { font-size: 12.5px; } table.h-vt td { vertical-align: top; min-width: 112px; } table.h-vt td:first-child { min-width: 150px; }
 .h-dose.ok b { color: var(--green); } .h-dose.due { color: #a86a10; font-weight: 700; } .h-dose.late { color: var(--red); font-weight: 700; } .h-dose.fut { color: var(--muted); }
