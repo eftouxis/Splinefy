@@ -70,8 +70,8 @@ export async function check() {
   if (!hasToken()) throw new Error('χρειάζεται σύνδεση Google');
   const cals = await calendars(); const cal = cals.find((c) => norm(c.summary || '') === norm(p.cal || 'Εργασία')) || null;
   if (!cal) throw new Error(`δεν βρέθηκε το ημερολόγιο «${p.cal || 'Εργασία'}»`);
-  // 3 εβδομάδες πίσω και 2 μπροστά: και ό,τι άλλαξε ή ακυρώθηκε για τις επόμενες μέρες (π.χ. σβήστηκε από το ημερολόγιο)
-  const t = today(); const from = [p.from, addDays(t, -21)].sort()[1], to = addDays(t, 14);
+  // 3 μέρες πίσω και 2 εβδομάδες μπροστά: οι αλλαγές γίνονται πριν από το μάθημα, όχι μέρες μετά
+  const t = today(); const from = [p.from, addDays(t, -3)].sort()[1], to = addDays(t, 14);
   const stus = L.students().filter((s) => L.isActive(s, t));
   const now = Date.now(); const ev = (await events(cal.id, from, to)).map((e) => { const a = new Date(e.start.dateTime), b = new Date(e.end.dateTime); const st = studentOf(e.summary, stus); return st && { stu: st.id, d: ymd(a), h: Math.round(((b - a) / 36e5) * 100) / 100, time: `${hm(a)}–${hm(b)}`, title: e.summary }; }).filter(Boolean);
   const ign = new Set(p.ign || []); const out = [];
