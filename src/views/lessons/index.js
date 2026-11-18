@@ -24,7 +24,7 @@ const home = {
     const done = mon.filter((l) => L.started(l)).reduce((a, l) => a + l.v, 0), plan = mon.reduce((a, l) => a + l.v, 0);
     // week
     const ws = addDays(L.isoWeekStart(t), weekOff * 7), we = addDays(ws, 6);
-    const wl = L.lessons({ from: ws, to: we, all: true });
+    const wl = [...L.lessons({ from: ws, to: we, all: true }), ...L.cancelledIn(ws, we)].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : String(a.time || '').localeCompare(String(b.time || ''))));
     let days = '';
     for (let d = ws; d <= we; d = addDays(d, 1)) {
       const ls = wl.filter((l) => l.d === d); const hol = L.holidayOn(d);
@@ -32,8 +32,8 @@ const home = {
       days += `<div class="day ${d === t ? 'today' : ''}">${dShort(d)}${d === t ? ' · σήμερα' : ''}${hol ? ` · <span class="hol-${hol.kind === 'αργία' ? 'a' : 'g'}">${esc(hol.name)}</span>` : ''}</div>`;
       days += ls.map((l) => {
         const st = L.student(l.stu); const past = L.started(l);
-        const status = !l.h ? '<span class="neg">δεν έγινε</span>' : past ? '<span class="pos">✓ έγινε</span>' : '';
-        const b = L.balance(l.stu); const after = !past && l.h ? L.balance(l.stu, l.d) : null;
+        const status = !l.h ? `<span class="neg">${l.d >= t ? '✖ ακυρώθηκε' : 'δεν έγινε'}</span>` : past ? '<span class="pos">✓ έγινε</span>' : '';
+        const b = l.h ? L.balance(l.stu) : 0; const after = !past && l.h ? L.balance(l.stu, l.d) : null;
         return `<div class="item" data-lesson="${esc(l.stu)}|${l.d}" style="${l.h ? '' : 'opacity:.6'}">
           <div class="dot" style="font-size:12px;font-weight:700">${esc((l.time || '').split(/[–-]/)[0] || '•')}</div>
           <div class="grow"><div class="t" style="${l.h ? '' : 'text-decoration:line-through'}">${esc(L.label(st))}${L.openNotes(l.stu).length && l.d >= t ? ' 📌' : ''}</div>

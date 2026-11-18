@@ -90,7 +90,7 @@ function build() {
     else L.set(key, { stu: x.stu, d: x.d, h: x.h || 0, sched: 0, time: x.time || '', ov: x.id, fv: x.v });
   }
   const cancelled = [];                                          // προγραμματισμένα που ακυρώθηκαν (για το «δεν θα γίνει»)
-  for (const [k, l] of L) if (!(l.h > 0)) { if (l.sched) cancelled.push({ stu: l.stu, d: l.d, time: l.otime || l.time }); L.delete(k); }
+  for (const [k, l] of L) if (!(l.h > 0)) { if (l.sched) cancelled.push({ stu: l.stu, d: l.d, time: l.otime || l.time, h: 0, sched: l.oh || l.sched, ov: l.ov, v: 0, cancelled: 1 }); L.delete(k); }
   const lessons = [...L.values()].map((l) => ({ ...l, v: l.fv != null ? l.fv : valueOf(byId.get(l.stu), l.d, l.h) }))
     .sort((a, b) => (a.d === b.d ? (a.time < b.time ? -1 : 1) : a.d < b.d ? -1 : 1));
   const pays = records('tx', [LSP]).filter((r) => r.stu && byId.has(r.stu)).concat(records('lpay', [LSP]).filter((r) => byId.has(r.stu)));
@@ -121,6 +121,8 @@ export const holidayOn = (d) => build().hol.get(d);
 export function lessons({ stu, from = '0000', to = '9999', all = false } = {}) {
   return build().lessons.filter((l) => (!stu || l.stu === stu) && l.d >= from && l.d <= to && (all || l.h > 0));
 }
+/** μαθήματα του προγράμματος που ακυρώθηκαν (για να φαίνονται διαγραμμένα στην εβδομάδα) */
+export const cancelledIn = (from, to) => build().cancelled.filter((c) => c.d >= from && c.d <= to && cache.byId.get(c.stu));
 export function payments(stu) {
   return build().pays.filter((p) => !stu || p.stu === stu).sort((a, b) => (a.d < b.d ? 1 : -1));
 }
