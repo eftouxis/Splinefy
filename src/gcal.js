@@ -70,10 +70,10 @@ export async function check() {
   if (!hasToken()) throw new Error('χρειάζεται σύνδεση Google');
   const cals = await calendars(); const cal = cals.find((c) => norm(c.summary || '') === norm(p.cal || 'Εργασία')) || null;
   if (!cal) throw new Error(`δεν βρέθηκε το ημερολόγιο «${p.cal || 'Εργασία'}»`);
-  // only lessons that already started (today included): the calendar is the record of what happened
-  const t = today(); const from = [p.from, addDays(t, -21)].sort()[1], to = t;
+  // 3 εβδομάδες πίσω και 2 μπροστά: και ό,τι άλλαξε ή ακυρώθηκε για τις επόμενες μέρες (π.χ. σβήστηκε από το ημερολόγιο)
+  const t = today(); const from = [p.from, addDays(t, -21)].sort()[1], to = addDays(t, 14);
   const stus = L.students().filter((s) => L.isActive(s, t));
-  const now = Date.now(); const ev = (await events(cal.id, from, to)).filter((e) => new Date(e.start.dateTime).getTime() <= now).map((e) => { const a = new Date(e.start.dateTime), b = new Date(e.end.dateTime); const st = studentOf(e.summary, stus); return st && { stu: st.id, d: ymd(a), h: Math.round(((b - a) / 36e5) * 100) / 100, time: `${hm(a)}–${hm(b)}`, title: e.summary }; }).filter(Boolean);
+  const now = Date.now(); const ev = (await events(cal.id, from, to)).map((e) => { const a = new Date(e.start.dateTime), b = new Date(e.end.dateTime); const st = studentOf(e.summary, stus); return st && { stu: st.id, d: ymd(a), h: Math.round(((b - a) / 36e5) * 100) / 100, time: `${hm(a)}–${hm(b)}`, title: e.summary }; }).filter(Boolean);
   const ign = new Set(p.ign || []); const out = [];
   const seenStu = new Set(ev.map((e) => e.stu));
   for (const s of stus) {
@@ -84,7 +84,7 @@ export async function check() {
       else if (Math.abs(l.h - e.h) > 0.01 || startOf(l.time) !== startOf(e.time)) out.push({ stu: s.id, d: e.d, kind: 'time', h: e.h, time: e.time, was: { h: l.h, time: l.time || '' } });
     }
     if (!seenStu.has(s.id)) continue;            // a student who is not in the calendar at all: no «not found» guesses
-    for (const l of ls) if (l.h > 0 && l.d < t && !mine.some((e) => e.d === l.d)) out.push({ stu: s.id, d: l.d, kind: 'gone', h: 0, time: '', was: { h: l.h, time: l.time || '' } });
+    for (const l of ls) if (l.h > 0 && !mine.some((e) => e.d === l.d)) out.push({ stu: s.id, d: l.d, kind: 'gone', h: 0, time: '', was: { h: l.h, time: l.time || '' } });
   }
   return out.map((x) => ({ ...x, key: `${x.stu}|${x.d}|${x.kind}|${x.h}|${x.time}` })).filter((x) => !ign.has(x.key)).sort((a, b) => (a.d < b.d ? -1 : 1));
 }

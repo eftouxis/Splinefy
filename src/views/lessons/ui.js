@@ -327,7 +327,7 @@ export function gcalCard() {
   if (!gcRes) return `<div class="card">${head}<div class="small muted" style="margin-top:4px">Σύγκρινε τα μαθήματα με το ημερολόγιο.</div></div>`;
   if (!gcRes.length) return `<div class="card">${head}<div class="small pos" style="margin-top:4px">✓ Όλα ίδια με το ημερολόγιο</div></div>`;
   return `<div class="card" style="border-left:4px solid #4285f4">${head}
-    ${gcRes.map((x, i) => `<div class="row small" style="margin-top:8px;gap:6px"><span class="grow"><b>${esc(L.label(L.student(x.stu)))}</b> · ${dShort(x.d)}<br><span class="muted">${KIND_TXT[x.kind]}:</span> ${x.kind === 'gone' ? `ήταν ${hoursTxt(x.was.h)}${x.was.time ? ' ' + esc(x.was.time) : ''} → διαγραφή` : `${x.was ? `${hoursTxt(x.was.h)}${x.was.time ? ' ' + esc(x.was.time) : ''} → ` : ''}<b>${hoursTxt(x.h)} ${esc(x.time)}</b>`}</span>
+    ${gcRes.map((x, i) => `<div class="row small" style="margin-top:8px;gap:6px"><span class="grow"><b>${esc(L.label(L.student(x.stu)))}</b> · ${dShort(x.d)}<br><span class="muted">${KIND_TXT[x.kind]}:</span> ${x.kind === 'gone' ? `ήταν ${hoursTxt(x.was.h)}${x.was.time ? ' ' + esc(x.was.time) : ''} → ${x.d >= today() ? 'ακυρώνεται' : 'δεν έγινε'}` : `${x.was ? `${hoursTxt(x.was.h)}${x.was.time ? ' ' + esc(x.was.time) : ''} → ` : ''}<b>${hoursTxt(x.h)} ${esc(x.time)}</b>`}</span>
       <button class="btn sm primary" data-gok="${i}" style="width:auto">✓</button><button class="btn sm ghost" data-gno="${i}" style="width:auto">✕</button></div>`).join('')}
     ${gcRes.length > 1 ? '<button class="btn sm" data-gall style="margin-top:10px">✓ Όλα</button>' : ''}
     <div class="small muted" style="margin-top:6px">✓ = άλλαξέ το στην εφαρμογή · ✕ = άφησέ το όπως είναι (δεν ξαναρωτάει)</div></div>`;
