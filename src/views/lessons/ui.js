@@ -77,7 +77,7 @@ export function lessonSheet(stu, d, ui) {
     ${l?.ov && sched ? '<button class="btn" data-reset>Όπως το πρόγραμμα</button>' : ''}
     ${slot ? '<button class="btn" data-slotfrom>↻ Άλλη μέρα / ώρα από εδώ και πέρα</button><button class="btn" data-sdel style="color:var(--red)">🗑 Διαγραφή</button>' : ''}
     ${l?.ov && !sched ? '<button class="btn" data-dellesson style="color:var(--red)">🗑 Διαγραφή μαθήματος</button>' : ''}
-    ${location.hash.startsWith('#/lessons/s/') ? '' : `<button class="btn" data-card>Καρτέλα ${esc(L.label(st))} › (πληρωμές, χρωστούμενα)</button>`}
+    ${location.hash.startsWith('#/lessons/s/') ? '' : `<button class="btn" data-card>Καρτέλα ${esc(L.label(st))} ›</button>`}
     <button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     el.querySelector('[data-card]')?.addEventListener('click', () => { close(); ui.go(`#/lessons/s/${stu}`); });
     const val = () => { el.querySelector("[data-valtxt]").textContent = h ? `Αξία: ${eur(L.valueOf(st, d, h))}` : 'Δεν χρεώνεται'; };
@@ -322,15 +322,15 @@ let gcRes = null, gcAt = 0, gcErr = '', gcBusy = false;
 const KIND_TXT = { time: 'άλλη ώρα / διάρκεια', add: 'μάθημα που δεν υπάρχει στην εφαρμογή', gone: 'δεν είναι στο ημερολόγιο — να διαγραφεί;' };
 export function gcalCard() {
   if (!GC.connected()) return '';
-  const head = `<div class="row"><b class="grow">📅 Από το Google Calendar</b><button class="btn sm" data-gcheck ${gcBusy ? 'disabled' : ''}>${gcBusy ? 'Έλεγχος…' : gcRes ? 'Ξανά' : 'Έλεγχος'}</button></div>`;
+  const head = `<div class="row"><b class="grow">📅 Συγχρονισμός από το Google Calendar</b><button class="btn sm" data-gcheck ${gcBusy ? 'disabled' : ''}>${gcBusy ? 'Έλεγχος…' : gcRes ? 'Ξανά' : 'Έλεγχος'}</button></div>`;
   if (gcErr) return `<div class="card">${head}<div class="small neg" style="margin-top:6px">${esc(gcErr)}</div></div>`;
-  if (!gcRes) return `<div class="card">${head}<div class="small muted" style="margin-top:4px">Σύγκρινε τα μαθήματα με το ημερολόγιο.</div></div>`;
+  if (!gcRes) return `<div class="card">${head}</div>`;
   if (!gcRes.length) return `<div class="card">${head}<div class="small pos" style="margin-top:4px">✓ Όλα ίδια με το ημερολόγιο</div></div>`;
   return `<div class="card" style="border-left:4px solid #4285f4">${head}
     ${gcRes.map((x, i) => `<div class="row small" style="margin-top:8px;gap:6px"><span class="grow"><b>${esc(L.label(L.student(x.stu)))}</b> · ${dShort(x.d)}<br><span class="muted">${KIND_TXT[x.kind]}:</span> ${x.kind === 'gone' ? `ήταν ${hoursTxt(x.was.h)}${x.was.time ? ' ' + esc(x.was.time) : ''} → ${x.d >= today() ? 'ακυρώνεται' : 'δεν έγινε'}` : `${x.was ? `${hoursTxt(x.was.h)}${x.was.time ? ' ' + esc(x.was.time) : ''} → ` : ''}<b>${hoursTxt(x.h)} ${esc(x.time)}</b>`}</span>
       <button class="btn sm primary" data-gok="${i}" style="width:auto">✓</button><button class="btn sm ghost" data-gno="${i}" style="width:auto">✕</button></div>`).join('')}
     ${gcRes.length > 1 ? '<button class="btn sm" data-gall style="margin-top:10px">✓ Όλα</button>' : ''}
-    <div class="small muted" style="margin-top:6px">✓ = άλλαξέ το στην εφαρμογή · ✕ = άφησέ το όπως είναι (δεν ξαναρωτάει)</div></div>`;
+</div>`;
 }
 export function bindGcal(root, ui) {
   const run = async (interactive) => {
@@ -515,7 +515,6 @@ export function messagesCard() {
       <a class="btn sm primary" data-mgo="${i}" style="width:auto" href="${smsHref(p[2], msgText(x.kind, x.st, p[0] === 'kid' ? 'kid' : 'par', { lesson: x.l }))}">📨</a>
       <button class="btn sm ghost" data-medit="${i}" style="width:auto">✏️</button><button class="btn sm ghost" data-mx="${i}" style="width:auto" title="Δεν χρειάζεται">✕</button></div>`; };
   return `<div class="card" style="padding-bottom:6px"><div class="mid">💬 Μηνύματα <span class="small muted">(${list.length})</span></div>
-    <div class="small muted" style="margin:2px 0 6px">📨 ανοίγει το SMS έτοιμο · ✏️ αλλάζεις κείμενο ή παραλήπτη · ✕ δεν χρειάζεται</div>
     <div class="list">${list.slice(0, 8).map(row).join('')}</div>${list.length > 8 ? `<div class="small muted" style="margin:6px 2px">και άλλα ${list.length - 8}…</div>` : ''}</div>`;
 }
 export function bindMessages(root, ui) {

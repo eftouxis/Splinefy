@@ -120,13 +120,13 @@ export function render() {
   // inside Γραφείο: a second row just above the bar with its sections
   let sub = document.getElementById('subnav');
   const SUBS = {
-    office: hasOffice() && [['clients', '👥', 'Πελάτες', 'c'], ['partners', '🤝', 'Συνεργάτες'], ['stats', '📊', 'Στατιστικά'], ['list', '📄', 'Κινήσεις'], ['cash', '🏦', 'Ταμείο'], ['fixed', '📋', 'Πάγια'], ['rec', '↻', 'Επαναλ.'], ['tasks', '✅', 'Εργασίες']],
-    lessons: hasLessons() && [['sched', '🗓', 'Πρόγραμμα'], ['sal', '💼', 'Μισθοί'], ['stats', '📊', 'Στατιστικά'], ['hol', '🏖', 'Αργίες'], ['all', '👥', 'Μαθητές'], ['help', '❓', 'Οδηγίες']],
+    office: hasOffice() && [['', '🏠', 'Αρχική'], ['clients', '👥', 'Πελάτες', 'c'], ['partners', '🤝', 'Συνεργάτες'], ['stats', '📊', 'Στατιστικά'], ['list', '📄', 'Κινήσεις'], ['cash', '🏦', 'Ταμείο'], ['fixed', '📋', 'Πάγια'], ['rec', '↻', 'Επαναλ.'], ['tasks', '✅', 'Εργασίες']],
+    lessons: hasLessons() && [['', '🏠', 'Αρχική'], ['sched', '🗓', 'Πρόγραμμα'], ['sal', '💼', 'Μισθοί'], ['stats', '📊', 'Στατιστικά'], ['hol', '🏖', 'Αργίες'], ['all', '👥', 'Μαθητές'], ['help', '❓', 'Οδηγίες']],
   };
   if (SUBS[key]) {
     if (!sub) { sub = document.createElement('div'); sub.id = 'subnav'; document.body.appendChild(sub); }
     const cur = (h.match(new RegExp(`^#\\/${key}\\/?(\\w*)`)) || [])[1] || '';
-    sub.innerHTML = SUBS[key].map(([k, i, t, alt]) => `<a href="#/${key}/${k}" class="${cur === k || (alt && cur === alt) ? 'on' : ''}"><span>${i}</span>${t}</a>`).join('');
+    sub.innerHTML = SUBS[key].map(([k, i, t, alt]) => `<a href="#/${key}${k ? '/' + k : ''}" class="${cur === k || (alt && cur === alt) ? 'on' : ''}"><span>${i}</span>${t}</a>`).join('');
     document.body.classList.add('has-sub'); const on = sub.querySelector('.on'); if (on) sub.scrollLeft = on.offsetLeft - sub.clientWidth / 2 + on.clientWidth / 2;
   } else if (sub) { sub.remove(); document.body.classList.remove('has-sub'); }
   if (!view.keepScroll) window.scrollTo(0, 0);
@@ -202,7 +202,7 @@ async function start() {
     if (tabs) { const bs = [...tabs.querySelectorAll('button')].filter((b) => b.offsetParent); const i = bs.findIndex((b) => b.classList.contains('on')); const nb = bs[i + dir]; if (i >= 0 && nb) nb.click(); return; }
     const sub = document.getElementById('subnav'); if (!sub) return;
     const m = location.hash.match(/^#\/(\w+)/); if (!m) return;
-    const links = [`#/${m[1]}`, ...[...sub.querySelectorAll('a')].map((a) => a.getAttribute('href'))];
+    const hrefs = [...sub.querySelectorAll('a')].map((a) => a.getAttribute('href')); const links = hrefs.includes(`#/${m[1]}`) ? hrefs : [`#/${m[1]}`, ...hrefs];
     const on = sub.querySelector('a.on'); const i = on ? links.indexOf(on.getAttribute('href')) : location.hash.replace(/\/$/, '') === `#/${m[1]}` ? 0 : -1;
     if (i >= 0 && links[i + dir]) ui.go(links[i + dir]);
   }, { passive: true });

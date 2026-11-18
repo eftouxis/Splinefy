@@ -100,7 +100,7 @@ const home = {
         <div class="small muted">Χωρίς ΦΠΑ ${eur(sp.net)} · ΦΠΑ ${eur(sp.vat)} · Σύνολο <b>${eur(r.a)}</b></div></div>
         <button class="btn sm" data-rok="${esc(r.id)}" style="width:auto;flex:none">OK</button></div>`; }).join('')}
       ${pend.length > 1 ? `<button class="btn sm ghost" data-rall style="margin-top:6px">✓ Τις έκοψα όλες</button>` : ''}</div>`; })() : ''}
-    ${odebts.length || owed.length ? `<div class="card small">${odebts.map((x) => `<div><a href="#/odebt/${encodeURIComponent(x.who)}">Το γραφείο χρωστάει ${x.who === 'Άλκης' ? 'στον Άλκη' : 'σε ' + esc(x.who)} <b class="neg">${eur(x.owed)}</b> ›</a></div>`).join('')}${owed.length ? `<div><a href="#/office/partners">Χρωστάς σε συνεργάτες: ${owed.map((x) => `${esc(x.p.name)} <b class="neg">${eur(x.owed)}</b>`).join(' · ')} ›</a></div>` : ''}</div>` : ''}
+    
     <h2>Τελευταίες πληρωμές</h2>
     <div class="list">${recent.map(payRow).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>
     ${upcoming.length ? `<h2>Έρχονται (30 μέρες)</h2><div class="list">${upcoming.map(expRow).join('')}</div>` : ''}`;

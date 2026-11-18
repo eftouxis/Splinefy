@@ -22,6 +22,7 @@ const home = {
     const m = t.slice(0, 7);
     const mon = L.lessons({ from: `${m}-01`, to: `${m}-31` });
     const done = mon.filter((l) => L.started(l)).reduce((a, l) => a + l.v, 0), plan = mon.reduce((a, l) => a + l.v, 0);
+    const paidM = L.payments().filter((p) => p.d.startsWith(m)).reduce((a, p) => a + (p.a || 0), 0);   // πληρωμές μαθημάτων μέσα στον μήνα
     // week
     const ws = addDays(L.isoWeekStart(t), weekOff * 7), we = addDays(ws, 6);
     const wl = [...L.lessons({ from: ws, to: we, all: true }), ...L.cancelledIn(ws, we)].sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : String(a.time || '').localeCompare(String(b.time || ''))));
@@ -47,8 +48,9 @@ const home = {
     <div class="grid2">
       <div class="card kpi"><div class="label">Μου χρωστάνε</div><div class="big ${owed > 0.005 ? 'neg' : ''}">${eur(owed)}</div>
         <div class="small">${sums.filter((x) => x.bal > 0.005).sort((a, b) => b.bal - a.bal).map((x) => `${esc(L.label(x.s))} <b>${eur(x.bal)}</b>`).join('<br>')}</div></div>
-      <div class="card kpi" data-go="#/lessons/stats"><div class="label">${MONTHS[Number(m.slice(5)) - 1]}: μαθήματα που έχουν γίνει ήδη</div><div class="big">${eur(done)}</div>
-        ${plan - done > 0.004 ? `<div class="small muted">με όσα έρχονται: ${eur(plan)}</div>` : ''}</div>
+      <div class="card kpi"><div class="label">${MONTHS[Number(m.slice(5)) - 1]}: μαθήματα που έχουν γίνει ήδη</div><div class="big">${eur(done)}</div>
+        ${plan - done > 0.004 ? `<div class="small muted">με όσα έρχονται: ${eur(plan)}</div>` : ''}
+        <div class="small" style="margin-top:6px">Πληρώθηκα: <b class="pos">${eur(paidM)}</b>${plan - paidM > 0.004 ? `<br>Μένουν να πάρω: <b>${eur(plan - paidM)}</b>` : ''}</div></div>
     </div>
     ${notesCard()}${gcalCard()}
     <div class="grid3 quick" style="margin-bottom:12px">
@@ -57,7 +59,7 @@ const home = {
     <div class="row" style="margin:14px 2px 6px"><h2 class="grow" style="margin:0">${weekOff === 0 ? 'Αυτή την εβδομάδα' : weekOff === 1 ? 'Επόμενη εβδομάδα' : weekOff === -1 ? 'Προηγούμενη εβδομάδα' : `${dShort(ws)} – ${dShort(we)}`}</h2>
       <button class="btn sm ghost" data-w="-1">◀</button>${weekOff ? '<button class="btn sm ghost" data-w="0">σήμερα</button>' : ''}<button class="btn sm ghost" data-w="1">▶</button></div>
     <div class="list">${days || '<div class="item muted">Κανένα μάθημα</div>'}</div>
-    <div class="small muted" style="margin:6px 4px 0">«✓ έγινε» = το μάθημα έγινε (όχι ότι πληρώθηκε). Πάτα ένα μάθημα για άλλες ώρες ή διαγραφή (αν δεν έγινε).</div>
+
     <h2>Μαθητές</h2>
     <div class="list">${order.map(({ s, bal, unpaidH, next }) => `<div class="item" data-go="#/lessons/s/${esc(s.id)}">
       <div class="dot">${esc(L.label(s).slice(0, 1))}</div>

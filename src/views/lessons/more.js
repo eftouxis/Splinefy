@@ -29,7 +29,7 @@ export const editView = {
         <div class="grid2"><label class="f"><span>📱 Κινητό 2ου γονιού</span><input name="php2" type="tel" inputmode="tel" value="${esc(st?.php2 || '')}"></label>
         <label class="f"><span>Στα μηνύματα: «Καλημέρα …!»</span><input name="voc" value="${esc(st?.voc || '')}" placeholder="αυτόματα από το όνομα"></label></div></details>
       <label class="f"><span>💶 Πώς πληρώνει</span><div class="seg" data-paym>${L.PAYMODES.map(([v, l]) => `<button type="button" data-val="${v}" class="${(st?.pay || 'none') === v ? 'on' : ''}">${l}</button>`).join('')}</div></label>
-      <div class="small muted" style="margin:-6px 2px 10px">Με το μάθημα: μετά από κάθε μάθημα σε ρωτάει «πλήρωσε;». Με τον μήνα: μετά το τελευταίο μάθημα του μήνα, για όλο τον μήνα. Με ένα «ναι» μπαίνει το έσοδο και ξεχρεώνεται.</div>
+
       <details class="more" ${st?.open ? 'open' : ''}><summary>Περισσότερα ▾</summary>
         <label class="f"><span>Χρωστούμενα από πριν (€, − αν έχει προπληρώσει)</span><input name="open" inputmode="decimal" value="${esc(st?.open ?? '')}"></label>
         ${(st?.rates || []).length ? `<div class="small muted">Αλλαγές τιμής: ${st.rates.map((r) => `${dFull(r.from)}: ${eur(r.price)} / ${hoursTxt(r.dur)}`).join(' · ')}</div>` : ''}
@@ -89,26 +89,35 @@ export const editView = {
 export const schedView = {
   html() {
     const t = today();
-    const sl = L.slots().filter((s) => !s.to || s.to >= t);
+    const sl = L.slots().filter((s) => { const st = L.student(s.stu); return (!s.to || s.to >= t) && st && (!st.end || st.end >= t); });   // όχι όσοι σταμάτησαν
     const byDay = [1, 2, 3, 4, 5, 6, 7].map((wd) => sl.filter((s) => s.wd === wd).sort((a, b) => ((a.time || '') < (b.time || '') ? -1 : 1)));
     const tot = sl.reduce((a, s) => a + L.valueOf(L.student(s.stu), t, s.h), 0), th = sl.reduce((a, s) => a + s.h, 0);
     const act = L.students().filter((s) => L.isActive(s));
+    const ml = L.lessons({ from: t.slice(0, 7) + '-01', to: L.eom(t.slice(0, 7)) }); const mh = ml.reduce((a, l) => a + l.h, 0), mv = ml.reduce((a, l) => a + l.v, 0);   // μήνας: προγραμματισμένα + έκτακτα, χωρίς ακυρωμένα
     return `<div class="top">${back()}<h1>Πρόγραμμα εβδομάδας</h1></div>
-    <div class="card row"><div class="grow"><div class="small muted">Κάθε εβδομάδα</div><div class="mid">${hoursTxt(th)} · ${eur(tot)}</div></div></div>
+    <div class="grid2"><div class="card kpi"><div class="label">Κάθε εβδομάδα</div><div class="mid">${hoursTxt(th)}</div><div class="small">${eur(tot)}</div></div>
+      <div class="card kpi"><div class="label">${MONTHS[Number(t.slice(5, 7)) - 1]} (όλος ο μήνας)</div><div class="mid">${hoursTxt(mh)}</div><div class="small">${eur(mv)}</div></div></div>
     ${byDay.map((list, i) => list.length ? `<h2>${L.DAYNAMES[i]}</h2><div class="list">${list.map((s) => {
       const st = L.student(s.stu);
       return `<div class="item" data-slot="${esc(s.id)}"><div class="dot" style="font-size:12px;font-weight:700">${esc((s.time || '').split(/[–-]/)[0] || '•')}</div>
       <div class="grow"><div class="t">${esc(L.label(st))}</div><div class="s">${hoursTxt(s.h)}${s.time ? ' · ' + esc(s.time) : ''} · ${s.from > t ? 'από ' + dFull(s.from) : 'έως ' + (s.to ? dFull(s.to) : '—')}</div></div>
       <div class="amt">${eur(L.valueOf(st, t, s.h))}</div></div>`;
     }).join('')}</div>` : '').join('')}
-    <h2>Προσθήκη ημέρας σε μαθητή</h2>
-    <div class="chips">${act.map((s) => `<button class="chip" data-newslot="${esc(s.id)}">+ ${esc(L.label(s))}</button>`).join('')}</div>
-    <div class="note small" style="margin-top:12px">Τα μαθήματα του προγράμματος μπαίνουν μόνα τους στις καρτέλες, εκτός από τις αργίες. Αλλαγή από μια μέρα και μετά: πάτα τη γραμμή → «Η αλλαγή ισχύει από».</div>`;
+    <button class="btn primary" data-newslot style="width:100%;margin-top:14px">+ Νέο μάθημα στο πρόγραμμα</button>`;
   },
   mount(root, p, ui) {
     bindBack(root, ui);
     root.querySelectorAll('[data-slot]').forEach((b) => b.addEventListener('click', () => { const s = L.slots().find((x) => x.id === b.dataset.slot); slotSheet(ui, s.stu, s); }));
-    root.querySelectorAll('[data-newslot]').forEach((b) => b.addEventListener('click', () => slotSheet(ui, b.dataset.newslot)));
+    // «+ Νέο μάθημα»: διαλέγεις μαθητή, μετά μέρα / ώρα
+    root.querySelector('[data-newslot]')?.addEventListener('click', () => {
+      const act = L.students().filter((x) => L.isActive(x)).sort((a, b) => L.label(a).localeCompare(L.label(b), 'el'));
+      sheet(`<div class="mid">Νέο μάθημα στο πρόγραμμα</div><div class="small muted" style="margin:4px 2px 10px">Για ποιον;</div>
+        <div class="list">${act.map((x) => `<div class="item click" data-pick="${esc(x.id)}"><div class="dot">${esc((L.label(x) || '?')[0])}</div><div class="grow t">${esc(L.label(x))}</div><div class="small muted">›</div></div>`).join('')}</div>
+        <button class="btn ghost" data-no style="margin-top:8px">Άκυρο</button>`, (el, close) => {
+        el.querySelector('[data-no]').onclick = close;
+        el.querySelectorAll('[data-pick]').forEach((r) => r.addEventListener('click', () => { close(); slotSheet(ui, r.dataset.pick); }));
+      });
+    });
   },
 };
 
@@ -138,8 +147,7 @@ export const salView = {
       <div class="card kpi"><div class="label">Όλη η χρονιά (με τους αναμενόμενους)</div><div class="mid">${eur(st.sal)}</div></div></div>
     <a class="btn green" style="width:100%;margin-bottom:12px" href="#/add/inc?cat=Μισθός">+ Πληρώθηκα μισθό</a>
     <div class="list">${rows || '<div class="item muted">Τίποτα σε αυτή τη χρονιά</div>'}</div>
-    <button class="btn" style="width:100%;margin-top:12px" data-add>+ Αναμενόμενος μισθός (για τις προβλέψεις)</button>
-    <div class="note small" style="margin-top:12px">Ο μισθός μπαίνει σαν κανονικό έσοδο («Νέα → Έσοδο → Μισθός») με την ημερομηνία που πληρώθηκες. Στο «Αφορά μήνα» διαλέγεις τον μήνα (ή γράφεις π.χ. «Μισθός Οκτωβρίου» στην περιγραφή και διαλέγεται μόνος του) και μετράει σε εκείνον τον μήνα. Οι αναμενόμενοι χρησιμοποιούνται μόνο για τους μήνες που δεν έχουν τελειώσει, για το «÷12».</div>`;
+    <button class="btn" style="width:100%;margin-top:12px" data-add>+ Αναμενόμενος μισθός (για τις προβλέψεις)</button>`;
   },
   mount(root, p, ui) {
     bindBack(root, ui);
@@ -239,8 +247,7 @@ export const holView = {
       <div class="dot">${h.kind === 'αργία' ? '🏖' : h.kind === 'γιορτή' ? '🎌' : '⭐'}</div>
       <div class="grow"><div class="t" style="${h.off ? 'text-decoration:line-through' : ''}">${esc(h.name)}</div>
       <div class="s">${dShort(h.from)}${h.to !== h.from ? ' – ' + dShort(h.to) : ''} · ${h.kind}${h.auto ? ' · αυτόματα' : ''}${h.off ? ' · δεν ισχύει' : ''}</div></div><div class="muted">›</div></div>`).join('')}</div>
-    <button class="btn primary" style="width:100%;margin-top:12px" data-add>+ Δική μου αργία / διακοπές</button>
-    <div class="note small" style="margin-top:12px">Στις αργίες δεν μπαίνουν αυτόματα μαθήματα (αν γίνει μάθημα, το προσθέτεις από την καρτέλα). Γιορτές και ειδικές μέρες μόνο χρωματίζονται. Το Πάσχα και οι κινητές γιορτές υπολογίζονται μόνες τους κάθε χρονιά.</div>`;
+    <button class="btn primary" style="width:100%;margin-top:12px" data-add>+ Δική μου αργία / διακοπές</button>`;
   },
   mount(root, p, ui) {
     bindBack(root, ui);
@@ -287,7 +294,12 @@ export const allView = {
       <div class="amt ${b > 0.005 ? 'neg' : ''}">${Math.abs(b) < 0.005 ? '✓' : eur(b)}</div></div>`; };
     return `<div class="top">${back()}<h1>Όλοι οι μαθητές</h1><a class="btn sm" href="#/lessons/edit/new">+ Νέος</a></div>
     <h2>Τώρα (${act.length})</h2><div class="list">${act.map(row).join('') || '<div class="item muted">—</div>'}</div>
-    <h2>Παλιοί (${old.length})</h2><div class="list">${old.map(row).join('') || '<div class="item muted">—</div>'}</div>
+    ${(() => {   // όσοι σταμάτησαν: ανά σχολική χρονιά (Ιούνιος → Ιούνιος), η πιο πρόσφατη ανοιχτή
+      if (!old.length) return '';
+      const by = new Map(); for (const st of old) { const y = L.yearOf(st.end || st.start || t); if (!by.has(y)) by.set(y, []); by.get(y).push(st); }
+      return [...by].sort((a, b) => b[0] - a[0]).map(([y, l], i) => { l.sort((a, b) => (L.balance(b.id) > 0.005) - (L.balance(a.id) > 0.005) || L.label(a).localeCompare(L.label(b), 'el'));
+        return `<details ${i === 0 ? 'open' : ''} style="margin-top:12px"><summary><h2 style="display:inline">Σταμάτησαν ${y}–${String(y + 1).slice(2)} (${l.length})</h2></summary><div class="list" style="margin-top:6px">${l.map(row).join('')}</div></details>`; }).join('');
+    })()}
     ${(() => {
       const ar = L.archive(); if (!ar.length) return '';
       const ys = [...new Set(ar.map((s) => s.archived))].sort((a, b) => b - a);
@@ -310,6 +322,10 @@ export const helpView = {
     ${Q('Δεν έγινε / έγινε με άλλες ώρες', 'Πάτα το μάθημα (στην αρχική των μαθημάτων ή στο ημερολόγιο της καρτέλας). Άλλες ώρες → Αποθήκευση· δεν έγινε → 🗑 Διαγραφή. Ρωτάει: μόνο αυτό, αυτό και τα επόμενα, ή όλα.')}
     ${Q('Έκτακτο μάθημα / αναπλήρωση', '«+ Μάθημα» → μαθητής, ημερομηνία, ώρες. Ή πάτα μια κενή μέρα στο ημερολόγιο του μαθητή.')}
     ${Q('Αλλαγή ημέρας ή ώρας για πάντα', 'Καρτέλα μαθητή → «Πρόγραμμα κάθε εβδομάδα» → πάτα τη γραμμή → άλλαξε ημέρα/ώρες → «Η αλλαγή ισχύει από» (π.χ. 1/12) → Αποθήκευση. Τα μαθήματα πριν από αυτή την ημερομηνία μένουν όπως ήταν. Δεύτερη μέρα την εβδομάδα: «Προσθήκη ημέρας».')}
+    ${Q('«✓ έγινε»', 'Σημαίνει ότι το μάθημα έγινε — όχι ότι πληρώθηκε. Πάτα ένα μάθημα για άλλες ώρες ή διαγραφή (αν δεν έγινε). Τα ακυρωμένα του προγράμματος φαίνονται διαγραμμένα.')}
+    ${Q('«💶 Πλήρωσε;» και πώς πληρώνει κάθε μαθητής', 'Στον μαθητή → «Πώς πληρώνει». Με το μάθημα: μετά από κάθε μάθημα σε ρωτάει «πλήρωσε;». Με τον μήνα: μετά το τελευταίο μάθημα του μήνα, για όλο τον μήνα. Με ένα «ναι» μπαίνει το έσοδο και ξεχρεώνεται.')}
+    ${Q('Συγχρονισμός με το Google Calendar', 'Πάτα «Έλεγχος»: συγκρίνει τα μαθήματα 3 μέρες πίσω και 2 εβδομάδες μπροστά με το ημερολόγιο. ✓ = άλλαξέ το στην εφαρμογή · ✕ = άφησέ το όπως είναι.')}
+    ${Q('💬 Μηνύματα (SMS)', 'Για μαθητές με κινητό: αύριο, αλλαγές, ακυρώσεις, χρέη. 📨 ανοίγει το SMS έτοιμο · ✏️ αλλάζεις κείμενο ή παραλήπτη · ✕ δεν χρειάζεται.')}
     ${Q('Πληρωμή', '«+ Πληρωμή» → μαθητής → ποσό (προτείνει όσα χρωστάει) → Καταχώρηση. Μπαίνει μία φορά: ξεχρεώνει τον μαθητή και φαίνεται στα έσοδα (Ιδιαίτερα). Ή από «Νέα → Έσοδο → Ιδιαίτερα» διαλέγοντας μαθητή.')}
     ${Q('Αλλαγή τιμής', 'Καρτέλα μαθητή → Επεξεργασία → νέα τιμή ή διάρκεια → «Από αυτή την ημερομηνία» (τα παλιά μαθήματα κρατούν την παλιά τιμή) ή «Για όλα» (αν ήταν λάθος).')}
     ${Q('Νέος μαθητής', '«+ Μαθητής» → όνομα, τιμή, διάρκεια → μετά βάζεις την ημέρα του στο πρόγραμμα.')}

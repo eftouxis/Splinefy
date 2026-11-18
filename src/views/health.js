@@ -408,10 +408,12 @@ function search() {
 }
 
 // ---------- sheets ----------
-function info(title, body) { sheet(`<div class="row"><div class="mid grow">${title}</div><button class="btn sm ghost" data-x style="width:auto;margin:0">✕</button></div><div style="margin-top:8px" data-ib>${body}</div>`, (el, close) => { el.querySelector('[data-x]').onclick = close; bindBody(el, close); }); }
-function showTrend(k) { TOK = []; info(esc(H.aName(k)), trend(k)); }
+function info(title, body) { sheet(`<div class="row"><div class="mid grow">${title}</div><button class="btn sm ghost" data-x style="width:auto;margin:0">✕</button></div><div style="margin-top:8px" data-ib>${body}</div>`, (el, close) => { const me = reopen; reopen = null; el.querySelector('[data-x]').onclick = () => { close(); if (back) { const b = back; back = null; b(); } }; bindBody(el, close, me); }); }
+// ✕ στην πορεία μιας εξέτασης → πίσω στο φύλλο από όπου την άνοιξες (όχι στη σελίδα)
+let reopen = null, back = null;
+function showTrend(k, from = null) { TOK = []; back = from; reopen = () => showTrend(k); info(esc(H.aName(k)), trend(k)); }
 function showLab(d) {
-  TOK = [];
+  TOK = []; reopen = () => showLab(d);
   info(`Εξετάσεις ${dFull(d)} <span class="small muted">${H.ageAt(d)}</span>`, H.labs().filter((l) => l.d === d).map((l) => `<div class="row wrap"><div class="small muted grow">${esc(l.place)}${l.note ? ' · ' + esc(l.note) : ''}</div><button class="btn sm" data-labedit="${esc(l.id)}" style="width:auto;margin:0">✎</button></div>
     ${l.docs?.length ? `<div class="small" style="margin-top:4px">${docLinks(l.docs)}</div>` : ''}
     <table class="t" style="font-size:13.5px;margin:6px 0 16px"><tr><th>Εξέταση</th><th>Τιμή</th><th>Όρια</th></tr>
@@ -578,9 +580,9 @@ function profSheet(isNew = false, adult0 = false) {
 }
 
 // ---------- clicks inside any body (tab, search results, info sheets) ----------
-function bindBody(root, closeInfo) {
+function bindBody(root, closeInfo, me = null) {
   const on = (sel, fn) => root.querySelectorAll(sel).forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); fn(b, e); }));
-  on('[data-trend]', (b) => { closeInfo?.(); showTrend(b.dataset.trend); });
+  on('[data-trend]', (b) => { closeInfo?.(); showTrend(b.dataset.trend, closeInfo ? me : null); });
   on('[data-lab]', (b) => { closeInfo?.(); showLab(b.dataset.lab); });
   on('[data-doc]', (b) => openDoc(b.dataset.doc));
   on('[data-docedit]', (b) => docSheet(H.docs().find((x) => x.id === b.dataset.docedit)));
