@@ -143,8 +143,8 @@ export default {
       ${f.skipped ? '<button class="btn" style="width:100%;margin-top:8px" data-skip>Επαναφορά (έγινε κανονικά)</button>' : ''}
       <button class="btn" style="width:100%;margin-top:8px;color:var(--red)" data-odel>Διαγραφή</button>`;
     }
-    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${f.id ? 'Επεξεργασία' : 'Νέα κίνηση'}</h1></div>
-    ${f.id ? '' : seg('kind', [['Έξοδο', 'Έξοδο'], ['Έσοδο', 'Έσοδο'], ['Μεταφορά', 'Μεταφορά']], k, kk)}
+    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1 class="grow">${f.id ? 'Επεξεργασία' : { Έξοδο: '− Νέο έξοδο', Έσοδο: '+ Νέο έσοδο', Μεταφορά: '⇄ Νέα μεταφορά' }[k] || 'Νέα κίνηση'}</h1>${f.id || f.showKind ? '' : '<button class="btn sm ghost" data-showkind>αλλαγή είδους</button>'}</div>
+    ${f.id || !f.showKind ? '' : seg('kind', [['Έξοδο', 'Έξοδο'], ['Έσοδο', 'Έσοδο'], ['Μεταφορά', 'Μεταφορά']], k, kk)}
     ${!f.id && k === 'Έξοδο' ? `<div class="grid2" style="margin-top:8px"><label class="btn" style="display:block;text-align:center" data-scanlbl>📷 Φωτογραφία απόδειξης<input type="file" accept="image/*" capture="environment" data-scan hidden></label><label class="btn" style="display:block;text-align:center">📄 PDF απόδειξης<input type="file" accept="application/pdf,.pdf" data-scan hidden></label></div>
       ${f.scanned ? `<div class="note small" style="margin-top:6px">📷 Από την απόδειξη: ${f.scanned} — έλεγξε ποσό, ημερομηνία και περιγραφή πριν την καταχώρηση. <a href="#" data-scaninfo>Τι διάβασε ›</a>${f.scanInfo?.qr && f.scanInfo.via !== 'qr' ? `<br>Δεν βγήκε σωστά; <a href="${esc(f.scanInfo.qr)}" target="_blank" rel="noopener">🔗 Άνοιξε τη σελίδα της απόδειξης</a> → Αποθήκευση → PDF, και μετά πάτα «📄 PDF απόδειξης».` : ''}</div>` : ''}` : ''}
     <div class="card" style="margin-top:10px">
@@ -222,7 +222,8 @@ export default {
     </div>
     <button class="btn primary" style="width:100%" data-save>${f.id ? 'Αποθήκευση' : 'Καταχώρηση'}</button>
     ${f.id ? `<button class="btn" style="width:100%;margin-top:8px;color:var(--red)" data-del>Διαγραφή</button>
-      <div class="small muted center" style="margin-top:8px">${f._u ? '' : ''}</div>` : `<button class="btn" style="width:100%;margin-top:8px" data-saveadd>Καταχώρηση και νέα</button>`}`;
+      <div class="small muted center" style="margin-top:8px">${f._u ? '' : ''}</div>` : `<button class="btn" style="width:100%;margin-top:8px" data-saveadd>Καταχώρηση και νέα</button>`}
+    <button class="btn ghost" style="width:100%;margin-top:8px" data-cancel>Άκυρο</button>`;
   },
   mount(root, [a, b], ui) {
     if (!f || !root.querySelector('[data-save]')) return;               // redirected (e.g. Χαρά's income → Γραφείο)
@@ -232,6 +233,8 @@ export default {
     };
     bindOth(root, f, read, () => ui.render());
     root.querySelector('[data-back]')?.addEventListener('click', () => { f = null; ui.back(); });
+    root.querySelector('[data-cancel]')?.addEventListener('click', () => { f = null; ui.back(); });
+    root.querySelector('[data-showkind]')?.addEventListener('click', () => { read(); f.showKind = 1; ui.render(); });
     root.querySelectorAll('[data-seg]').forEach((sg) => sg.addEventListener('click', (e) => {
       const v = e.target.dataset.val; if (v === undefined) return; read();
       const name = sg.dataset.seg;

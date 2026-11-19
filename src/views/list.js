@@ -3,7 +3,8 @@ import { movements, fx, othSum, SAVE } from '../ledger.js';
 import { state } from '../store.js';
 import { itemHtml, bindEdit, ICON, created } from './common.js';
 
-let q = '', month = null, shown = 150, rng = null, view = 'mine', catF = null;
+let q = '', month = null, shown = 150, rng = null, view = 'mine', catF = null, group = 'day';
+const openCats = new Set();      // ανοιχτές κατηγορίες στην προβολή «ανά κατηγορία»
 window.__listSet = (o) => { if (o.q !== undefined) q = o.q; if (o.month) { month = o.month; rng = null; } if (o.from) rng = [o.from, o.to]; if (o.view) view = o.view; catF = o.cat ? { cat: o.cat, kind: o.kind } : null; shown = 150; };
 const VIEWS_L = [['mine', 'Τα δικά μου'], ['home', 'Κοινά σπιτιού'], ['phil', 'Φίλιππος'], ['all', 'Όλες']];
 const when = (r) => r.md || r.d;            // salaries count in the month they concern
@@ -45,6 +46,26 @@ export default {
       if (r.d !== lastD) { html += `<div class="day">${dShort(r.d)}${q || r.d.slice(0, 7) !== when(r).slice(0, 7) ? ' ' + r.d.slice(0, 4) : ''}</div>`; lastD = r.d; }
       html += itemHtml(r, { today: t, amt: view === 'mine' ? val(r) : null });
     }
+    // ανά κατηγορία: έσοδα, έξοδα, στην άκρη, μεταφορές — η κάθε κατηγορία ανοίγει με τις κινήσεις της
+    let catHtml = '';
+    if (group === 'cat') {
+      const G = new Map();
+      for (const r of list) {
+        const sec = r.kind === 'Έσοδο' ? 0 : r.kind === 'Μεταφορά' ? 3 : isSave(r) ? 2 : 1;
+        const name = r.kind === 'Μεταφορά' ? 'Μεταφορές' : r.cat || 'Χωρίς κατηγορία';
+        const key = `${sec}|${name}`; const g = G.get(key) || { sec, name, n: 0, s: 0, rs: [] };
+        g.n++; g.s += val(r); g.rs.push(r); G.set(key, g);
+      }
+      const SECS = ['Έσοδα', 'Έξοδα', 'Στην άκρη (επενδύσεις / αποταμίευση)', 'Μεταφορές'];
+      for (let sec = 0; sec < 4; sec++) {
+        const gs = [...G.values()].filter((g) => g.sec === sec).sort((a, b) => b.s - a.s);
+        if (!gs.length) continue;
+        catHtml += `<div class="day">${SECS[sec]}</div>` + gs.map((g) => { const key = `${g.sec}|${g.name}`;
+          return `<details class="catgrp" data-ck="${esc(key)}" ${openCats.has(key) ? 'open' : ''}><summary class="item"><div class="dot">${ICON[g.name] || (sec === 3 ? '⇄' : '•')}</div>
+            <div class="grow t">${esc(g.name)} <span class="cnt">${g.n}</span></div><div class="amt ${sec === 0 ? 'pos' : ''}">${eur(g.s)}</div></summary>
+            <div class="list" style="margin:0 0 6px 14px">${g.rs.map((r) => itemHtml(r, { today: t, showDate: true, amt: view === 'mine' ? val(r) : null })).join('')}</div></details>`; }).join('');
+      }
+    }
     const note = { mine: 'Μόνο ό,τι σε βαραίνει και μόνο το μερίδιό σου (όπως η αρχική)', home: 'Κοινά έξοδα και έσοδα του σπιτιού — ολόκληρα ποσά', phil: 'Κινήσεις του Φιλίππου', all: 'Όλες οι κινήσεις — ολόκληρα ποσά' }[view];
     return `<div class="top"><h1>Κινήσεις</h1></div>
     <input type="search" name="q" placeholder="🔍 Αναζήτηση" value="${esc(q)}" style="margin-bottom:10px">
@@ -57,10 +78,11 @@ export default {
       <div><div class="small muted">Διαφορά</div><b class="${inc - exp < 0 ? 'neg' : 'pos'}">${eur(inc - exp)}</b></div></div>
     ${q ? `<div class="small muted" style="margin:0 2px 6px">${list.length} κινήσεις με «${esc(q)}»</div>` : ''}
     ${q && rng && rng[0] > '2000' && days > 6 && (exp || inc) ? `<div class="small" style="margin:-2px 2px 8px">≈ <b>${eur(((exp || inc) / days) * 30.44)}</b> τον μήνα (${days} μέρες)</div>` : ''}
-    <div class="list">${html || '<div class="item muted">Καμία κίνηση</div>'}</div>
+    <div class="chips" style="margin-bottom:8px"><button class="chip ${group === 'day' ? 'on' : ''}" data-group="day">📅 Ανά μέρα</button><button class="chip ${group === 'cat' ? 'on' : ''}" data-group="cat">🏷 Ανά κατηγορία</button></div>
+    <div class="list">${(group === 'cat' ? catHtml : html) || '<div class="item muted">Καμία κίνηση</div>'}</div>
     ${elsewhere.length ? `<h2 style="margin-top:14px">Πληρώθηκαν τώρα, μετράνε σε άλλον μήνα</h2><div class="small muted" style="margin:-4px 2px 6px">Δεν είναι στα σύνολα αυτού του μήνα — άλλαξέ το από «Αφορά μήνα» αν είναι λάθος.</div>
       <div class="list" style="opacity:.75">${elsewhere.map((r) => itemHtml(r, { today: t, showDate: true, amt: view === 'mine' ? val(r) : null }).replace('</div></div>', ` <span class="space-tag">→ ${monthLabel(when(r).slice(0, 7))}</span></div></div>`)).join('')}</div>` : ''}
-    ${list.length > shown ? `<div class="center" style="margin-top:10px"><button class="btn sm" data-more>Περισσότερες…</button></div>` : ''}`;
+    ${group === 'day' && list.length > shown ? `<div class="center" style="margin-top:10px"><button class="btn sm" data-more>Περισσότερες…</button></div>` : ''}`;
   },
   mount(root, p, ui) {
     const qi = root.querySelector('[name=q]');
@@ -74,6 +96,8 @@ export default {
     root.querySelector('[data-norng]')?.addEventListener('click', () => { rng = null; catF = null; ui.render(); });
     const qr = () => { const a = root.querySelector('[data-qf]').value, b = root.querySelector('[data-qt]').value; rng = a || b ? [a || '2000-01-01', b || '2100-12-31'] : null; ui.render(); };
     root.querySelector('[data-qf]')?.addEventListener('change', qr); root.querySelector('[data-qt]')?.addEventListener('change', qr);
+    root.querySelectorAll('[data-group]').forEach((b) => b.addEventListener('click', () => { group = b.dataset.group; ui.render(); }));
+    root.querySelectorAll('details[data-ck]').forEach((d) => d.addEventListener('toggle', () => { if (d.open) openCats.add(d.dataset.ck); else openCats.delete(d.dataset.ck); }));
     root.querySelector('[data-more]')?.addEventListener('click', () => { shown += 300; ui.render(); });
     bindEdit(root, ui);
   },

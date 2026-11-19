@@ -170,3 +170,9 @@ mark { background: #ffe58a; color: inherit; border-radius: 3px; } :root[data-the
 nav.bottom a.plus:not(.on) .i { background: var(--chip); color: var(--muted); }
 nav.bottom a.on:not(.plus) .i { background: var(--chip); border-radius: 10px; padding: 3px 14px; }
 @media (min-width: 900px) { nav.bottom a.on:not(.plus) .i { background: none; padding: 0; } }
+/* Κινήσεις ανά κατηγορία */
+details.catgrp > summary { list-style: none; cursor: pointer; }
+details.catgrp > summary::-webkit-details-marker { display: none; }
+details.catgrp > summary .t::after { content: ' ▾'; color: var(--muted, #8a94a6); font-size: .8em; }
+details.catgrp[open] > summary .t::after { content: ' ▴'; }
+.cnt { display: inline-block; min-width: 1.5em; padding: 0 .45em; margin-left: 4px; border-radius: 999px; background: rgba(46, 204, 154, .2); color: var(--teal, #2ecc9a); font-size: .75em; font-weight: 700; text-align: center; vertical-align: middle; }
