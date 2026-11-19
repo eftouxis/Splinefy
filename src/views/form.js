@@ -99,6 +99,29 @@ function bindAc(root, input, kind) {
 const cm = (x) => (x == null || x === '' ? '' : String(x).replace('.', ','));
 const seg = (name, opts, val, cls = '') => `<div class="seg ${cls}" data-seg="${name}">${opts.map(([v, l]) => `<button type="button" data-val="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
 
+/** «Είσαι σίγουρος;» όταν το ποσό ξεφεύγει: από ό,τι έδινες για την ίδια περιγραφή, από τον μαθητή, ή από την κατηγορία */
+function amountWarning(f, amt) {
+  const all = store.records('tx').filter((r) => r.kind === f.kind && r.a > 0 && !r._x);
+  const n = norm(f.desc || '').trim();
+  const fmt = (x) => eur(x).replace(',00 €', ' €');
+  if (f.kind === 'Έσοδο' && f.stu && LS.hasLessons()) {             // ιδιαίτερα: χρέος ή τιμή μαθήματος
+    const st = LS.student(f.stu); const bal = LS.balance(f.stu); const pr = st ? LS.priceAt(st).price || 0 : 0; const ref = Math.max(bal, pr);
+    if (ref > 0 && amt > ref * 3 && amt > 50) return `Ο μαθητής ${bal > 0.005 ? `χρωστάει <b>${fmt(bal)}</b>` : `έχει τιμή <b>${fmt(pr)}</b> το μάθημα`}.<br>Σίγουρα <b>${fmt(amt)}</b>;`;
+  }
+  if (n) {                                                          // ίδια περιγραφή: τουλάχιστον 3 φορές πριν
+    const same = all.filter((r) => norm(r.desc || '').trim() === n).sort((a, b) => (a.d < b.d ? 1 : -1)).slice(0, 20).map((r) => r.a);
+    if (same.length >= 3) {
+      const lo = Math.min(...same), hi = Math.max(...same);
+      if (amt > hi * 3 || amt < lo / 3) return `«${esc(f.desc.trim())}» είναι συνήθως <b>${lo === hi ? fmt(lo) : `${fmt(lo)}–${fmt(hi)}`}</b>.<br>Σίγουρα <b>${fmt(amt)}</b>;`;
+      return '';
+    }
+  }
+  if (f.cat) {                                                      // κατηγορία: πάνω από 1,5× το μεγαλύτερο που μπήκε ποτέ
+    const cat = all.filter((r) => r.cat === f.cat).map((r) => r.a);
+    if (cat.length >= 10) { const hi = Math.max(...cat); if (amt > hi * 1.5 && amt > 30) return `Το μεγαλύτερο ποσό σε «${esc(f.cat)}» μέχρι τώρα είναι <b>${fmt(hi)}</b>.<br>Σίγουρα <b>${fmt(amt)}</b>;`; }
+  }
+  return '';
+}
 export default {
   html([a, b]) {
     if (a === 'inc' && b === undefined && O.hasOffice() && !location.hash.includes('personal') && !(f && f.kindKey === 'inc' && !f.id)) { setTimeout(() => location.replace('#/office/in/new'), 0); return ''; }
@@ -367,6 +390,7 @@ export default {
         const dup = DUP.sameInMonth({ kind: f.kind, a: amt, desc: f.desc, cat: f.cat, d: f.d });
         if (dup && !(await ui.confirm(`Υπάρχει ήδη <b>${esc(dup.desc || dup.cat || '')}</b> ${eur(dup.a)} στις ${dFull(dup.d)}.<br>Να μπει ξανά;`, 'Ναι, να μπει', false))) return;
       }
+      if (!f.id && f.kind !== 'Μεταφορά') { const w = amountWarning(f, amt); if (w && !(await ui.confirm(w, `Ναι, ${eur(amt)}`, false))) return; }
       f._saving = 1; setTimeout(() => { if (f) f._saving = 0; }, 1500);
       const rec = { type: 'tx', d: f.d, a: amt, desc: f.desc.trim(), cat: f.kind === 'Μεταφορά' ? 'Μεταφορά μεταξύ μας' : f.cat, kind: f.kind,
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,
