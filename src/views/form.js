@@ -15,6 +15,7 @@ import * as P from '../people.js';
 import { fx } from '../ledger.js';
 import { tripSheet } from './trips.js';
 import { scanReceipt } from '../scan.js';
+import * as DUP from '../dups.js';
 
 /** «who finally pays what» line under the expense form */
 function burdenHtml(f) {
@@ -361,6 +362,12 @@ export default {
         if (Number(f.both) < 0 || Number(f.both) > amt + 0.005) { ui.toast('Τα ποσά δεν ταιριάζουν με το σύνολο'); return; }
       } else if (f.kind === 'Έξοδο') f.both = '';
       if (f.kind === 'Μεταφορά' && f.payer === f.for) { ui.toast('«Έδωσε» και «Πήρε» δεν μπορεί να είναι ίδιοι'); return; }
+      if (f._saving) return;                     // διπλό πάτημα
+      if (!f.id) {                               // υπάρχει ήδη ίδια κίνηση αυτόν τον μήνα;
+        const dup = DUP.sameInMonth({ kind: f.kind, a: amt, desc: f.desc, cat: f.cat, d: f.d });
+        if (dup && !(await ui.confirm(`Υπάρχει ήδη <b>${esc(dup.desc || dup.cat || '')}</b> ${eur(dup.a)} στις ${dFull(dup.d)}.<br>Να μπει ξανά;`, 'Ναι, να μπει', false))) return;
+      }
+      f._saving = 1; setTimeout(() => { if (f) f._saving = 0; }, 1500);
       const rec = { type: 'tx', d: f.d, a: amt, desc: f.desc.trim(), cat: f.kind === 'Μεταφορά' ? 'Μεταφορά μεταξύ μας' : f.cat, kind: f.kind,
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,
         bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons),

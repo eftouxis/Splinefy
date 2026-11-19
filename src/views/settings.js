@@ -3,6 +3,8 @@ import * as store from '../store.js';
 import * as sync from '../sync.js';
 import { CONFIG } from '../config.js';
 import * as EX from '../export.js';
+import * as DUP from '../dups.js';
+import { eur, dFull } from '../util.js';
 import { VERSION, LOG } from './changelog.js';
 import * as BK from '../backup.js';
 import * as GC from '../gcal.js';
@@ -34,6 +36,20 @@ function exportSheet(ui) {
     });
   });
 }
+// ίδιο είδος, ποσό και περιγραφή μέσα σε 3 μέρες: κρατάς όποια θες ή «δεν είναι διπλό»
+function dupSheet(ui) {
+  const gs = DUP.scan();
+  sheet(`<div class="mid">👯 Πιθανά διπλά</div>
+    ${gs.length ? gs.map((g) => `<div class="card" style="margin:8px 0;padding:8px">${g.rs.map((r) => `<div class="item click" data-ed="${esc(r._sp)}/${esc(r.id)}" style="padding:6px 4px"><div class="grow"><div class="t">${esc(r.desc || r.cat || '')}</div><div class="s">${dFull(r.d)} · ${esc(r.cat || '')} · ${esc(r.payer || '')}</div></div><div class="amt">${eur(r.a)}</div></div>`).join('')}
+      <div class="row" style="gap:6px;margin-top:4px"><button class="btn sm red grow" data-delx="${esc(g.rs[g.rs.length - 1]._sp)}/${esc(g.rs[g.rs.length - 1].id)}">Σβήσε τη μία</button><button class="btn sm grow" data-okx="${esc(g.key)}">Δεν είναι διπλό</button></div></div>`).join('')
+    : '<div class="muted" style="margin:10px 0">Δεν βρέθηκε κάτι 👍</div>'}
+    <button class="btn ghost" data-no style="width:100%">Κλείσιμο</button>`, (el, close) => {
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelectorAll('[data-ed]').forEach((b) => b.addEventListener('click', () => { close(); ui.go(`#/edit/${b.dataset.ed}`); }));
+    el.querySelectorAll('[data-okx]').forEach((b) => b.addEventListener('click', async () => { await DUP.dismiss(b.dataset.okx); close(); dupSheet(ui); }));
+    el.querySelectorAll('[data-delx]').forEach((b) => b.addEventListener('click', async () => { const [sp, id] = b.dataset.delx.split('/'); await store.del(sp, id); close(); ui.toast('Σβήστηκε ✓ (υπάρχει στα «Πρόσφατα διαγραμμένα»)'); dupSheet(ui); }));
+  });
+}
 export default {
   html() {
     const S = store.state;
@@ -46,7 +62,8 @@ export default {
     <div class="list"><a class="item" href="#/rec" style="text-decoration:none;color:inherit"><div class="dot">↻</div><div class="grow t">Επαναλαμβανόμενα έσοδα / έξοδα</div><div class="muted">›</div></a>
       <a class="item" href="#/cats" style="text-decoration:none;color:inherit"><div class="dot">🏷️</div><div class="grow t">Κατηγορίες και «Είδος»</div><div class="muted">›</div></a>
       <a class="item" href="#/names" style="text-decoration:none;color:inherit"><div class="dot">✏️</div><div class="grow t">Ενιαία ονόματα <span class="small muted">(ίδια γραφή για κάθε έξοδο)</span></div><div class="muted">›</div></a>
-      <a class="item" href="#/trash" style="text-decoration:none;color:inherit"><div class="dot">🗑</div><div class="grow t">Πρόσφατα διαγραμμένα <span class="small muted">(30 μέρες)</span></div><div class="muted">›</div></a></div>
+      <a class="item" href="#/trash" style="text-decoration:none;color:inherit"><div class="dot">🗑</div><div class="grow t">Πρόσφατα διαγραμμένα <span class="small muted">(30 μέρες)</span></div><div class="muted">›</div></a>
+      ${(() => { const n = DUP.scan().length; return `<div class="item click" data-dups><div class="dot">👯</div><div class="grow t">Πιθανά διπλά ${n ? `<span class="cnt" style="background:rgba(224,90,79,.2);color:var(--red)">${n}</span>` : '<span class="small muted">— κανένα</span>'}</div><div class="muted">›</div></div>`; })()}</div>
     <h2>Συγχρονισμός (OneDrive)</h2>
     <div class="card">
       ${CONFIG.devServer ? `<div class="note">Δοκιμαστική λειτουργία: συγχρονισμός με τοπικό φάκελο δοκιμών.</div>` :
@@ -175,6 +192,7 @@ export default {
       }
       ui.render();
     });
+    root.querySelector('[data-dups]')?.addEventListener('click', () => dupSheet(ui));
     root.querySelector('[data-xlsx]')?.addEventListener('click', () => exportSheet(ui));
     root.querySelector('[data-json]')?.addEventListener('click', () => { const n = EX.json(); ui.toast(`Αντίγραφο ${n.toLocaleString('el-GR')} εγγραφών ✓`); });
     root.querySelectorAll('[data-theme]').forEach((b) => b.addEventListener('click', () => {

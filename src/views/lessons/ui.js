@@ -15,12 +15,15 @@ export const hoursTxt = (h) => {
 export const DSHORT = ['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ'];
 
 /** bottom sheet with its own form; mount(el, close) wires it up */
+let pend = null;      // ένα «πίσω» για το φύλλο που μόλις έκλεισε είναι σε εξέλιξη: οι μεταβάσεις περιμένουν να τελειώσει
+export const backPending = () => !!pend;
 // «πίσω» του κινητού: κλείνει το ανοιχτό φύλλο, δεν φεύγει από τη σελίδα (βλ. popstate στο main.js)
 export function sheetHistory(bg) {
   bg._back = true;
+  if (pend) { pend.then(() => { if (bg.isConnected) sheetHistory(bg); }); return; }     // ένα «πίσω» από το προηγούμενο φύλλο είναι σε εξέλιξη
   try { if (history.state && history.state.sheet) history.replaceState({ sheet: 1 }, ''); else history.pushState({ sheet: 1 }, ''); } catch (_) { /* */ }
 }
-let pend = null;      // ένα «πίσω» για το φύλλο που μόλις έκλεισε είναι σε εξέλιξη: οι μεταβάσεις περιμένουν να τελειώσει
+
 export function afterSheet(fn) { if (pend) pend.then(fn); else fn(); }
 export function sheetClosed() {
   try {

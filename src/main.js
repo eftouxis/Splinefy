@@ -36,7 +36,7 @@ import { hasOffice } from './office.js';
 import { hasLessons } from './lessons.js';
 import { autoCalc } from './views/calc.js';
 
-import { sheetHistory, sheetClosed, afterSheet } from './views/lessons/ui.js';
+import { sheetHistory, sheetClosed, afterSheet, backPending } from './views/lessons/ui.js';
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
 const ROUTES = [
@@ -211,9 +211,16 @@ async function start() {
     if (i >= 0 && links[i + dir]) ui.go(links[i + dir]);
   }, { passive: true });
   // «πίσω»: πρώτα κλείνει το ανοιχτό φύλλο· άδειες θέσεις ιστορικού από φύλλα που έκλεισαν με κουμπί προσπερνιούνται
+  let lastPop = 0, histLen = history.length;
   window.addEventListener('popstate', () => {
+    if (backPending()) return;                    // το «πίσω» το έκανε η ίδια η εφαρμογή (φύλλο που έκλεισε με κουμπί)
     const open = [...document.querySelectorAll('.sheet-bg')].pop();
     if (open) { (open._close || (() => open.remove()))(); return; }
+    // διπλό γρήγορο «πίσω»: κατευθείαν στην Αρχική
+    const now = Date.now(); const isNew = history.length !== histLen; histLen = history.length;    // νέα σελίδα (σύνδεσμος) και όχι «πίσω»
+    if (isNew) { lastPop = 0; return; }
+    if (now - lastPop < 600 && location.hash !== '#/' && location.hash !== '') { lastPop = 0; ui.go('#/'); return; }
+    lastPop = now;
   });
   // Enter σε πεδίο: κλείνει το πληκτρολόγιο (δεν πηδάει σε άλλο πεδίο)
   document.addEventListener('focusin', (e) => { const el = e.target; if (el.matches?.('input:not([type=checkbox]):not([type=radio]):not([type=file])') && !el.hasAttribute('enterkeyhint')) el.setAttribute('enterkeyhint', 'done'); });
