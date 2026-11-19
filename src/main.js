@@ -201,6 +201,7 @@ async function start() {
     if (!sw0) return; const t = e.changedTouches[0]; const dx = t.clientX - sw0.x, dy = t.clientY - sw0.y, dt = Date.now() - sw0.t; sw0 = null;
     if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2 || dt > 700) return;
     const dir = dx < 0 ? 1 : -1;                                                            // ← = επόμενη
+    if (/^#\/list/.test(location.hash)) { const mb = app.querySelector(`[data-m="${dir}"]`); if (mb) mb.click(); return; }   // Κινήσεις: μήνας
     const tabs = app.querySelector('[data-tabs]');
     if (tabs) { const bs = [...tabs.querySelectorAll('button')].filter((b) => b.offsetParent); const i = bs.findIndex((b) => b.classList.contains('on')); const nb = bs[i + dir]; if (i >= 0 && nb) nb.click(); return; }
     const sub = document.getElementById('subnav'); if (!sub) return;
