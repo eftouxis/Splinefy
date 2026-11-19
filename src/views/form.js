@@ -221,7 +221,8 @@ export default {
       ${k === 'Έξοδο' && (f.bill || billType(f.desc)) ? `<div class="note" style="margin-bottom:10px"><div class="small" style="font-weight:600;margin-bottom:6px">📄 Λογαριασμός (προαιρετικά)</div>
         <div class="grid3"><label class="f"><span>Είδος</span><input name="bill" value="${esc(f.bill || billType(f.desc))}"></label>
         <label class="f"><span>Περίοδος</span><input name="period" value="${esc(f.period || '')}" placeholder="π.χ. 8/8–2/10"></label>
-        <label class="f"><span>${({ 'Ρεύμα': 'kWh', 'Νερό': 'm³', 'Θέρμανση': 'Μονάδες' })[f.bill || billType(f.desc)] || 'Κατανάλωση'}</span><input name="cons" inputmode="decimal" value="${esc(f.cons ?? '')}"></label></div></div>` : ''}
+        <label class="f"><span>${({ 'Ρεύμα': 'kWh', 'Νερό': 'm³', 'Θέρμανση': 'Μονάδες', 'Κοινόχρηστα': 'Μονάδες θέρμ.' })[f.bill || billType(f.desc)] || 'Κατανάλωση'}</span><input name="cons" inputmode="decimal" value="${esc(f.cons ?? '')}"></label></div>
+        ${/κοινοχρ/.test(norm(f.bill || billType(f.desc))) ? `<div class="grid2"><label class="f"><span>🔥 Κατανάλωση θέρμανσης €</span><input name="heat" inputmode="decimal" value="${esc(String(f.heat ?? '').replace('.', ','))}"></label><label class="f"><span>Πάγιο θέρμανσης €</span><input name="fix" inputmode="decimal" value="${esc(String(f.fix ?? '').replace('.', ','))}"></label></div>` : ''}</div>` : ''}
       ${!f.id && k !== 'Μεταφορά' && !lesPay ? (() => {
         const n = norm(f.desc).trim(); const t0 = f.d || today();
         const defs = n ? store.records('rec').filter((r) => norm(r.name).trim() === n) : [];
@@ -394,7 +395,7 @@ export default {
       f._saving = 1; setTimeout(() => { if (f) f._saving = 0; }, 1500);
       const rec = { type: 'tx', d: f.d, a: amt, desc: f.desc.trim(), cat: f.kind === 'Μεταφορά' ? 'Μεταφορά μεταξύ μας' : f.cat, kind: f.kind,
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,
-        bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons),
+        bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons), heat: parseAmount(String(f.heat ?? '')), fix: parseAmount(String(f.fix ?? '')),
         stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null, md: null,
         extra: f.kind === 'Έσοδο' && f.cat === 'Μισθός' && (f.extra === true || f.extra === 'on') ? true : null,
         car: f.kind === 'Έξοδο' && f.car && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο') ? f.car : null,

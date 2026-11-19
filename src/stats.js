@@ -40,7 +40,7 @@ export function cube() {
     }
     if (r.kind === 'Έξοδο' && !r.trip) {          // bills at home, never on a trip
       const b = r.bill || billType(r.desc);
-      if (b) bills.push({ d: r.d, a: r.a || 0, mine: f.U || 0, kind: b, cons: r.cons ?? null, period: r.period || '', desc: r.desc, id: r.id, sp: r._sp });
+      if (b) bills.push({ d: r.d, a: r.a || 0, mine: f.U || 0, kind: b, cons: r.cons ?? null, fix: r.fix ?? null, heat: r.heat ?? null, period: r.period || '', desc: r.desc, id: r.id, sp: r._sp });
     }
   }
   C = { v: state.version, M, D, descs, trips, bills };
