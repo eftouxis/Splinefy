@@ -13,6 +13,27 @@ let bkInfo = null;
 
 let signed = null;
 
+// Excel με επιλογή: τι, από–έως, λέξη
+function exportSheet(ui) {
+  const parts = EX.PARTS.filter(([k]) => hasLessons() || !['stu', 'les', 'pay'].includes(k));
+  sheet(`<div class="mid">⬇ Εξαγωγή σε Excel</div>
+    <div class="list" style="margin:8px 0">${parts.map(([k, n]) => `<label class="item"><input type="checkbox" data-part="${k}" checked style="width:auto"><div class="grow t">${n}</div></label>`).join('')}</div>
+    <div class="grid2"><label class="small muted">Από<input type="date" data-from></label><label class="small muted">Έως<input type="date" data-to></label></div>
+    <input data-q placeholder="Μόνο όσα περιέχουν… (π.χ. βενζίνη, Πάνος)" autocomplete="off" style="margin:8px 0">
+    <button class="btn primary" data-go style="width:100%">⬇ Excel</button>`, (el, close) => {
+    el.querySelector('[data-go]').addEventListener('click', async (e) => {
+      const sel = new Set([...el.querySelectorAll('[data-part]:checked')].map((x) => x.dataset.part));
+      if (!sel.size) { ui.toast('Διάλεξε τουλάχιστον ένα'); return; }
+      e.target.disabled = true;
+      try {
+        const all = sel.size === parts.length && !el.querySelector('[data-from]').value && !el.querySelector('[data-to]').value && !el.querySelector('[data-q]').value.trim();
+        const n = await EX.excel(all ? {} : { parts: sel, from: el.querySelector('[data-from]').value, to: el.querySelector('[data-to]').value, q: el.querySelector('[data-q]').value });
+        if (n < 0) ui.toast('Δεν υπάρχει τίποτα με αυτές τις επιλογές'); else { ui.toast(`Excel με ${n.toLocaleString('el-GR')} γραμμές ✓`); close(); }
+      } catch (err) { ui.toast('Σφάλμα: ' + err.message, 4000); }
+      e.target.disabled = false;
+    });
+  });
+}
 export default {
   html() {
     const S = store.state;
@@ -47,7 +68,7 @@ export default {
       <div class="small" style="margin-bottom:8px">${bkInfo ? store.visibleSpaces().map((sp) => `${esc(sp.name)}: ${bkInfo[sp.id] ? 'τελευταίο ' + bkInfo[sp.id].split('-').reverse().join('/') : '<span class="muted">όχι ακόμα (μετά τον επόμενο συγχρονισμό)</span>'}`).join('<br>') : '…'}</div>
       <button class="btn" style="width:100%;margin-bottom:8px" data-restore>↺ Επαναφορά από αντίγραφο…</button>
       <div class="small muted" style="margin-bottom:8px">Και χειροκίνητα, σε αρχείο:</div>
-      <div class="grid2"><button class="btn" data-xlsx>⬇ Excel</button><button class="btn" data-json>⬇ Πλήρες αντίγραφο</button></div></div>
+      <div class="grid2"><button class="btn" data-xlsx>⬇ Excel (επιλογή)</button><button class="btn" data-json>⬇ Πλήρες αντίγραφο</button></div></div>
     ${hasLessons() ? (() => { const g = GC.pref(); return `<h2>Google Calendar (μαθήματα)</h2>
     <div class="card"><div class="small muted" style="margin-bottom:8px">Διαβάζει (μόνο διαβάζει) τα ιδιαίτερα από το ημερολόγιό σου και στα Μαθήματα σου προτείνει αλλαγές σε ώρα / διάρκεια / μετακινήσεις. Τίποτα δεν αλλάζει χωρίς το ✓ σου.</div>
       <label class="f"><span>Client ID (από το Google Cloud)</span><input name="gcid" value="${esc(g.client || '')}" placeholder="…apps.googleusercontent.com"></label>
@@ -154,7 +175,7 @@ export default {
       }
       ui.render();
     });
-    root.querySelector('[data-xlsx]')?.addEventListener('click', async (e) => { e.target.disabled = true; try { const n = await EX.excel(); ui.toast(`Excel με ${n.toLocaleString('el-GR')} κινήσεις ✓`); } catch (err) { ui.toast('Σφάλμα: ' + err.message, 4000); } e.target.disabled = false; });
+    root.querySelector('[data-xlsx]')?.addEventListener('click', () => exportSheet(ui));
     root.querySelector('[data-json]')?.addEventListener('click', () => { const n = EX.json(); ui.toast(`Αντίγραφο ${n.toLocaleString('el-GR')} εγγραφών ✓`); });
     root.querySelectorAll('[data-theme]').forEach((b) => b.addEventListener('click', () => {
       const v = b.dataset.theme;

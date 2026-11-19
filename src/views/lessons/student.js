@@ -10,6 +10,8 @@ function archHead(id, st) {
     <div class="card kpi"><div class="label">Πληρωμές</div><div class="mid">${eur(p)}</div></div></div>
     <div class="note small" style="margin-bottom:12px">Παλιά χρονιά (${esc(st.note || '')}) από τα Excel σου — για να τη βλέπεις· δεν μετράει στα «Μου χρωστάνε».</div>`;
 }
+const GL = { α: 'a', β: 'v', γ: 'g', δ: 'd', ε: 'e', ζ: 'z', η: 'i', θ: 'th', ι: 'i', κ: 'k', λ: 'l', μ: 'm', ν: 'n', ξ: 'x', ο: 'o', π: 'p', ρ: 'r', σ: 's', ς: 's', τ: 't', υ: 'y', φ: 'f', χ: 'ch', ψ: 'ps', ω: 'o' };
+const greeklish = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/./g, (c) => GL[c] ?? c).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 export default {
   html([id]) {
     const st = L.student(id);
@@ -49,8 +51,10 @@ export default {
     const slotRow = (s) => `<div class="item" data-slot="${esc(s.id)}"><div class="dot" style="font-size:13px;font-weight:700">${DSHORT[s.wd - 1]}</div>
       <div class="grow"><div class="t">${L.DAYNAMES[s.wd - 1]} · ${hoursTxt(s.h)}${s.time ? ' · ' + esc(s.time) : ''}</div>
       <div class="s">${dFull(s.from)} → ${s.to ? dFull(s.to) : 'χωρίς τέλος'}</div></div><div class="muted">›</div></div>`;
-    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(L.label(st))}</h1><a class="btn sm" href="#/lessons/edit/${esc(id)}">Επεξεργασία</a></div>
-    ${st.full && st.full !== L.label(st) ? `<div class="small muted" style="margin:-6px 4px 10px">${esc(st.full)}${st.note ? ' · ' + esc(st.note) : ''}</div>` : st.note ? `<div class="small muted" style="margin:-6px 4px 10px">${esc(st.note)}</div>` : ''}
+    const payRow = (p) => `<div class="item" ${p.type === 'tx' ? `data-paytx="${esc(p.id)}"` : ''}><div class="dot">💶</div>
+      <div class="grow"><div class="t">${dFull(p.d)}</div><div class="s">${p.md && p.md.slice(0, 7) !== p.d.slice(0, 7) ? `για ${MONTHS[Number(p.md.slice(5, 7)) - 1]}${p.note ? ' · ' : ''}` : ''}${esc(p.note || '')}</div></div><div class="amt pos">+${eur(p.a)}</div></div>`;
+    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>${esc(st.full || L.label(st))}</h1><a class="btn sm" href="#/lessons/edit/${esc(id)}">Επεξεργασία</a></div>
+    ${st.note ? `<div class="small muted" style="margin:-6px 4px 10px">${esc(st.note)}</div>` : ''}
     ${st.archived ? archHead(id, st) : `    <div class="grid2">
       <div class="card kpi"><div class="label">${Math.abs(bal) < 0.005 ? 'Εξοφλημένος' : bal > 0 ? 'Χρωστάει' : 'Προπληρωμένα'}</div>
         <div class="big ${bal > 0.005 ? 'neg' : bal < -0.005 ? 'pos' : ''}">${Math.abs(bal) < 0.005 ? '✓' : eur(Math.abs(bal))}</div>
@@ -74,15 +78,17 @@ export default {
     <div class="list">${activeSl.map(slotRow).join('') || '<div class="item muted">Χωρίς πρόγραμμα</div>'}
       <div class="item" data-newslot><div class="dot">+</div><div class="grow t" style="color:var(--teal)">Προσθήκη ημέρας</div></div></div>
     ${oldSl.length ? `<details class="more" style="margin-top:6px"><summary>Παλιό πρόγραμμα (${oldSl.length}) ▾</summary><div class="list">${oldSl.map(slotRow).join('')}</div></details>` : ''}
+    <div class="row" style="margin:16px 2px 6px"><h2 class="grow" style="margin:0">Πληρωμές</h2><button class="btn sm ghost" data-xl>⬇ Excel</button></div>
+    <div class="list">${pays.slice(0, 5).map(payRow).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>
+    ${pays.length > 5 ? `<details class="more" style="margin-top:6px"><summary>Παλαιότερες (${pays.length - 5}) ▾</summary><div class="list">${pays.slice(5, 60).map(payRow).join('')}</div></details>` : ''}
     <h2>Χρονιά ${L.yLabel(Y)}</h2>
     <div class="card"><table class="t"><tr><th>Μήνας</th><th class="r">Ώρες</th><th class="r">Αξία</th><th class="r">Πληρωμές</th></tr>${rows || '<tr><td colspan="4" class="muted">—</td></tr>'}</table>
-      ${st.open ? `<div class="small muted" style="margin-top:6px">Από πριν: ${eur(st.open)}</div>` : ''}</div>
-    <h2>Πληρωμές</h2>
-    <div class="list">${pays.slice(0, 40).map((p) => `<div class="item" ${p.type === 'tx' ? `data-paytx="${esc(p.id)}"` : ''}><div class="dot">💶</div>
-      <div class="grow"><div class="t">${dFull(p.d)}</div><div class="s">${p.md && p.md.slice(0, 7) !== p.d.slice(0, 7) ? `για ${MONTHS[Number(p.md.slice(5, 7)) - 1]}${p.note ? ' · ' : ''}` : ''}${esc(p.note || '')}</div></div><div class="amt pos">+${eur(p.a)}</div></div>`).join('') || '<div class="item muted">Καμία ακόμα</div>'}</div>`;
+      ${st.open ? `<div class="small muted" style="margin-top:6px">Από πριν: ${eur(st.open)}</div>` : ''}</div>`;
   },
   mount(root, [id], ui) {
     root.querySelector('[data-back]')?.addEventListener('click', () => ui.go('#/lessons'));
+    root.querySelector('[data-xl]')?.addEventListener('click', async () => { const EX = await import('../../export.js'); const st = L.student(id);
+      const n = await EX.excel({ stu: id, parts: new Set(['stu', 'les', 'pay']), name: `Mathitis_${greeklish(st.full || st.name || 'x')}_${today()}.xlsx` }); ui.toast(n < 0 ? 'Τίποτα για εξαγωγή' : 'Excel μαθητή ✓'); });
     root.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => {
       const [y, m] = month.split('-').map(Number); const d = new Date(y, m - 1 + Number(b.dataset.m), 1);
       month = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; ui.render();
