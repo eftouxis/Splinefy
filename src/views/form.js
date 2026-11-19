@@ -53,7 +53,7 @@ function blank(kindKey) {
   const me = store.state.user;
   const pre = new URLSearchParams(location.hash.split('?')[1] || '');
   return { mm: '', kind: KIND[kindKey], d: today(), a: '', desc: '', cat: '', payer: me, for: kindKey === 'exp' ? 'Κοινό' : kindKey === 'trf' ? (me === 'Άλκης' ? 'Χαρά' : 'Άλκης') : '',
-    both: '', share: '', trip: '', note: '', bill: '', period: '', cons: '', toShared: false, id: null, sp: null, touched: {}, ...(pre.get('cat') ? { cat: pre.get('cat') } : {}), ...(pre.get('trip') ? { trip: pre.get('trip'), tripTouched: 1 } : {}), ...(pre.get('for') ? { for: pre.get('for'), touched: { for: 1 } } : {}), ...(pre.get('payer') ? { payer: pre.get('payer') } : {}), ...(pre.get('a') ? { a: pre.get('a') } : {}) };
+    both: '', share: '', trip: '', note: '', bill: '', period: '', cons: '', toShared: false, id: null, sp: null, touched: {}, ...(pre.get('cat') ? { cat: pre.get('cat') } : {}), ...(pre.get('desc') ? { desc: pre.get('desc') } : {}), ...(pre.get('trip') ? { trip: pre.get('trip'), tripTouched: 1 } : {}), ...(pre.get('for') ? { for: pre.get('for'), touched: { for: 1 } } : {}), ...(pre.get('payer') ? { payer: pre.get('payer') } : {}), ...(pre.get('a') ? { a: pre.get('a') } : {}) };
 }
 /** where a movement is stored: personal space only when it concerns the user alone */
 function targetSpace(x) {
@@ -112,7 +112,7 @@ export default {
         f = { ...blank(KEY[r.kind] || 'exp'), ...Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith('_'))), a: cm(r.gross ?? r.a), both: cm(r.both), share: cm(r.share), cons: cm(r.cons), q: cm(r.q), id, sp, occ: id.includes('@'), touched: { cat: 1, for: 1, payer: 1, ft: r.ft ? 1 : 0 }, tripTouched: 1, withOth: r.oth && r.oth.length ? 1 : 0, mm: r.md ? r.md.slice(0, 7) : '' };
         if (r.kind === 'Έξοδο' && r.both != null) { f.payer = 'Και οι 2'; f.bothX = String(Math.round(((r.a || 0) - r.both) * 100) / 100).replace('.', ','); }
       }
-    } else if (!f || f.id || f.kindKey !== a || location.hash.includes('?')) { f = blank(a); f.kindKey = a; if (location.hash.includes('?')) history.replaceState(null, '', `#/add/${a}`); }
+    } else if (!f || f.id || f.kindKey !== a || location.hash.includes('?')) { f = blank(a); f.kindKey = a; if (f.desc) { const m0 = memory().get(norm(f.desc)); if (m0 && m0.kind === f.kind) { if (!f.cat && m0.cat) f.cat = m0.cat; f.for = m0.for ?? f.for; } } if (location.hash.includes('?')) history.replaceState(null, '', `#/add/${a}`); }
     const k = f.kind, kk = KEY[k];
     const people = ['Άλκης', 'Χαρά'];
     const cats = categories(k);

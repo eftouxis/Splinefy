@@ -13,6 +13,8 @@ import stats from './views/stats.js';
 import carsView from './views/cars.js';
 import peopleView from './views/people.js';
 import tripsView from './views/trips.js';
+import billsView from './views/bills.js';
+import investView from './views/invest.js';
 import choresView from './views/chores.js';
 import medsView from './views/meds.js';
 import appsView from './views/apps.js';
@@ -43,7 +45,7 @@ const ROUTES = [
   [/^#\/lessons(?:\/(\w+))?(?:\/(.+))?$/, lessons, 'lessons'],
   [/^#\/rec(?:\/([\w-]+))?(?:\/(.+))?$/, rec, 'settings'], [/^#\/cats$/, cats, 'settings'],
   [/^#\/stats(?:\/(\w+))?(?:\/(.+))?$/, stats, 'stats'], [/^#\/cars(?:\/([\w-]+))?$/, carsView, 'apps'], [/^#\/people(?:\/([\w-]+))?$/, peopleView, 'debts'],
-  [/^#\/trips(?:\/(.+))?$/, tripsView, 'apps'], [/^#\/chores$/, choresView, 'apps'], [/^#\/meds(?:\/(.+))?$/, medsView, 'apps'], [/^#\/apps$/, appsView, 'apps'], [/^#\/philippos$/, philView, 'apps'], [/^#\/health(?:\/(\w+))?$/, healthView, 'apps'], [/^#\/pet(?:\/(\w+))?$/, petView, 'apps'], [/^#\/gym(?:\/(\w+))?$/, gymView, 'apps'], [/^#\/cards(?:\/([\w-]+))?(?:\/(\d+))?$/, cardsView, 'apps'], [/^#\/names$/, namesView, 'settings'], [/^#\/changelog$/, changelogView, 'settings'], [/^#\/trash$/, trashView, 'settings'], [/^#\/odebt(?:\/([^/]+))?$/, odebtView, 'debts'], [/^#\/goals$/, goalsView, 'apps'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
+  [/^#\/trips(?:\/(.+))?$/, tripsView, 'apps'], [/^#\/bills(?:\/(.+))?$/, billsView, 'apps'], [/^#\/inv$/, investView, 'apps'], [/^#\/chores$/, choresView, 'apps'], [/^#\/meds(?:\/(.+))?$/, medsView, 'apps'], [/^#\/apps$/, appsView, 'apps'], [/^#\/philippos$/, philView, 'apps'], [/^#\/health(?:\/(\w+))?$/, healthView, 'apps'], [/^#\/pet(?:\/(\w+))?$/, petView, 'apps'], [/^#\/gym(?:\/(\w+))?$/, gymView, 'apps'], [/^#\/cards(?:\/([\w-]+))?(?:\/(\d+))?$/, cardsView, 'apps'], [/^#\/names$/, namesView, 'settings'], [/^#\/changelog$/, changelogView, 'settings'], [/^#\/trash$/, trashView, 'settings'], [/^#\/odebt(?:\/([^/]+))?$/, odebtView, 'debts'], [/^#\/goals$/, goalsView, 'apps'], [/^#\/debts$/, debtsView, 'debts'], [/^#\/couple$/, coupleView, 'debts'], [/^#\/office(?:\/(\w+))?(?:\/(.+))?$/, officeView, 'office'],
 ];
 let current = null, syncState = { busy: false, msg: '', err: '', last: 0, fresh: false };
 /** true once this app session has synced (or cannot sync): news cards wait for it, so an «OK» from another device is known first */
