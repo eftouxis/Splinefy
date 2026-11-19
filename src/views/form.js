@@ -258,7 +258,7 @@ export default {
       if (!f.touched.for && m.kind === f.kind) f.for = m.for ?? f.for;
       if (!f.touched.for && m.kind === f.kind && f.kind === 'Έξοδο' && m.oth && m.oth.length) { f.oth = m.oth.map((o) => ({ ...o })); f.withOth = 1; }
       if (!f.bill) f.bill = billType(f.desc);
-      ui.render(); root.querySelector('[name=a]')?.focus();
+      ui.render(); if (!parseAmount(f.a)) root.querySelector('[name=a]')?.focus();     // στο ποσό μόνο αν λείπει
     });
     root.querySelector('[name=cat]')?.addEventListener('change', () => { f.touched.cat = 1; read(); ui.render(); });
     root.querySelector('[data-car]')?.addEventListener('click', (e) => {

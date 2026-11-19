@@ -56,7 +56,7 @@ function editSheet(c = null) {
       <label class="btn sm" style="width:auto">🖼 Εικόνα<input type="file" accept="image/*" data-iconfile hidden></label>
       <input data-emo value="${esc(emo || '')}" placeholder="ή emoji 🏋️" maxlength="4" style="width:110px">
       <button type="button" class="btn sm ghost" data-iconx style="width:auto">✕ Χωρίς</button></div></label>
-    <label class="f"><span>📌 Συντόμευση στο κινητό</span><div class="seg" data-pin>${[0, 1, 2, 3, 4].map((n) => `<button type="button" data-val="${n}" class="${n === pin ? 'on' : ''}">${n ? `📌 ${n}` : '—'}</button>`).join('')}</div></label>
+    <label class="f"><span>📌 Συντόμευση στο κινητό</span><div class="seg" data-pin>${[0, 1, 2, 3].map((n) => `<button type="button" data-val="${n}" class="${n === pin ? 'on' : ''}">${n ? `📌 ${n}` : '—'}</button>`).join('')}</div></label>
     <div class="small muted" style="margin:-6px 2px 12px">Πατάς παρατεταμένα το εικονίδιο του Splinefy → «Κάρτα ${pin || 'N'}» → σύρ' την στην οθόνη. Ανοίγει κατευθείαν αυτή η κάρτα. Κάθε άτομο έχει τις δικές του.</div>
     <label class="f"><span>Σημείωση</span><input name="note" value="${esc(c?.note || '')}" placeholder="π.χ. PIN, ισχύει ως…"></label>
     <div class="row small" style="gap:14px;margin:0 2px 12px"><label class="row" style="gap:6px"><input type="checkbox" name="star" style="width:auto" ${c?.star ? 'checked' : ''}> ⭐ Πάνω πάνω</label>

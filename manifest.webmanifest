@@ -27,6 +27,18 @@
   ],
   "shortcuts": [
     {
+      "name": "− Νέο έξοδο",
+      "short_name": "− Έξοδο",
+      "url": "./#/add/exp",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "Κάρτα 1",
       "short_name": "Κάρτα 1",
       "url": "./#/cards/pin/1",
@@ -54,18 +66,6 @@
       "name": "Κάρτα 3",
       "short_name": "Κάρτα 3",
       "url": "./#/cards/pin/3",
-      "icons": [
-        {
-          "src": "icons/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Κάρτα 4",
-      "short_name": "Κάρτα 4",
-      "url": "./#/cards/pin/4",
       "icons": [
         {
           "src": "icons/icon-192.png",

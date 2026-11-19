@@ -34,6 +34,7 @@ import { hasOffice } from './office.js';
 import { hasLessons } from './lessons.js';
 import { autoCalc } from './views/calc.js';
 
+import { sheetHistory, sheetClosed, afterSheet } from './views/lessons/ui.js';
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
 const ROUTES = [
@@ -49,8 +50,8 @@ let current = null, syncState = { busy: false, msg: '', err: '', last: 0, fresh:
 export const syncedThisSession = () => syncState.fresh || !!CONFIG.devServer;
 
 export const ui = {
-  go: (h) => { if (location.hash === h) render(); else location.hash = h; },
-  back: () => (history.length > 1 ? history.back() : ui.go('#/')),
+  go: (h) => afterSheet(() => { if (location.hash === h) render(); else location.hash = h; }),
+  back: () => afterSheet(() => (history.length > 1 ? history.back() : ui.go('#/'))),
   toast(msg, ms = 2200, act = null) {
     if (!act && document.querySelector('.toast.undo') && /διαγράφ|σβήστηκε/i.test(msg)) return;     // the «Αναίρεση» message already says it
     const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
@@ -60,10 +61,10 @@ export const ui = {
   },
   confirm(text, okLabel = 'Ναι', danger = true) {
     return new Promise((res) => {
-      const bg = document.createElement('div'); bg.className = 'sheet-bg';
+      const bg = document.createElement('div'); bg.className = 'sheet-bg'; bg._close = () => { bg.remove(); res(false); }; sheetHistory(bg);
       bg.innerHTML = `<div class="sheet"><div class="mid">${text}</div>
         <button class="btn ${danger ? 'red' : 'primary'}" data-ok>${okLabel}</button><button class="btn" data-no>Άκυρο</button></div>`;
-      bg.addEventListener('click', (e) => { if (e.target.dataset.ok !== undefined) { bg.remove(); res(true); } else if (e.target === bg || e.target.dataset.no !== undefined) { bg.remove(); res(false); } });
+      bg.addEventListener('click', (e) => { if (e.target.dataset.ok !== undefined) { bg.remove(); sheetClosed(); res(true); } else if (e.target === bg || e.target.dataset.no !== undefined) { bg.remove(); sheetClosed(); res(false); } });
       document.body.appendChild(bg);
     });
   },
@@ -179,10 +180,10 @@ async function start() {
   // reopen where you left off (not inside a half-filled form)
   const FORM = /^#\/(add|edit|office\/(in|ex)\/|rec\/)/;
   try { const last = localStorage.getItem('lastHash'), seen = Number(localStorage.getItem('lastSeen') || 0);       // back where you were only if it was a few minutes ago
-    if ((!location.hash || location.hash === '#/' || location.hash === '#') && last && last !== '#/' && !FORM.test(last) && Date.now() - seen < 10 * 60000) history.replaceState(null, '', last); } catch (_) { /* */ }
+    if ((!location.hash || location.hash === '#/' || location.hash === '#') && last && last !== '#/' && !FORM.test(last) && Date.now() - seen < 2 * 60000) history.replaceState(null, '', last); } catch (_) { /* */ }
   const seenNow = () => { try { localStorage.setItem('lastSeen', String(Date.now())); } catch (_) { /* */ } };
   seenNow(); setInterval(() => { if (document.visibilityState === 'visible') seenNow(); }, 30000);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') seenNow(); else if (Date.now() - Number(localStorage.getItem('lastSeen') || 0) > 10 * 60000 && location.hash !== '#/' && !/^#\/cards\//.test(location.hash) && !FORM.test(location.hash) && !document.querySelector('.sheet-bg')) location.hash = '#/'; else seenNow(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') seenNow(); else if (Date.now() - Number(localStorage.getItem('lastSeen') || 0) > 3 * 60000 && location.hash !== '#/' && !/^#\/cards\//.test(location.hash) && !FORM.test(location.hash) && !document.querySelector('.sheet-bg')) location.hash = '#/'; else seenNow(); });
   // σύρσιμο αριστερά/δεξιά: επόμενη/προηγούμενη καρτέλα (Υγεία, Γυμναστική, Κατοικίδιο, Εργασίες…) ή ενότητα (Μαθήματα, Γραφείο)
   let sw0 = null;
   const noSwipe = (el) => {
@@ -206,6 +207,14 @@ async function start() {
     const on = sub.querySelector('a.on'); const i = on ? links.indexOf(on.getAttribute('href')) : location.hash.replace(/\/$/, '') === `#/${m[1]}` ? 0 : -1;
     if (i >= 0 && links[i + dir]) ui.go(links[i + dir]);
   }, { passive: true });
+  // «πίσω»: πρώτα κλείνει το ανοιχτό φύλλο· άδειες θέσεις ιστορικού από φύλλα που έκλεισαν με κουμπί προσπερνιούνται
+  window.addEventListener('popstate', () => {
+    const open = [...document.querySelectorAll('.sheet-bg')].pop();
+    if (open) { (open._close || (() => open.remove()))(); return; }
+  });
+  // Enter σε πεδίο: κλείνει το πληκτρολόγιο (δεν πηδάει σε άλλο πεδίο)
+  document.addEventListener('focusin', (e) => { const el = e.target; if (el.matches?.('input:not([type=checkbox]):not([type=radio]):not([type=file])') && !el.hasAttribute('enterkeyhint')) el.setAttribute('enterkeyhint', 'done'); });
+  document.addEventListener('keydown', (e) => { if (e.key !== 'Enter' || e.isComposing) return; const el = e.target; if (el.matches?.('input:not([type=checkbox]):not([type=radio])')) { e.preventDefault(); setTimeout(() => el.blur(), 0); } });
   window.addEventListener('hashchange', () => { try { if (!FORM.test(location.hash)) localStorage.setItem('lastHash', location.hash); } catch (_) { /* */ } document.querySelectorAll('.sheet-bg').forEach((e) => e.remove()); render(); });
   let lastV = store.state.version;
   store.on((v) => {

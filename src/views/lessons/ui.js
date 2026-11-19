@@ -15,10 +15,25 @@ export const hoursTxt = (h) => {
 export const DSHORT = ['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ'];
 
 /** bottom sheet with its own form; mount(el, close) wires it up */
+// «πίσω» του κινητού: κλείνει το ανοιχτό φύλλο, δεν φεύγει από τη σελίδα (βλ. popstate στο main.js)
+export function sheetHistory(bg) {
+  bg._back = true;
+  try { if (history.state && history.state.sheet) history.replaceState({ sheet: 1 }, ''); else history.pushState({ sheet: 1 }, ''); } catch (_) { /* */ }
+}
+let pend = null;      // ένα «πίσω» για το φύλλο που μόλις έκλεισε είναι σε εξέλιξη: οι μεταβάσεις περιμένουν να τελειώσει
+export function afterSheet(fn) { if (pend) pend.then(fn); else fn(); }
+export function sheetClosed() {
+  try {
+    if (!(history.state && history.state.sheet) || document.querySelector('.sheet-bg')) return;
+    pend = new Promise((r) => { let done = false; const h = () => { if (done) return; done = true; window.removeEventListener('popstate', h); pend = null; r(); }; window.addEventListener('popstate', h); setTimeout(h, 500); });
+    history.back();
+  } catch (_) { /* */ }
+}
 export function sheet(html, mount) {
   const bg = document.createElement('div'); bg.className = 'sheet-bg';
   bg.innerHTML = `<div class="sheet">${html}</div>`;
-  const close = () => bg.remove();
+  const close = () => { if (!bg.isConnected) return; bg.remove(); sheetClosed(); };
+  bg._close = close; sheetHistory(bg);
   bg.addEventListener('click', (e) => { if (e.target === bg) close(); });
   document.body.appendChild(bg);
   mount?.(bg.querySelector('.sheet'), close);
