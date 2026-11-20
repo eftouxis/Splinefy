@@ -1,6 +1,6 @@
 // Πιθανές διπλές κινήσεις: ίδιο είδος, ποσό, περιγραφή και μέρα
 import * as store from './store.js';
-import { norm, addDays } from './util.js';
+import { norm } from './util.js';
 
 const keyOf = (r) => `${r.kind}|${Math.round((r.a || 0) * 100)}|${norm(r.desc || r.cat || '').trim()}`;
 const okRec = () => store.records('pref').find((r) => r.id === 'dupok');
@@ -19,7 +19,7 @@ export function scan() {
     if (l.length < 2) continue; l.sort((x, y) => (x.d < y.d ? -1 : 1));
     let g = [l[0]];
     const flush = () => { if (g.length > 1) { const gk = `${k}|${g.map((x) => x.id).sort().join(',')}`; if (!ok.has(gk)) out.push({ key: gk, rs: g.slice() }); } };
-    for (let i = 1; i < l.length; i++) { if (l[i].d === g[g.length - 1].d) g.push(l[i]);       // μόνο ίδια μέρα else { flush(); g = [l[i]]; } }
+    for (let i = 1; i < l.length; i++) { if (l[i].d === g[g.length - 1].d) g.push(l[i]); else { flush(); g = [l[i]]; } }
     flush();
   }
   return out.sort((a, b) => (a.rs[0].d < b.rs[0].d ? 1 : -1));
