@@ -10,10 +10,10 @@ export function sameInMonth({ kind, a, desc, cat, d }, exceptId) {
   const k = keyOf({ kind, a, desc, cat });
   return store.records('tx').filter((r) => r.id !== exceptId && keyOf(r) === k && (r.d || '').slice(0, 7) === (d || '').slice(0, 7)).sort((x, y) => (x.d < y.d ? 1 : -1))[0] || null;
 }
-/** ομάδες πιθανών διπλών (ημερομηνίες ως 3 μέρες μακριά) */
+/** ομάδες πιθανών διπλών εξόδων (ημερομηνίες ως 3 μέρες μακριά) — όχι μεταφορές/πληρωμές μεταξύ μας */
 export function scan() {
   const by = new Map();
-  for (const r of store.records('tx')) { if (!r.d || !(r.a > 0) || r.kind !== 'Έξοδο') continue;   // μόνο έξοδα (όχι μεταφορές/πληρωμές μεταξύ μας) const k = keyOf(r); (by.get(k) || by.set(k, []).get(k)).push(r); }
+  for (const r of store.records('tx')) { if (!r.d || !(r.a > 0) || r.kind !== 'Έξοδο') continue; const k = keyOf(r); (by.get(k) || by.set(k, []).get(k)).push(r); }
   const ok = dismissed(); const out = [];
   for (const [k, l] of by) {
     if (l.length < 2) continue; l.sort((x, y) => (x.d < y.d ? -1 : 1));
