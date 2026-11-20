@@ -1,4 +1,4 @@
-// Πιθανές διπλές κινήσεις: ίδιο είδος, ποσό και περιγραφή, μέσα σε λίγες μέρες
+// Πιθανές διπλές κινήσεις: ίδιο είδος, ποσό, περιγραφή και μέρα
 import * as store from './store.js';
 import { norm, addDays } from './util.js';
 
@@ -10,7 +10,7 @@ export function sameInMonth({ kind, a, desc, cat, d }, exceptId) {
   const k = keyOf({ kind, a, desc, cat });
   return store.records('tx').filter((r) => r.id !== exceptId && keyOf(r) === k && (r.d || '').slice(0, 7) === (d || '').slice(0, 7)).sort((x, y) => (x.d < y.d ? 1 : -1))[0] || null;
 }
-/** ομάδες πιθανών διπλών εξόδων (ημερομηνίες ως 3 μέρες μακριά) — όχι μεταφορές/πληρωμές μεταξύ μας */
+/** ομάδες πιθανών διπλών εξόδων (ίδια μέρα) — όχι μεταφορές/πληρωμές μεταξύ μας */
 export function scan() {
   const by = new Map();
   for (const r of store.records('tx')) { if (!r.d || !(r.a > 0) || r.kind !== 'Έξοδο') continue; const k = `${r._sp}|${keyOf(r)}`; (by.get(k) || by.set(k, []).get(k)).push(r); }
@@ -19,7 +19,7 @@ export function scan() {
     if (l.length < 2) continue; l.sort((x, y) => (x.d < y.d ? -1 : 1));
     let g = [l[0]];
     const flush = () => { if (g.length > 1) { const gk = `${k}|${g.map((x) => x.id).sort().join(',')}`; if (!ok.has(gk)) out.push({ key: gk, rs: g.slice() }); } };
-    for (let i = 1; i < l.length; i++) { if (l[i].d <= addDays(g[g.length - 1].d, 3)) g.push(l[i]); else { flush(); g = [l[i]]; } }
+    for (let i = 1; i < l.length; i++) { if (l[i].d === g[g.length - 1].d) g.push(l[i]);       // μόνο ίδια μέρα else { flush(); g = [l[i]]; } }
     flush();
   }
   return out.sort((a, b) => (a.rs[0].d < b.rs[0].d ? 1 : -1));
