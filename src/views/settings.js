@@ -3,6 +3,7 @@ import * as store from '../store.js';
 import * as sync from '../sync.js';
 import { CONFIG } from '../config.js';
 import * as EX from '../export.js';
+import { startBal, mySpace } from './list.js';
 import { eur, dFull } from '../util.js';
 import { VERSION, LOG } from './changelog.js';
 import * as BK from '../backup.js';
@@ -35,6 +36,23 @@ function exportSheet(ui) {
     });
   });
 }
+// σημείο αναφοράς: από πότε μετράει το «Όλα» στα δικά μου και με πόσα ξεκίνησα
+function sbalSheet(ui) {
+  const sb = startBal() || { d: '', a: '' };
+  sheet(`<div class="mid">🏁 Αρχικό υπόλοιπο</div>
+    <div class="grid2" style="margin:10px 0"><label class="f"><span>Από</span><input type="date" data-d value="${esc(sb.d)}"></label><label class="f"><span>Ποσό €</span><input data-a inputmode="decimal" value="${esc(String(sb.a).replace('.', ','))}"></label></div>
+    <button class="btn primary" data-ok style="width:100%">Αποθήκευση</button>
+    ${startBal() ? '<button class="btn ghost red" data-clr style="width:100%;margin-top:8px">Χωρίς αρχικό υπόλοιπο</button>' : ''}
+    <button class="btn ghost" data-no style="width:100%;margin-top:8px">Άκυρο</button>`, (el, close) => {
+    el.querySelector('[data-no]').onclick = close;
+    el.querySelector('[data-ok]').onclick = async () => {
+      const d = el.querySelector('[data-d]').value; const a = Number(el.querySelector('[data-a]').value.replace(/\./g, '').replace(',', '.'));
+      if (!d || !Number.isFinite(a)) { ui.toast('Βάλε ημερομηνία και ποσό'); return; }
+      await store.put(mySpace(), 'balstart', { type: 'pref', d, a }); close(); ui.render(); ui.toast('Αποθηκεύτηκε ✓');
+    };
+    el.querySelector('[data-clr]')?.addEventListener('click', async () => { await store.del(mySpace(), 'balstart', { quiet: true }); close(); ui.render(); });
+  });
+}
 export default {
   html() {
     const S = store.state;
@@ -47,6 +65,7 @@ export default {
     <div class="list"><a class="item" href="#/rec" style="text-decoration:none;color:inherit"><div class="dot">↻</div><div class="grow t">Επαναλαμβανόμενα έσοδα / έξοδα</div><div class="muted">›</div></a>
       <a class="item" href="#/cats" style="text-decoration:none;color:inherit"><div class="dot">🏷️</div><div class="grow t">Κατηγορίες και «Είδος»</div><div class="muted">›</div></a>
       <a class="item" href="#/names" style="text-decoration:none;color:inherit"><div class="dot">✏️</div><div class="grow t">Ενιαία ονόματα <span class="small muted">(ίδια γραφή για κάθε έξοδο)</span></div><div class="muted">›</div></a>
+      ${(() => { const sb = startBal(); return `<div class="item click" data-sbal><div class="dot">🏁</div><div class="grow t">Αρχικό υπόλοιπο <span class="small muted">${sb ? `${sb.d.split('-').reverse().join('/')} · ${eur(sb.a)}` : '— δεν έχει οριστεί'}</span></div><div class="muted">›</div></div>`; })()}
       <a class="item" href="#/trash" style="text-decoration:none;color:inherit"><div class="dot">🗑</div><div class="grow t">Πρόσφατα διαγραμμένα <span class="small muted">(30 μέρες)</span></div><div class="muted">›</div></a>
 </div>
     <h2>Συγχρονισμός (OneDrive)</h2>
@@ -177,6 +196,7 @@ export default {
       }
       ui.render();
     });
+    root.querySelector('[data-sbal]')?.addEventListener('click', () => sbalSheet(ui));
     root.querySelector('[data-xlsx]')?.addEventListener('click', () => exportSheet(ui));
     root.querySelector('[data-json]')?.addEventListener('click', () => { const n = EX.json(); ui.toast(`Αντίγραφο ${n.toLocaleString('el-GR')} εγγραφών ✓`); });
     root.querySelectorAll('[data-theme]').forEach((b) => b.addEventListener('click', () => {

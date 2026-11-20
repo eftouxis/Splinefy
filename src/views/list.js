@@ -1,6 +1,10 @@
 import { esc, eur, today, monthLabel, dShort, norm } from '../util.js';
 import { movements, fx, othSum, SAVE } from '../ledger.js';
 import { state } from '../store.js';
+import * as store from '../store.js';
+// αρχικό υπόλοιπο (Ρυθμίσεις): σημείο αναφοράς για το «Όλα» στα δικά μου
+export const mySpace = () => state.spaces.find((s) => s.owner === state.user && s.members.length === 1)?.id || null;
+export const startBal = () => { const sp = mySpace(); const r = sp && store.records('pref', [sp]).find((x) => x.id === 'balstart'); return r && r.d ? { d: r.d, a: Number(r.a) || 0 } : null; };
 import { itemHtml, bindEdit, ICON, created } from './common.js';
 
 let per = 'm', anc = null;     // περίοδος: μέρα / εβδομάδα / μήνας / χρόνος / όλα — και η μέρα που την ορίζει
@@ -22,12 +26,12 @@ export default {
       if (per === 'd') return [anc, anc];
       if (per === 'w') { const d = new Date(`${anc}T12:00`); const k = (d.getDay() + 6) % 7; const a = new Date(d); a.setDate(d.getDate() - k); const b = new Date(a); b.setDate(a.getDate() + 6); const f = (x) => x.toISOString().slice(0, 10); return [f(a), f(b)]; }
       if (per === 'y') return [`${anc.slice(0, 4)}-01-01`, `${anc.slice(0, 4)}-12-31`];
-      if (per === 'all') return ['0000', '9999'];
+      if (per === 'all') { const sb = view === 'mine' ? startBal() : null; return [sb ? sb.d : '0000', '9999']; }
       return [`${anc.slice(0, 7)}-01`, `${anc.slice(0, 7)}-31`];
     })();
     const DN = ['Κυρ', 'Δευ', 'Τρί', 'Τετ', 'Πέμ', 'Παρ', 'Σάβ'];
     const fd = (s) => `${s.slice(8)}/${s.slice(5, 7)}`;
-    const perLabel = per === 'd' ? `${DN[new Date(`${anc}T12:00`).getDay()]} ${fd(anc)}/${anc.slice(0, 4)}` : per === 'w' ? `${fd(pr[0])} – ${fd(pr[1])}/${pr[1].slice(0, 4)}` : per === 'y' ? anc.slice(0, 4) : per === 'all' ? 'Όλες οι κινήσεις' : monthLabel(anc.slice(0, 7));
+    const perLabel = per === 'd' ? `${DN[new Date(`${anc}T12:00`).getDay()]} ${fd(anc)}/${anc.slice(0, 4)}` : per === 'w' ? `${fd(pr[0])} – ${fd(pr[1])}/${pr[1].slice(0, 4)}` : per === 'y' ? anc.slice(0, 4) : per === 'all' ? (pr[0] > '0000' ? `Από ${fd(pr[0])}/${pr[0].slice(0, 4)}` : 'Όλες οι κινήσεις') : monthLabel(anc.slice(0, 7));
     let list = movements().filter((r) => (!r.rec || r.d <= t) && !r.skipped);
     if (q) {
       const n = norm(q);
@@ -88,6 +92,7 @@ export default {
       <div><div class="small muted">Έσοδα</div><b class="pos">${eur(inc)}</b></div>
       <div><div class="small muted">Έξοδα</div><b class="neg">${eur(exp)}</b></div>
       <div><div class="small muted">Διαφορά</div><b class="${inc - exp < 0 ? 'neg' : 'pos'}">${eur(inc - exp)}</b></div></div>
+      ${per === 'all' && !q && !rng && !catF && pr[0] > '0000' ? (() => { const sb = startBal(); return `<div class="small muted" style="text-align:center;margin-top:8px">Αρχικό υπόλοιπο ${fd(sb.d)}/${sb.d.slice(0, 4)}: <b>${eur(sb.a)}</b> → σήμερα <b class="${sb.a + inc - exp < 0 ? 'neg' : 'pos'}">${eur(sb.a + inc - exp)}</b></div>`; })() : ''}
     ${q ? `<div class="small muted" style="margin:0 2px 6px">${list.length} κινήσεις με «${esc(q)}»</div>` : ''}
     ${q && rng && rng[0] > '2000' && days > 6 && (exp || inc) ? `<div class="small" style="margin:-2px 2px 8px">≈ <b>${eur(((exp || inc) / days) * 30.44)}</b> τον μήνα (${days} μέρες)</div>` : ''}
     <div class="chips" style="margin-bottom:8px"><button class="chip ${group === 'day' ? 'on' : ''}" data-group="day">📅 Ανά μέρα</button><button class="chip ${group === 'cat' ? 'on' : ''}" data-group="cat">🏷 Ανά κατηγορία</button></div>
