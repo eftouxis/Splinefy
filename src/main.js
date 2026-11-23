@@ -182,10 +182,20 @@ async function start() {
   // reopen where you left off (not inside a half-filled form)
   const FORM = /^#\/(add|edit|office\/(in|ex)\/|rec\/)/;
   try { const last = localStorage.getItem('lastHash'), seen = Number(localStorage.getItem('lastSeen') || 0);       // back where you were only if it was a few minutes ago
-    if ((!location.hash || location.hash === '#/' || location.hash === '#') && last && last !== '#/' && !FORM.test(last) && Date.now() - seen < 2 * 60000) history.replaceState(null, '', last); } catch (_) { /* */ }
+    if ((!location.hash || location.hash === '#/' || location.hash === '#') && last && last !== '#/' && !FORM.test(last) && !/^#\/cards\//.test(last) && Date.now() - seen < 2 * 60000) history.replaceState(null, '', last); } catch (_) { /* */ }
   const seenNow = () => { try { localStorage.setItem('lastSeen', String(Date.now())); } catch (_) { /* */ } };
   seenNow(); setInterval(() => { if (document.visibilityState === 'visible') seenNow(); }, 30000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') seenNow(); else if (Date.now() - Number(localStorage.getItem('lastSeen') || 0) > 3 * 60000 && location.hash !== '#/' && !/^#\/cards\//.test(location.hash) && !FORM.test(location.hash) && !document.querySelector('.sheet-bg')) location.hash = '#/'; else seenNow(); });
+  // κάρτα (QR/barcode): όταν γυρνάς στην εφαρμογή από το εικονίδιο μετά από λίγα δευτερόλεπτα, πας στην Αρχική.
+  // Αν ήρθες από συντόμευση κάρτας, η συντόμευση αλλάζει τη σελίδα και η κάρτα μένει ανοιχτή.
+  let hiddenAt = 0, hashAt = Date.now();
+  window.addEventListener('hashchange', () => { hashAt = Date.now(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+    const h = location.hash;
+    if (!/^#\/cards\/./.test(h) || /^#\/cards\/(edit|new)/.test(h) || !hiddenAt || Date.now() - hiddenAt < 8000) return;
+    setTimeout(() => { if (location.hash === h && hashAt < hiddenAt) location.hash = '#/'; }, 400);
+  });
   // σύρσιμο αριστερά/δεξιά: επόμενη/προηγούμενη καρτέλα (Υγεία, Γυμναστική, Κατοικίδιο, Εργασίες…) ή ενότητα (Μαθήματα, Γραφείο)
   let sw0 = null;
   const noSwipe = (el) => {
