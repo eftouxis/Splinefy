@@ -387,9 +387,9 @@ export default {
       } else if (f.kind === 'Έξοδο') f.both = '';
       if (f.kind === 'Μεταφορά' && f.payer === f.for) { ui.toast('«Έδωσε» και «Πήρε» δεν μπορεί να είναι ίδιοι'); return; }
       if (f._saving) return;                     // διπλό πάτημα
-      if (!f.id) {                               // υπάρχει ήδη ίδια κίνηση αυτόν τον μήνα;
-        const dup = DUP.sameInMonth({ kind: f.kind, a: amt, desc: f.desc, cat: f.cat, d: f.d });
-        if (dup && !(await ui.confirm(`Υπάρχει ήδη <b>${esc(dup.desc || dup.cat || '')}</b> ${eur(dup.a)} στις ${dFull(dup.d)}.<br>Να μπει ξανά;`, 'Ναι, να μπει', false))) return;
+      if (!f.id) {                               // υπάρχει ήδη ίδια κίνηση την ίδια μέρα;
+        const dup = DUP.sameDay({ kind: f.kind, a: amt, desc: f.desc, cat: f.cat, d: f.d });
+        if (dup && !(await ui.confirm(`Έχεις ήδη περάσει <b>${esc(dup.desc || dup.cat || '')}</b> ${eur(dup.a)} ${dup.d === today() ? 'σήμερα' : `στις ${dFull(dup.d)}`}.<br>Σίγουρα να μπει ξανά;`, 'Ναι, να μπει', false))) return;
       }
       if (!f.id && f.kind !== 'Μεταφορά') { const w = amountWarning(f, amt); if (w && !(await ui.confirm(w, `Ναι, ${eur(amt)}`, false))) return; }
       f._saving = 1; setTimeout(() => { if (f) f._saving = 0; }, 1500);

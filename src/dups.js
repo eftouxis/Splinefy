@@ -5,10 +5,10 @@ import { norm } from './util.js';
 const keyOf = (r) => `${r.kind}|${Math.round((r.a || 0) * 100)}|${norm(r.desc || r.cat || '').trim()}`;
 const okRec = () => store.records('pref').find((r) => r.id === 'dupok');
 export const dismissed = () => new Set(okRec()?.keys || []);
-/** μια ίδια κίνηση στον ίδιο μήνα (για τον έλεγχο πριν την καταχώρηση) */
-export function sameInMonth({ kind, a, desc, cat, d }, exceptId) {
+/** ίδια κίνηση (ποσό + περιγραφή) την ίδια μέρα — έλεγχος πριν την καταχώρηση */
+export function sameDay({ kind, a, desc, cat, d }, exceptId) {
   const k = keyOf({ kind, a, desc, cat });
-  return store.records('tx').filter((r) => r.id !== exceptId && keyOf(r) === k && (r.d || '').slice(0, 7) === (d || '').slice(0, 7)).sort((x, y) => (x.d < y.d ? 1 : -1))[0] || null;
+  return store.records('tx').filter((r) => r.id !== exceptId && keyOf(r) === k && r.d === d)[0] || null;
 }
 /** ομάδες πιθανών διπλών εξόδων (ίδια μέρα) — όχι μεταφορές/πληρωμές μεταξύ μας */
 export function scan() {
