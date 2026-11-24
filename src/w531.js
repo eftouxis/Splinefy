@@ -70,6 +70,12 @@ export async function finish(res) {
     await store.put(sp(), null, { type: 'w531log', d, lift: x.lift, cycle: s.cycle, wk: s.wk, w: top.w, target: top.r, reps: Number.isFinite(reps) ? reps : null, feel: r.feel || null, e1rm: Number.isFinite(reps) && reps > 0 ? e1rm(top.w, reps) : null });
     if (Number.isFinite(reps) && reps < top.r && r.feel !== 'pain') { tm[x.lift] = round(tm[x.lift] * 0.9); changes.push(`${LIFTS[x.lift]}: ${kg(c.tm[x.lift])} → ${kg(tm[x.lift])} (λιγότερες από ${top.r})`); }
   }
+  // και στις Προπονήσεις
+  const fk = (x) => String(x).replace('.', ',');
+  await store.put(sp(), null, { type: 'gwod', d, title: `💪 5/3/1 · Μέρα ${s.dayName} (${WEEKS[s.wk].name})`, fmt: 'other', src: '531',
+    str: p.map((x) => `${LIFTS[x.lift]}: ${x.main.map((m) => fk(m.w)).join(' / ')} kg × ${x.main.map((m, i) => m.r + (i === 2 ? '+' : '')).join(', ')} · ${x.fsl.sets}×${x.fsl.reps} με ${fk(x.fsl.w)}`).join('\n'),
+    strRes: p.map((x) => `${LIFTS[x.lift]} ${fk(x.main[2].w)}×${res[x.lift]?.reps ?? '—'}`).join(' · '),
+    notes: p.map((x) => { const f = FEEL.find((y) => y[0] === res[x.lift]?.feel); return f ? `${LIFTS[x.lift]}: ${f[1]}` : ''; }).filter(Boolean).join(' · ') || null });
   let step = s.step + 1, cycle = c.cycle || 1;
   if (step % 6 === 0) {                                            // τέλος κύκλου
     for (const l of Object.keys(LIFTS)) {
