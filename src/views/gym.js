@@ -3,10 +3,11 @@ import { esc, today, dFull, dShort, monthLabel, norm } from '../util.js';
 import * as store from '../store.js';
 import * as G from '../gym.js';
 import { sheet } from './lessons/ui.js';
+import * as S531 from './w531.js';
 
 let ui = null, q = '';
 const nrm = (x) => norm(x).replace(/ς/g, 'σ');
-const TABS = [['log', '🏋️ Προπονήσεις'], ['timer', '⏱ Χρονόμετρο'], ['pr', '🏆 Ρεκόρ']];
+const TABS = [['log', '🏋️ Προπονήσεις'], ['str', '💪 5/3/1'], ['timer', '⏱ Χρονόμετρο'], ['pr', '🏆 Ρεκόρ']];
 const first = (s, n = 90) => { const l = String(s || '').split('\n').map((x) => x.trim()).filter(Boolean).join(' · '); return l.length > n ? l.slice(0, n) + '…' : l; };
 
 // ---------- λίστες ----------
@@ -154,10 +155,10 @@ export default {
     const add = tab === 'pr' ? ['data-newp', '+ Ρεκόρ'] : ['data-neww', '+ Προπόνηση'];
     if (tab === 'timer' && !q && T.phase !== 'setup') return `<div data-body>${timerBody()}</div>`;   // τρέχει: μόνο το χρονόμετρο, μεγάλο
     const nw = G.workouts().length;
-    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>🏋️ Γυμναστική</h1><button class="btn sm primary" ${add[0]} style="width:auto">${add[1]}</button></div>
+    return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>🏋️ Γυμναστική</h1>${tab === 'str' ? '' : `<button class="btn sm primary" ${add[0]} style="width:auto">${add[1]}</button>`}</div>
       ${nw || G.prs().length ? `<div class="h-search"><input data-q value="${esc(q)}" placeholder="Αναζήτηση: άσκηση, WOD, ρεκόρ, μήνας…" autocomplete="off" enterkeyhint="search">${q ? '<button data-qx>✕</button>' : ''}</div>` : ''}
       <div class="tabs" data-tabs ${q ? 'style="opacity:.5"' : ''}>${TABS.map(([k, l]) => `<button class="${!q && k === tab ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('')}</div>
-      <div data-body>${q ? search() : tab === 'pr' ? prBody() : tab === 'timer' ? timerBody() : logBody()}</div>`;
+      <div data-body>${q ? search() : tab === 'str' ? S531.body() : tab === 'pr' ? prBody() : tab === 'timer' ? timerBody() : logBody()}</div>`;
   },
   mount(root, p, u) {
     ui = u; const tab = TABS.some(([k]) => k === p[0]) ? p[0] : 'log';
@@ -179,7 +180,7 @@ export default {
       }, 150); });
       root.querySelector('[data-qx]')?.addEventListener('click', () => { q = ''; u.render(); });
     }
-    bind(); if (tab === 'timer') timerMount(root);
+    bind(); if (tab === 'timer') timerMount(root); if (tab === 'str' && !q) S531.mount(root, u);
   },
 };
 
