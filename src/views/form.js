@@ -86,7 +86,7 @@ function bindAc(root, input, kind) {
     const all = acList().filter((x) => x.kind === kind || kind === 'Μεταφορά');
     const st = [], inc = [];
     for (const x of all) { if (x.k === q) continue; if (x.k.startsWith(q)) { st.push(x); if (st.length >= 7) break; } else if (inc.length < 7 && x.k.includes(q)) inc.push(x); }
-    const hits = [...st, ...inc].slice(0, 7);
+    const hits = [...st, ...inc].slice(0, 5);
     if (!hits.length) { box.hidden = true; return; }
     box.innerHTML = hits.map((x) => `<button type="button" data-acv="${esc(x.d)}"><b>${esc(x.d)}</b><span class="small muted">${esc(x.cat || '')} · ${x.n}×</span></button>`).join('');
     box.hidden = false;
@@ -94,7 +94,10 @@ function bindAc(root, input, kind) {
   let tm = 0; input.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(show, 150); });     // not on every key: typing stays smooth
   input.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 150));
   box.addEventListener('pointerdown', (e) => e.preventDefault());
-  box.addEventListener('click', (e) => { const b = e.target.closest('[data-acv]'); if (!b) return; input.value = b.dataset.acv; box.hidden = true; input.dispatchEvent(new Event('change')); });
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-acv]'); if (!b) return; input.value = b.dataset.acv; box.hidden = true; input.blur(); input.dispatchEvent(new Event('change'));
+    setTimeout(() => { if (document.querySelector('[name=a]')?.value.trim()) document.querySelector('[data-save]')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 350);     // κλείνει το πληκτρολόγιο και φέρνει την «Καταχώρηση» στην οθόνη
+  });
 }
 const cm = (x) => (x == null || x === '' ? '' : String(x).replace('.', ','));
 const seg = (name, opts, val, cls = '') => `<div class="seg ${cls}" data-seg="${name}">${opts.map(([v, l]) => `<button type="button" data-val="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
