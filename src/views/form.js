@@ -419,10 +419,10 @@ export default {
         if (nt) await store.put(LS.LSP, null, { type: 'lnote', stu: rec.stu, d: rec.d, text: nt, imp: null });
       }
       if (f.id) {
-        const want = targetSpace({ ...f, toShared: f.sp === 'shared' });
+        const want = targetSpace({ ...f, toShared: false });     // έγινε προσωπική (π.χ. από Κοινό ½ σε «για μένα») → πάει στα Προσωπικά, και αντίστροφα
         const cur = store.state.data[f.sp].recs.get(f.id);
         if (cur.fx) { const ok = await ui.confirm('Είναι παλιά κίνηση (από τα Excel). Να αλλάξει;', 'Αλλαγή', false); if (!ok) return; await store.put(f.sp, f.id, { ...rec, fx: null }); }
-        else if (want !== f.sp && f.sp !== 'shared') await store.move(f.sp, want, { ...cur, ...rec });
+        else if (want !== f.sp) await store.move(f.sp, want, { ...cur, ...rec });
         else await store.put(f.sp, f.id, rec);
       } else {
         const tsp = targetSpace(f);
