@@ -50,13 +50,26 @@ function bindNotify(el) {
 }
 
 // ---- medicine card ----
+/** the doses already due, newest first: ✓ given / ✕ not given */
+const pastDoses = (s) => s.ds.filter((d) => d.given != null || d.missed).sort((a, b) => (b.given || b.at) - (a.given || a.at));
+const doseTxt = (d) => (d.given != null ? `✓ ${M.when(d.given)}${Math.abs(d.given - d.at) > 15 * 60000 && d.h === 0 && d.phase === 0 ? ` <span class="muted">(πρόγρ. ${M.hm(d.at)})</span>` : ''}` : `<span class="neg">✕ ${M.when(d.at)}</span>`);
+const recentHtml = (m, s) => { const l = pastDoses(s); if (!l.length) return '';
+  return `<div class="small" style="margin-top:4px;white-space:normal">${l.slice(0, 3).map(doseTxt).join(' · ')}${true ? ` · <a href="#" data-hist="${esc(m.id)}" style="color:var(--brand);text-decoration:none;font-weight:600">ιστορικό ›</a>` : ''}</div>`; };
+function histSheet(m) {
+  const s = M.status(m); const l = pastDoses(s); const byDay = new Map();
+  for (const d of l) { const k = M.local(d.given || d.at).slice(0, 10); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(d); }
+  sheet(`<div class="mid">💊 ${esc(m.name)}${m.who ? ` · ${esc(disp(m.who))}` : ''}</div>
+    <div class="small muted" style="margin:4px 0 10px">${s.done} δόθηκαν${s.missed ? ` · ${s.missed} δεν δόθηκαν` : ''}${m.takenOld ? ` · οι ${m.takenOld} παλιότερες κρατιούνται μόνο ως αριθμός` : ''}</div>
+    <div class="list" style="max-height:60vh;overflow:auto">${[...byDay].map(([k, ds]) => `<div class="item"><div class="grow"><div class="t">${esc(k.split('-').reverse().join('/'))}</div><div class="s" style="white-space:normal">${ds.map((d) => (d.given != null ? `✓ ${M.hm(d.given)}${Math.abs(d.given - d.at) > 15 * 60000 && d.h === 0 && d.phase === 0 ? ` <span class="muted">(πρόγρ. ${M.hm(d.at)})</span>` : ''}` : `<span class="neg">✕ ${M.hm(d.at)} δεν δόθηκε</span>`)).join(' · ')}</div></div></div>`).join('') || '<div class="item muted small">Καμία δόση ακόμα</div>'}</div>
+    <button class="btn ghost" data-no style="margin-top:10px">Κλείσιμο</button>`, (el, close) => { el.querySelector('[data-no]').onclick = close; });
+}
 const card = (m, home = false) => {
   const s = M.status(m); const nx = s.next; const late = nx && M.tracked(m) && nx.at < Date.now() - 60000;
   const cur = nx && m.mode !== 'times' ? (m.phases || [])[nx.phase] : null; const nt = M.notifyTxt(m);
   const prog = m.mode === 'times' ? (M.tracked(m) ? `${s.done} δόθηκαν${s.total ? ` από ${s.total}` : ''}${s.missed ? ` · <span class="neg">${s.missed} χάθηκαν</span>` : ''}` : '') : `δόση ${s.done + 1} από ${s.total}`;
   return `<div class="${home ? '' : 'item'}" data-med="${esc(m.id)}" style="cursor:pointer;${home ? 'margin-top:8px' : ''}">
     <div class="grow"><div class="t" style="white-space:normal">💊 ${esc(m.name)}${m.who ? ` <span class="muted">· ${esc(disp(m.who))}</span>` : ''}${nt ? ` <span class="small">${nt}</span>` : ''}</div>
-      <div class="s" style="white-space:normal">${nx && !s.over ? `<span class="${late ? 'neg' : ''}"><b>Επόμενη: ${M.when(nx.at)}</b> (${M.inTxt(nx.at)})</span><br>${[prog, cur ? `κάθε ${String(cur.h).replace('.', ',')} ώρες` : home ? '' : M.schedTxt(m), m.dose ? esc(m.dose) : ''].filter(Boolean).join(' · ')}` : `τελείωσε · ${s.done} δόσεις`}</div></div>
+      <div class="s" style="white-space:normal">${nx && !s.over ? `<span class="${late ? 'neg' : ''}"><b>Επόμενη: ${M.when(nx.at)}</b> (${M.inTxt(nx.at)})</span><br>${[prog, cur ? `κάθε ${String(cur.h).replace('.', ',')} ώρες` : home ? '' : M.schedTxt(m), m.dose ? esc(m.dose) : ''].filter(Boolean).join(' · ')}` : `τελείωσε · ${s.done} δόσεις`}</div>${!home && M.tracked(m) ? recentHtml(m, s) : ''}</div>
     ${nx && !s.over && M.tracked(m) ? `<button type="button" class="btn sm primary" data-give="${esc(m.id)}" style="width:auto">✓ Δόθηκε</button>` : ''}</div>`;
 };
 export function medsCard() {                       // home: the doses due now, to tick like the Εργασίες
@@ -102,6 +115,7 @@ export function bindMeds(root, ui) {
     await M.give(m, at); const n = M.status(M.all().find((x) => x.id === m.id)).next;
     ui.toast(n ? `✓ Επόμενη: ${M.when(n.at)}` : '✓ Ήταν η τελευταία δόση', 6000, { label: 'Αναίρεση', fn: () => M.ungive(M.all().find((x) => x.id === m.id)) });
   }));
+  root.querySelectorAll('[data-hist]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); histSheet(M.all().find((x) => x.id === a.dataset.hist)); }));
   root.querySelectorAll('[data-med]').forEach((r) => r.addEventListener('click', () => medSheet(ui, M.all().find((x) => x.id === r.dataset.med))));
 }
 
