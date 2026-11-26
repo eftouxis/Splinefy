@@ -83,6 +83,16 @@ export function pending(now = Date.now()) {
     .sort((a, b) => a.d.at - b.d.at);
 }
 /** ✓ for one dose (from the home page) */
+/** a «times» medicine entered today after one of today's times (e.g. created at 11:00, dose 09:00 on a Thursday): that slot, so ✓ can mean «today's» */
+export function startDaySlot(m, now = Date.now()) {
+  if (!isTimes(m) || !m.start) return null; const d = local(now).slice(0, 10); if (m.start.slice(0, 10) !== d) return null;
+  const wd = (m.wd || []).map(Number); if (wd.length && !wd.includes(new Date(`${d}T12:00`).getDay())) return null;
+  const ts = (m.times || []).filter((t) => `${d}T${t}` < m.start && ms(`${d}T${t}`) <= now).sort(); return ts.length ? ms(`${d}T${ts[ts.length - 1]}`) : null;
+}
+/** ✓ for that slot: the medicine starts from the beginning of today */
+export async function giveStartDay(m, slot, when = Date.now()) {
+  await store.put(m._sp, m.id, { start: `${local(slot).slice(0, 10)}T00:00`, taken: { ...(m.taken || {}), [local(slot)]: local(when) } });
+}
 export async function giveDose(m, at, when = Date.now()) {
   if (!isTimes(m)) { await store.put(m._sp, m.id, { given: [...(m.given || []), local(when)].sort() }); return; }
   await store.put(m._sp, m.id, { taken: { ...(m.taken || {}), [local(at)]: local(when) } });

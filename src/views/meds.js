@@ -77,6 +77,18 @@ export function bindMeds(root, ui) {
   root.querySelectorAll('[data-give]').forEach((b) => b.addEventListener('click', async (e) => {
     e.stopPropagation(); const m = M.all().find((x) => x.id === b.dataset.give); if (!m) return;
     const nx = M.status(m).next; let at = Date.now();
+    if (nx && m.mode === 'times' && nx.at - Date.now() > 12 * 36e5) {   // the next dose is days away: which one is this ✓?
+      const sd = M.startDaySlot(m);
+      const pick = await new Promise((res) => sheet(`<div class="mid">Ποια δόση δόθηκε;</div><div class="small muted" style="margin-bottom:10px">💊 ${esc(m.name)} · η επόμενη στο πρόγραμμα είναι ${M.when(nx.at)}</div>
+        ${sd ? `<button class="btn primary" data-p="today">Η σημερινή (${M.when(sd)})</button>` : ''}
+        <button class="btn ${sd ? '' : 'primary'}" data-p="next">Η επόμενη, ${M.when(nx.at)} — δόθηκε νωρίτερα</button>
+        <button class="btn ghost" data-p="">Άκυρο</button>`, (el, close) => { el.querySelectorAll('[data-p]').forEach((x) => { x.onclick = () => { close(); res(x.dataset.p); }; }); }));
+      if (!pick) return;
+      if (pick === 'today') {
+        await M.giveStartDay(m, sd); const n = M.status(M.all().find((x) => x.id === m.id)).next;
+        ui.toast(`✓ ${m.name} — επόμενη ${n ? M.when(n.at) : ''}`, 6000, { label: 'Αναίρεση', fn: () => M.ungive(M.all().find((x) => x.id === m.id)) }); return;
+      }
+    }
     if (nx && Math.abs(Date.now() - nx.at) > 30 * 60000) {        // far from the planned time: when was it really given?
       at = await new Promise((res) => sheet(`<div class="mid">Πότε δόθηκε;</div><div class="small muted" style="margin-bottom:10px">💊 ${esc(m.name)} · δόση ${M.when(nx.at)}${m.mode === 'times' ? '' : ' · η επόμενη μετράει από εκεί'}</div>
         <button class="btn primary" data-t="now">Τώρα (${M.hm(Date.now())})</button>
