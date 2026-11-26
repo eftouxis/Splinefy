@@ -112,9 +112,50 @@ const cap = (s) => (s === s.toUpperCase() && /[A-ZΑ-Ω]/.test(s) ? s.charAt(0) 
 const UNIT = (w) => (/^μ[ηή]ν/.test(w) ? 'm' : /^εβδ/.test(w) ? 'w' : 'd');
 /** one line (or «|»-separated part) per medicine: «DEPON OR.SO 120MG/5ML 3 φορές την ημέρα x 5 ημέρες | …»,
  *  «Βιταμίνη D 1 ml Χ 1 για 3 μήνες» → [{name, form, dose, perDay, durN, durU, notes, rx}] */
+// ---- free text from the doctor («να συνεχίσει 175 T4, αλλά και Filicin πρωί φαγωμένος Δευτέρα και Πέμπτη») ----
+const nrm = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ς/g, 'σ');
+const DAYW = [[/^δευ/, 1], [/^τριτ|^τρι$/, 2], [/^τεταρ|^τετ$/, 3], [/^πεμπ|^πεμ$/, 4], [/^παρασκ|^παρ$/, 5], [/^σαββ|^σαβ$/, 6], [/^κυρ/, 0]];
+const TIMEW = [[/^πρωι/, '09:00'], [/^μεσημερ/, '13:00'], [/^απογευμ/, '18:00'], [/^βραδ/, '21:00']];
+const FOODW = [[/^φαγωμεν|^χορτατ/, 'με φαγητό'], [/^νηστικ/, 'νηστικός/ή']];
+const STOPW = /^(να|συνεχ\S*|παιρν\S*|παρ(ω|ει|εισ)|και|επισησ|αλλα|το|τη|την|τον|του|τησ|μου|ιδι(ο|α|οσ|εσ)|δοση|δοσεισ|με|μετα|πριν|για|καθε|μερα|ημερα|φορα|φορεσ|τον|υπνο|φαγητο|απο|εωσ|ωρα|στισ|στο|στη|ειπε|θα|πρεπει|ξεκιν\S*|επισ|ή|η|o|ο)$/;
+/** what a line says about days, times of day, food and «keeps on» — and the words left for the name */
+function readWords(s) {
+  const wd = new Set(), times = new Set(), notes = []; let cont = /συνεχ|ιδια δοση|ιδιο /.test(nrm(s)); const left = [];
+  if (/πριν (τον |το )?υπνο/.test(nrm(s))) times.add('22:30');
+  if (/καθημεριν|καθε μερα|καθε πρωι|καθε βραδ/.test(nrm(s))) cont = cont || false;
+  for (const w of s.split(/[\s,]+/)) {
+    const n = nrm(w).replace(/[^a-zα-ω0-9.\-]/g, ''); if (!n) continue;
+    const d = DAYW.find(([re]) => re.test(n)); if (d && n.length >= 3) { wd.add(d[1]); continue; }
+    const t = TIMEW.find(([re]) => re.test(n)); if (t) { times.add(t[1]); continue; }
+    const f = FOODW.find(([re]) => re.test(n)); if (f) { if (!notes.includes(f[1])) notes.push(f[1]); continue; }
+    if (STOPW.test(n)) continue;
+    left.push(w.replace(/[,.;:!]+$/, ''));
+  }
+  if (times.has('22:30')) times.delete('21:00');                                     // «βράδυ πριν τον ύπνο» = one dose
+  return { wd: [...wd], times: [...times].sort(), notes, cont, left };
+}
+/** a line with no «N φορές / x N / για N ημέρες»: still a medicine if it names days, a time of day or «συνεχίζει» */
+function parseFree(s, rx) {
+  const w = readWords(s); if (!w.wd.length && !w.times.length && !w.cont) return null;
+  if (/^\s*(οχι|σταματ|διακοπ)/.test(nrm(s))) return null;                          // «Όχι B12 προς το παρόν»
+  const nameW = w.left.filter((x) => /[A-Za-zΑ-Ωα-ωά-ώ]/.test(x)); const nums = w.left.filter((x) => !/[A-Za-zΑ-Ωα-ωά-ώ]/.test(x) && /\d/.test(x));
+  if (!nameW.length) return null;
+  const name = nameW.slice(0, 3).map((x) => x.charAt(0).toUpperCase() + x.slice(1)).join(' ');
+  return { name, form: null, dose: nums.join(' + ') || null, perDay: Math.max(1, w.times.length), times: w.times.length ? w.times : null, wd: w.wd, durN: null, durU: 'd', notes: w.notes.join(', ') || null, rx, cont: w.cont };
+}
+/** days / times of day / food words inside a «N φορές…» line too: out of the name, into the schedule */
+function enrich(it, s) {
+  const w = readWords(s); const nn = (x) => nrm(x).replace(/[^a-zα-ω0-9]/g, '');
+  const drop = new Set(s.split(/[\s,]+/).filter((x) => { const n = nn(x); return DAYW.some(([re]) => re.test(n) && n.length >= 3) || TIMEW.some(([re]) => re.test(n)) || FOODW.some(([re]) => re.test(n)); }).map(nn));
+  const nm = it.name.split(/\s+/).filter((x) => !drop.has(nn(x))).join(' '); if (nm) it.name = nm;
+  if (w.wd.length) it.wd = w.wd;
+  if (w.times.length && w.times.length === it.perDay) it.times = w.times;
+  if (w.notes.length) it.notes = [it.notes, ...w.notes].filter(Boolean).join(', ');
+  return it;
+}
 export function parseRx(text) {
   const out = []; let rx = null; let prevTxt = '';                                   // prevTxt: the line before, when the schedule comes on its own line («Fucicort» ↵ «2 φορές την ημέρα…»)
-  for (const ln of String(text || '').replace(/(\d+)\s*[-–]\s*(\d+)\s*(ημέρ|μέρ|εβδ|μήν|μην)/gi, '$2 $3').split('\n')) for (const raw of ln.split('|')) {   // «2-3 ημέρες» → the upper bound
+  for (const ln of String(text || '').replace(/(\d+)\s*[-–]\s*(\d+)\s*(ημέρ|μέρ|εβδ|μήν|μην)/gi, '$2 $3').split('\n')) for (const raw of ln.split(/\||;|,?\s+αλλά\s+|,?\s+αλλα\s+|\.\s+(?=[Α-ΩA-Z])/)) {   // sentences too: «…, αλλά …»   // «2-3 ημέρες» → the upper bound
     const r = raw.match(/Συνταγή\s*(\d{6,})/i); if (r) rx = r[1];
     const s = raw.replace(/\[?Συνταγή\s*\d{6,}\]?(\([^)]*\))?/gi, '').trim(); if (!s) continue; let perDay = null, durN = null, durU = 'd', notes = '';
     let f = s.match(/(\d+)\s*φορ(?:ές|ες|ά|α)\s*(?:την|τη)?\s*(?:ημέρα|μέρα|ημερησίως)/i);
@@ -123,7 +164,7 @@ export function parseRx(text) {
     else { f = s.match(/(?:^|\s)[xχΧ×]\s*(\d+)(?![\d.,]|\s*(?:ημέρ|μέρ|εβδ|μήν|μην))/i); if (f) { perDay = Number(f[1]); cut = f.index; } }
     const du = s.match(/(?:(?:^|\s)[xχΧ×]|για)\s*(\d+)\s*(ημέρ\S*|μέρ\S*|εβδομ\S*|μήν\S*|μην\S*)/i);
     if (du) { durN = Number(du[1]); durU = UNIT(du[2].toLowerCase()); notes = s.slice(du.index + du[0].length).replace(/^[\s,.;:-]+/, '').trim(); if (cut < 0 || du.index < cut) cut = du.index; }
-    if (!perDay && !durN) { prevTxt = s; continue; }                                    // not a medicine line (maybe the name for the next one)
+    if (!perDay && !durN) { const fr = parseFree(s, rx); if (fr) { out.push(fr); prevTxt = ''; } else prevTxt = s; continue; }                                    // not a medicine line (maybe the name for the next one)
     let head = (cut >= 0 ? s.slice(0, cut) : s).trim();
     if (!/[A-Za-zΑ-Ωα-ωά-ώ]{3,}/.test(head) && prevTxt) head = prevTxt.replace(/^(μια|μία|ένα|ενα|μιά|βάλτε|βαλτε|δώστε|δωστε|να\s+του\s+δώσετε)\s+/i, '').replace(/[.!;]+$/, '').trim();
     prevTxt = '';
@@ -132,11 +173,16 @@ export function parseRx(text) {
     const words = h2.split(/\s+/); let i = 0; const nm = [];
     for (; i < words.length; i++) { if (i > 0 && /[\d.\/]/.test(words[i])) break; nm.push(words[i]); }
     const nm2 = nm.map((w) => (/^(ή|και|η)$/i.test(w) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)));
-    out.push({ name: cap(nm2.join(' ')) || h2, form: words.slice(i).join(' ') || null, dose, perDay: perDay || 1, durN, durU, notes: notes || null, rx });
+    out.push(enrich({ name: cap(nm2.join(' ')) || h2, form: words.slice(i).join(' ') || null, dose, perDay: perDay || 1, durN, durU, notes: notes || null, rx }, s));
   }
   return out;
 }
+/** an active medicine of the same person with the same name (first word), for «συνεχίζει» / no doubles */
+export function existing(p, who) {
+  const k = nrm(p.name).split(/\s+/)[0]; if (!k) return null;
+  return active().find((m) => (!who || !m.who || nrm(m.who).split(/\s+/)[0] === nrm(who).split(/\s+/)[0]) && nrm(m.name).split(/\s+/)[0] === k) || null;
+}
 /** a «times» medicine starting at `from` (first dose the first set time from then on) */
 export function fromRx(p, who, from = Date.now()) {
-  return { name: p.name, form: p.form, who, dose: p.dose, mode: 'times', times: DEF_TIMES[Math.min(6, p.perDay)] || DEF_TIMES[1], wd: [], start: local(from), durN: p.durN, durU: p.durU, until: null, notes: p.notes, rx: p.rx, track: true };
+  return { name: p.name, form: p.form, who, dose: p.dose, mode: 'times', times: p.times || DEF_TIMES[Math.min(6, p.perDay)] || DEF_TIMES[1], wd: p.wd || [], start: local(from), durN: p.durN, durU: p.durU, until: null, notes: p.notes, rx: p.rx, track: true };
 }

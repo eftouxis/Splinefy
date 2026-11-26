@@ -181,9 +181,9 @@ export function medSheet(ui, m = null, preset = {}) {
 }
 
 // ---- from a prescription: paste the text, get one medicine per line ----
-export function rxSheet(ui, { who = null, text = '' } = {}) {
-  sheet(`<div class="mid">📋 Φάρμακα από συνταγή</div>
-    <div class="small muted" style="margin:4px 0 10px">Επικόλλησε το κείμενο της συνταγής ή γράψε μία γραμμή για κάθε φάρμακο: «Depon σιρόπι 5 ml 3 φορές την ημέρα x 5 ημέρες», «Βιταμίνη D Χ 1 για 3 μήνες».</div>
+export function rxSheet(ui, { who = null, text = '', title = '📋 Φάρμακα από συνταγή' } = {}) {
+  sheet(`<div class="mid">${esc(title)}</div>
+    <div class="small muted" style="margin:4px 0 10px">Επικόλλησε τη συνταγή ή γράψε ό,τι είπε ο γιατρός: «Depon σιρόπι 5 ml 3 φορές την ημέρα x 5 ημέρες», «Βιταμίνη D για 3 μήνες», «σίδηρος πρωί Δευτέρα και Πέμπτη».</div>
     ${whoPick(who)}
     <label class="f"><span>Κείμενο</span><textarea name="txt" rows="5">${esc(text)}</textarea></label>
     <label class="f"><span>Ξεκινάνε</span><input type="datetime-local" name="from" value="${M.local(Date.now())}"></label>
@@ -194,13 +194,22 @@ export function rxSheet(ui, { who = null, text = '' } = {}) {
     <button class="btn primary" data-ok>Δημιουργία</button><button class="btn ghost" data-no>Άκυρο</button>`, (el, close) => {
     const q = (n) => el.querySelector(`[name=${n}]`);
     const getWho = bindWho(el, who, (w) => { const sp = q('sp'); if (sp) sp.value = w === store.state.user ? mySp() : 'shared'; }); const getNotify = bindNotify(el);
-    const prev = () => { const l = M.parseRx(q('txt').value); const f = M.ms(q('from').value) || Date.now();
-      el.querySelector('[data-prev]').innerHTML = l.map((p) => `<div class="item"><div class="grow"><div class="t" style="white-space:normal">💊 ${esc(p.name)}${p.dose ? ` · ${esc(p.dose)}` : ''}</div><div class="s" style="white-space:normal">${esc(M.schedTxt(M.fromRx(p, null, f)))}${p.notes ? ` · ${esc(p.notes)}` : ''}${p.rx ? ` · συνταγή ${esc(p.rx)}` : ''}</div></div></div>`).join('') || '<div class="item muted small">Δεν βρέθηκε φάρμακο ακόμα — χρειάζεται «N φορές την ημέρα» ή «x N» και «x / για N ημέρες / μήνες».</div>';
-      el.querySelector('[data-ok]').textContent = l.length ? `Δημιουργία ${l.length} ${l.length === 1 ? 'φαρμάκου' : 'φαρμάκων'}` : 'Δημιουργία'; };
-    q('txt').addEventListener('input', prev); q('from').addEventListener('change', prev); prev();
+    // each found medicine with a tick; one that already runs for the same person («συνεχίζει 175 T4») starts unticked — no doubles
+    let off = new Set(); let lastTxt = null;
+    const list = () => M.parseRx(q('txt').value);
+    const prev = () => { const l = list(); const f = M.ms(q('from').value) || Date.now(); const w = getWho();
+      if (q('txt').value !== lastTxt) { lastTxt = q('txt').value; off = new Set(l.map((p, i) => (M.existing(p, w) ? i : -1)).filter((i) => i >= 0)); }
+      el.querySelector('[data-prev]').innerHTML = l.map((p, i) => { const ex = M.existing(p, w);
+        return `<label class="item" style="cursor:pointer;align-items:flex-start"><input type="checkbox" data-pi="${i}" style="width:auto;margin:3px 10px 0 0" ${off.has(i) ? '' : 'checked'}><div class="grow"><div class="t" style="white-space:normal">💊 ${esc(p.name)}${p.dose ? ` · ${esc(p.dose)}` : ''}</div>
+        <div class="s" style="white-space:normal">${ex ? `<b>υπάρχει ήδη${p.cont ? ' — συνεχίζεται' : ''}</b>: ${esc(M.schedTxt(ex))} · τσέκαρέ το μόνο αν θες δεύτερο` : esc(M.schedTxt(M.fromRx(p, null, f)))}${p.notes ? ` · ${esc(p.notes)}` : ''}${p.rx ? ` · συνταγή ${esc(p.rx)}` : ''}</div></div></label>`; }).join('')
+        || '<div class="item muted small">Δεν βρέθηκε φάρμακο ακόμα — γράψε π.χ. «3 φορές την ημέρα x 5 ημέρες», «για 3 μήνες», «πρωί Δευτέρα και Πέμπτη» ή «συνεχίζει».</div>';
+      el.querySelectorAll('[data-pi]').forEach((c) => c.addEventListener('change', () => { const i = Number(c.dataset.pi); if (c.checked) off.delete(i); else off.add(i); cnt(); }));
+      cnt(); };
+    const cnt = () => { const n = list().length - off.size; el.querySelector('[data-ok]').textContent = n > 0 ? `Δημιουργία ${n} ${n === 1 ? 'φαρμάκου' : 'φαρμάκων'}` : 'Κανένα νέο φάρμακο — κλείσιμο'; };
+    q('txt').addEventListener('input', prev); q('from').addEventListener('change', prev); el.querySelectorAll('[data-who]').forEach((b) => b.addEventListener('click', () => { lastTxt = null; setTimeout(prev, 0); })); prev();
     el.querySelector('[data-no]').onclick = close;
     el.querySelector('[data-ok]').onclick = async () => {
-      const l = M.parseRx(q('txt').value); if (!l.length) { ui.toast('Δεν βρέθηκε φάρμακο'); return; }
+      const l = list().filter((p, i) => !off.has(i)); if (!l.length) { close(); return; }
       const w = getWho(); if (!w) { ui.toast('Για ποιον;'); return; }
       const sp = q('sp')?.value || 'shared'; const f = M.ms(q('from').value) || Date.now(); const n = getNotify();
       await store.putMany(sp, l.map((p) => ({ id: null, set: { type: 'med', ...M.fromRx(p, w, f), ...n } })));

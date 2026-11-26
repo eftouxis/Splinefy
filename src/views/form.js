@@ -16,6 +16,9 @@ import { fx } from '../ledger.js';
 import { tripSheet } from './trips.js';
 import { scanReceipt } from '../scan.js';
 import * as DUP from '../dups.js';
+import * as H from '../health.js';
+import { parseRx } from '../meds.js';
+import { rxSheet } from './meds.js';
 
 /** «who finally pays what» line under the expense form */
 function burdenHtml(f) {
@@ -125,6 +128,46 @@ function amountWarning(f, amt) {
   }
   return '';
 }
+// ---- «🩺 Σημειώσεις γιατρού» on a medical expense: written here, kept in the health booklet (Ημερολόγιο → 🩺 Γιατρός), linked both ways ----
+const isMed = (cat) => /ιατρ|υγει/.test(norm(cat || ''));          // «Ιατρικά» (or any category with ιατρ- / υγεία in its name)
+const DOCW = /ιατρ|γιατρ|παιδιατρ|ενδοκριν|παθολογ|καρδιολ|δερματολ|ορθοπ|οφθαλμ|γυναικολ|ουρολογ|ωρλ|οδοντ|ψυχιατρ|ψυχολογ|νευρολογ|γαστρεντερ|αλλεργιολ|πνευμον|ρευματολ|επισκεψ|ραντεβου/;
+const hlogOf = (id) => (id ? store.records('hlog', H.SPS()).find((x) => x.id === id) || null : null);
+/** the booklet it goes to: the one used last time for the same description, else the person it is for / who paid (by first name) */
+function hvGuess(f) {
+  const ps = H.profiles(); if (!ps.length) return null;
+  const n = norm(f.desc || '').trim();
+  if (n) { const prev = store.records('tx').filter((r) => r.hv && norm(r.desc || '').trim() === n).sort((a, b) => (a.d < b.d ? 1 : -1))[0]; const hl = prev && hlogOf(prev.hv); if (hl) return H.childOf(hl); }
+  const by = (name) => ps.find((p) => name && norm(H.firstName(p)) === norm(String(name).split(/\s+/)[0]));
+  return (by(f.for !== 'Κοινό' ? f.for : null) || by(f.payer) || ps[0]).id;
+}
+const hvAuto = (f) => { const n = norm(f.desc || ''); return DOCW.test(n) || store.records('tx').some((r) => r.hv && norm(r.desc || '').trim() === n.trim() && n.trim()); };
+function hvHtml(f) {
+  const ps = H.profiles(); if (!ps.length) return '';
+  if (f.hv && f.hvT == null) { const hl = hlogOf(f.hv); if (hl) { f.hvT = hl.dr || ''; f.hvC = H.childOf(hl); f.hvOn = 1; } }
+  if (f.hvOn == null) f.hvOn = f.hv || hvAuto(f) ? 1 : 0;
+  if (!f.hvOn) return `<button type="button" class="btn sm" data-hvon style="width:auto;margin:-2px 0 12px">🩺 + Σημειώσεις γιατρού</button>`;
+  const c = f.hvC || hvGuess(f); f.hvC = c; const nm = H.firstName(H.profile(c)) || '';
+  const n = parseRx(f.hvT || '').length;
+  return `<div class="note" style="margin:-2px 0 12px">
+    <div class="row" style="margin-bottom:6px"><b class="grow">🩺 Σημειώσεις γιατρού</b>${f.hv ? `<a class="small" href="#/health" data-hvgo style="color:var(--brand)">στο βιβλιάριο ›</a>` : ''}</div>
+    ${ps.length > 1 ? `<div style="margin-bottom:8px">${seg('hvC', ps.map((p) => [p.id, H.firstName(p) || 'Βιβλιάριο']), c)}</div>` : ''}
+    <textarea name="hvT" rows="4" placeholder="Τι είπε ο γιατρός — οδηγίες, φάρμακα (π.χ. «συνεχίζει την ίδια δόση», «… πρωί Δευτέρα και Πέμπτη», «… 2 φορές την ημέρα για 10 ημέρες»)">${esc(f.hvT || '')}</textarea>
+    <div class="small muted" data-hvrx style="margin-top:6px">${hvHint(n, nm)}</div></div>`;
+}
+const hvHint = (n, nm) => `Μπαίνουν στο βιβλιάριο${nm ? ` ${esc(nm.endsWith('ς') ? 'του ' + nm.slice(0, -1) : nm.endsWith('α') || nm.endsWith('η') ? 'της ' + nm + 'ς' : nm)}` : ''} (Ημερολόγιο → 🩺 Γιατρός), μαζί με το ποσό.${n ? ` <b>💊 Βρέθηκαν ${n} φάρμακα</b> — μετά την αποθήκευση τα βλέπεις και διαλέγεις ποια μπαίνουν στα Φάρμακα.` : ''}`;
+/** after the expense is saved: write / update the booklet entry; returns the medicines text to confirm (or null) */
+async function hvSave(f, rec, txSp, txId) {
+  if (rec.kind !== 'Έξοδο' || !isMed(rec.cat) || f.occ || !txId) return null;
+  const txt = String(f.hvT || '').trim(); const hl = hlogOf(f.hv);
+  if (!txt && !hl) return null;
+  const c = f.hvC || hvGuess(f); if (!c) return null;
+  const set = { type: 'hlog', k: 'visit', child: c === H.FIRST ? null : c, t: hl && hl.t.slice(0, 10) === rec.d ? hl.t : `${rec.d}T12:00`, title: rec.desc || hl?.title || 'Γιατρός', dr: txt || null, tx: `${txSp}/${txId}`, cost: rec.a };
+  const sp = hl?._sp || H.spOf(c);
+  const hid = await store.put(sp, hl?.id || null, hl ? set : { ...set, text: null });
+  if (!hl || f.hv !== hid) await store.put(txSp, txId, { hv: hid });
+  return txt && txt !== (hl?.dr || '') && parseRx(txt).length ? { text: txt, who: H.firstName(H.profile(c)) || null } : null;
+}
+
 export default {
   html([a, b]) {
     if (a === 'inc' && b === undefined && O.hasOffice() && !location.hash.includes('personal') && !(f && f.kindKey === 'inc' && !f.id)) { setTimeout(() => location.replace('#/office/in/new'), 0); return ''; }
@@ -210,6 +253,7 @@ export default {
             <label class="row small" style="margin:0"><input type="checkbox" name="inv" style="width:auto" ${f.inv ? 'checked' : ''}> <span>📑 Κόπηκε τιμολόγιο στο ΑΦΜ του γραφείου</span></label>
             ${f.inv ? `<label class="f" style="margin:6px 0 0"><span>Ο ΦΠΑ που γράφει το τιμολόγιο, σε €</span><input name="ivat" inputmode="decimal" value="${esc(f.ivat ?? '')}"></label><div class="small muted" style="margin-top:4px">Αν το αφήσεις κενό, μετράει ΦΠΑ 24% μέσα στο ποσό (= ${String(Math.round(((parseAmount(f.a) || 0) - (parseAmount(f.a) || 0) / 1.24) * 100) / 100).replace('.', ',')} €). Γράψε ποσό μόνο αν το τιμολόγιο έχει άλλο ΦΠΑ.</div>` : ''}</div>` : ''}` : ''}
         ${k === 'Έξοδο' ? `<div class="burden muted" data-burden>${burdenHtml(f)}</div>` : ''}`}
+      ${k === 'Έξοδο' && isMed(f.cat) && !f.occ ? hvHtml(f) : ''}
       ${k === 'Έξοδο' && f.trip && f.tripAuto && !f.tripTouched ? `<div class="note trip-on" style="margin-bottom:10px"><span class="grow">✈️ Μπαίνει στο ταξίδι <b>${esc(f.trip)}</b> (είσαι σε ταξίδι αυτές τις μέρες)</span><button type="button" class="btn sm" data-notrip>Όχι</button></div>` : ''}
       ${k === 'Έξοδο' && K.cars().length && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο' || f.car) ? (() => {
         const fuel = K.isFuelText(f.desc) && f.cat !== 'Αυτοκίνητο', service = !fuel && f.cat === 'Αυτοκίνητο';
@@ -290,6 +334,9 @@ export default {
       } else { f[name] = v; f.touched[name] = 1; }
       ui.render();
     }));
+    root.querySelector('[data-hvon]')?.addEventListener('click', () => { read(); f.hvOn = 1; ui.render(); setTimeout(() => root.querySelector('[name=hvT]')?.focus(), 30); });
+    root.querySelector('[name=hvT]')?.addEventListener('input', (e) => { f.hvT = e.target.value; const h = root.querySelector('[data-hvrx]'); if (h) h.innerHTML = hvHint(parseRx(f.hvT).length, H.firstName(H.profile(f.hvC)) || ''); });
+    root.querySelector('[data-hvgo]')?.addEventListener('click', () => { const hl = hlogOf(f.hv); if (hl) H.setCur(H.childOf(hl)); });
     const desc = root.querySelector('[name=desc]');
     bindAc(root, desc, f.kind);
     desc?.addEventListener('change', () => {
@@ -441,8 +488,9 @@ export default {
         const want = targetSpace({ ...f, toShared: false });     // έγινε προσωπική (π.χ. από Κοινό ½ σε «για μένα») → πάει στα Προσωπικά, και αντίστροφα
         const cur = store.state.data[f.sp].recs.get(f.id);
         if (cur.fx) { const ok = await ui.confirm('Είναι παλιά κίνηση (από τα Excel). Να αλλάξει;', 'Αλλαγή', false); if (!ok) return; await store.put(f.sp, f.id, { ...rec, fx: null }); }
-        else if (want !== f.sp) await store.move(f.sp, want, { ...cur, ...rec });
+        else if (want !== f.sp) { const nid = await store.move(f.sp, want, { ...cur, ...rec }); f._txSp = want; f._txId = nid; }
         else await store.put(f.sp, f.id, rec);
+        if (!f._txId) { f._txSp = f.sp; f._txId = f.id; }
       } else {
         const tsp = targetSpace(f);
         const nInst = (f.inst === true || f.inst === 'on') && f.kind === 'Έξοδο' && amt >= 100 ? Number(f.instn || 12) : 0;
@@ -455,7 +503,7 @@ export default {
               inst: { g, i: i + 1, n: nInst, total: amt } });
           }
           ui.toast(`Καταχωρήθηκαν ${nInst} δόσεις των ${eur(base / 100)} ✓`);
-        } else await store.put(tsp, null, rec);
+        } else { f._txSp = tsp; f._txId = await store.put(tsp, null, rec); }
         if (nInst >= 2) { /* οι δόσεις δεν γίνονται και επαναλαμβανόμενο */ } else if (f.rep && (f.rep === true || f.rep === 'on')) {        // from now on it is a recurring item (starts at the next time)
           const fr = FQ.toRec({ fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }) || { unit: 'm', every: 1 }; const [u, e] = [fr.unit, fr.every];
           const next = u === 'd' ? addDays(f.d, e) : addMonths(f.d, e);
@@ -464,7 +512,9 @@ export default {
           ui.toast('Καταχωρήθηκε ✓ και μπήκε στα επαναλαμβανόμενα');
         } else if (nInst < 2) ui.toast('Καταχωρήθηκε ✓');
       }
+      const rxTodo = await hvSave(f, rec, f._txSp, f._txId).catch(() => null);
       if (f.id) ui.toast('Καταχωρήθηκε ✓');
+      if (rxTodo) setTimeout(() => rxSheet(ui, { who: rxTodo.who, text: rxTodo.text, title: '💊 Φάρμακα από τον γιατρό' }), 350);
       if (again) { const kk = KEY[f.kind]; const d = f.d; f = blank(kk); f.kindKey = kk; f.d = d; ui.render(); }
       else { f = null; ui.go('#/'); }
     };

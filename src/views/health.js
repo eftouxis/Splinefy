@@ -1,5 +1,5 @@
 // #/health — 🩺 Υγεία παιδιών (ένα ή περισσότερα): ημερολόγιο (πυρετός, φάρμακα, συμπτώματα) και βιβλιάριο με αναζήτηση σε όλα (επισκέψεις, εξετάσεις, εμβόλια, ανάπτυξη, έγγραφα)
-import { esc, today, dFull } from '../util.js';
+import { esc, today, dFull, eur } from '../util.js';
 import * as store from '../store.js';
 import * as H from '../health.js';
 import { sheet } from './lessons/ui.js';
@@ -93,7 +93,7 @@ function logLine(x) {
   return [x.title, v].filter(Boolean).join(' · ') || H.LOGK[x.k]?.[1] || '';
 }
 const logRow = (x) => `<div class="h-item" data-log="${esc(x.id)}"><div class="row" style="gap:8px;align-items:flex-start"><span class="small muted" style="min-width:38px">${esc(x.t.slice(11, 16))}</span><span>${H.LOGK[x.k]?.[0] || '•'}</span>
-  <div class="grow"><div style="font-weight:600">${hl(logLine(x))}</div>${x.text ? `<div class="small" style="margin-top:2px;white-space:pre-line">${hl(x.text)}</div>` : ''}${x.dr ? `<div class="small" style="margin-top:4px;white-space:pre-line;border-left:3px solid var(--teal);padding-left:7px">👩‍⚕️ ${hl(x.dr)}</div>` : ''}</div></div></div>`;
+  <div class="grow"><div style="font-weight:600">${hl(logLine(x))}</div>${x.text ? `<div class="small" style="margin-top:2px;white-space:pre-line">${hl(x.text)}</div>` : ''}${x.tx && store.state.data[x.tx.split('/')[0]]?.recs.get(x.tx.split('/')[1]) ? `<a class="small" href="#/edit/${esc(x.tx)}" data-txlink style="display:inline-block;margin-top:3px;color:var(--brand);text-decoration:none">💶 ${esc(eur(x.cost || 0))} · το έξοδο ›</a>` : ''}${x.dr ? `<div class="small" style="margin-top:4px;white-space:pre-line;border-left:3px solid var(--teal);padding-left:7px">👩‍⚕️ ${hl(x.dr)}</div>` : ''}</div></div></div>`;
 const nowT = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
 function logSheet(k, x = null) {
   k = x?.k || k || 'note'; const K = H.LOGK[k];
@@ -107,9 +107,9 @@ function logSheet(k, x = null) {
     ${amt ? `<div class="grid2"><label class="f"><span>Ποσότητα</span><input name="val" inputmode="decimal" value="${esc(dec(x?.val))}"></label><label class="f"><span>Μονάδα</span><input name="unit" list="hlu" value="${esc(x?.unit || (k === 'med' ? 'ml' : ''))}"><datalist id="hlu">${H.UNITS.map((u) => `<option value="${u}">`).join('')}</datalist></label></div>` : ''}
     <label class="f"><span>Σημειώσεις</span><textarea name="text" rows="${k === 'note' || k === 'visit' ? 5 : 3}" placeholder="${k === 'sym' ? 'π.χ. βήχας τη νύχτα, τι είπε η παιδίατρος' : ''}">${esc(x?.text || '')}</textarea></label>
     ${k === 'med' ? '<div class="small muted" style="margin:-4px 2px 10px">Για υπενθυμίσεις δόσεων: Εφαρμογές → 💊 Φάρμακα.</div>' : ''}
-    ${k === 'sym' ? `<label class="f"><span>👩‍⚕️ Τι είπε η παιδίατρος (επικόλληση από το μήνυμα)</span><textarea name="dr" rows="4" placeholder="π.χ. Fucicort 2 φορές την ημέρα για 3 ημέρες. Αν πονάει, παυσίπονο.">${esc(x?.dr || '')}</textarea></label>
+    ${k === 'sym' || k === 'visit' ? `<label class="f"><span>👩‍⚕️ ${k === 'visit' ? 'Τι είπε ο γιατρός (οδηγίες, φάρμακα)' : 'Τι είπε η παιδίατρος (επικόλληση από το μήνυμα)'}</span><textarea name="dr" rows="4" placeholder="π.χ. Fucicort 2 φορές την ημέρα για 3 ημέρες. Αν πονάει, παυσίπονο.">${esc(x?.dr || '')}</textarea></label>
       <div data-rxp class="small" style="margin:-4px 2px 8px"></div>
-      ${x?.guide ? '' : `<label class="row" style="gap:8px;margin:0 2px 12px"><input type="checkbox" name="mkg" checked style="width:auto"> <span class="small">Κράτα το ως οδηγία παιδιάτρου για την επόμενη φορά</span></label>`}
+      ${x?.guide ? '' : `<label class="row" style="gap:8px;margin:0 2px 12px"><input type="checkbox" name="mkg" ${k === 'sym' ? 'checked' : ''} style="width:auto"> <span class="small">Κράτα το ως οδηγία παιδιάτρου για την επόμενη φορά</span></label>`}
       <div data-gm></div>` : ''}
     ${x && k === 'temp' ? '<button class="btn" data-adv>💡 Τι λένε οι οδηγίες γι\' αυτή τη θερμοκρασία</button>' : ''}
     ${x && ['sym', 'visit', 'note'].includes(k) && x.text ? `<button class="btn" data-mkguide>📋 Κάνε το οδηγία ${DR()}</button>` : ''}
@@ -129,13 +129,13 @@ function logSheet(k, x = null) {
     el.querySelector('[data-del]')?.addEventListener('click', async () => { if (await ui.confirm('Διαγραφή της καταχώρισης;', 'Διαγραφή')) { await store.del(H.SP, x.id); close(); } });
     el.querySelector('[data-ok]').onclick = async () => {
       const rec = { type: 'hlog', k, t: `${g('d') || today()}T${g('tm') || '12:00'}`, title: g('title') || null, text: g('text') || null, val: k === 'temp' || amt ? nv('val') : null, unit: amt ? g('unit') || null : null };
-      if (k === 'sym') rec.dr = g('dr') || null;
+      if (k === 'sym' || k === 'visit') rec.dr = g('dr') || null;
       if (k === 'growth') Object.assign(rec, { w: nv('w'), h: nv('h'), hc: nv('hc') });
       if (k === 'temp' && rec.val == null) { ui.toast('Γράψε θερμοκρασία'); return; }
       if (!rec.title && !rec.text && rec.val == null && k !== 'growth') { ui.toast('Γράψε κάτι'); return; }
       const id = await store.put(H.spOf(), x?.id || null, { ...(x ? {} : C()), ...rec }); close();
       if (!x && k === 'temp' && !H.isAdult()) { adviceSheet({ ...rec, id }); return; }
-      if (k === 'sym' && rec.dr) {
+      if ((k === 'sym' || k === 'visit') && rec.dr) {
         const child = x ? H.childOf(x) : H.cur();
         if (el.querySelector('[name=mkg]')?.checked) {   // 3. keep it as an instruction for next time
           const keys = [...new Set(H.norm(rec.title || '').split(/[^a-zα-ω]+/).filter((w) => w.length >= 4).map((w) => w.slice(0, Math.max(4, w.length - 2))))].join(', ');
@@ -589,7 +589,7 @@ function bindBody(root, closeInfo, me = null) {
   on('[data-visit]', (b, e) => { if (e.target.closest('button')) return; visitSheet(H.visits().find((x) => x.id === b.dataset.visit)); });
   on('[data-vac]', (b) => vacSheet(H.vaccines().find((x) => x.id === b.dataset.vac)));
   on('[data-labedit]', (b) => labSheet(H.labs().find((x) => x.id === b.dataset.labedit)));
-  on('[data-log]', (b) => logSheet(null, H.logs().find((x) => x.id === b.dataset.log)));
+  on('[data-log]', (b, e) => { if (e.target.closest('[data-txlink]')) return; logSheet(null, H.logs().find((x) => x.id === b.dataset.log)); });
   on('[data-newlog]', (b) => logSheet(b.dataset.newlog));
   on('[data-guides]', () => guidesSheet());
 }
