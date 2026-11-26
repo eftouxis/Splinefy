@@ -263,18 +263,26 @@ export function toConfirm(now = new Date()) {
   const t = today(); const A = acks(); const out = [];
   for (const st of students()) {
     if (st.pay !== 'lesson' && st.pay !== 'month') continue;
-    if (balance(st.id) <= 0.005) continue;                       // έχει ήδη πληρώσει / προπληρώσει → τίποτα να ρωτήσω
+    const bal = balance(st.id); if (bal <= 0.005) continue;    // έχει ήδη πληρώσει / προπληρώσει → τίποτα να ρωτήσω
+    const mine = [];
     const since = st.paySince && st.paySince > addDays(t, -45) ? st.paySince : addDays(t, -45);
     if (st.pay === 'lesson') {
-      for (const l of lessons({ stu: st.id, from: since, to: t })) { const k = `${st.id}|${l.d}`; if (ended(l, now) && !A.has(k)) out.push({ mode: 'lesson', st, l, k, d: l.d, a: Math.round(l.v * 100) / 100 }); }
+      for (const l of lessons({ stu: st.id, from: since, to: t })) { const k = `${st.id}|${l.d}`; if (ended(l, now) && !A.has(k)) mine.push({ mode: 'lesson', st, l, k, d: l.d, a: Math.round(l.v * 100) / 100 }); }
     } else {
       const ms = new Set(lessons({ stu: st.id, from: since.slice(0, 7) + '-01', to: t }).map((l) => l.d.slice(0, 7)));
       for (const m of ms) {
         const k = `${st.id}|M|${m}`; if (A.has(k)) continue;
         const ls = lessons({ stu: st.id, from: `${m}-01`, to: eom(m) }); const last = ls[ls.length - 1];
         if (!last || !ended(last, now)) continue;                    // ρωτάει μετά το τελευταίο μάθημα του μήνα
-        out.push({ mode: 'month', st, m, k, d: last.d, n: ls.length, a: Math.round(ls.reduce((s, l) => s + l.v, 0) * 100) / 100 });
+        mine.push({ mode: 'month', st, m, k, d: last.d, n: ls.length, a: Math.round(ls.reduce((s, l) => s + l.v, 0) * 100) / 100 });
       }
+    }
+    // το ποσό που ρωτάει δεν ξεπερνάει αυτό που χρωστάει ακόμα (π.χ. έδωσε ήδη 60 από τα 80 του μήνα → ρωτάει για 20)
+    let left = Math.round(bal * 100) / 100;
+    for (const x of mine.sort((a, b) => (a.d < b.d ? 1 : -1))) {           // από το πιο πρόσφατο προς τα πίσω
+      if (left <= 0.005) break;
+      const a = Math.min(x.a, left); left = Math.round((left - a) * 100) / 100;
+      out.push({ ...x, full: x.a, a: Math.round(a * 100) / 100 });
     }
   }
   return out.sort((a, b) => (a.d < b.d ? -1 : 1));

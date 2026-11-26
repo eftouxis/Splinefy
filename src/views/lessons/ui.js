@@ -383,7 +383,7 @@ export function confirmCard() {
     const when = x.mode === 'lesson' ? `${dShort(x.d)}${x.l.time ? ' · ' + esc(String(x.l.time).slice(0, 5)) : ''} · ${hoursTxt(x.l.h)}` : `${MONTHS[Number(x.m.slice(5)) - 1]} · ${x.n} ${x.n === 1 ? 'μάθημα' : 'μαθήματα'}`;
     const all = bal > x.a + 0.5 ? `<button class="btn sm green" data-pall="${i}" style="width:auto">✓ Όλο ${eur(bal)}</button>` : '';
     return `<div class="item" style="display:block"><div class="row"><b class="grow">${nm}</b><span class="small muted">${when}</span></div>
-      <div class="small" style="margin:4px 0 6px">${x.mode === 'lesson' ? 'Πλήρωσε το μάθημα;' : `Πλήρωσε τα μαθήματα του ${MONTHS_GEN[Number(x.m.slice(5)) - 1]};`}${bal > x.a + 0.5 ? ` <span class="muted">(χρωστάει συνολικά ${eur(bal)})</span>` : ''}</div>
+      <div class="small" style="margin:4px 0 6px">${x.mode === 'lesson' ? 'Πλήρωσε το μάθημα;' : `Πλήρωσε τα μαθήματα του ${MONTHS_GEN[Number(x.m.slice(5)) - 1]};`}${x.full && x.full - x.a > 0.005 ? ` <span class="muted">(υπόλοιπο από ${eur(x.full)} — έχει δώσει ήδη ${eur(x.full - x.a)})</span>` : ''}${bal > x.a + 0.5 ? ` <span class="muted">(χρωστάει συνολικά ${eur(bal)})</span>` : ''}</div>
       <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm green" data-pyes="${i}" style="width:auto">✓ Ναι, ${eur(x.a)}</button>${all}
         <button class="btn sm" data-pother="${i}" style="width:auto">Άλλο ποσό</button><button class="btn sm ghost" data-plater="${i}" style="width:auto">Όχι ακόμα</button>
         ${x.mode === 'lesson' ? `<button class="btn sm ghost" data-pnot="${i}" style="width:auto">Δεν έγινε</button>` : ''}</div></div>`;

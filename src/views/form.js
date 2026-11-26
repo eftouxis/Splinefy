@@ -1,4 +1,4 @@
-import { esc, eur, today, parseAmount, norm, MONTHS, MONTHS_GEN, addMonths, dFull } from '../util.js';
+import { esc, eur, today, parseAmount, norm, MONTHS, MONTHS_GEN, addMonths, dFull, latin } from '../util.js';
 import { categories, memory, billType, recurringMovements } from '../ledger.js';
 import { addDays } from '../util.js';
 import * as store from '../store.js';
@@ -85,10 +85,11 @@ function acList() {
 function bindAc(root, input, kind) {
   const box = root.querySelector('[data-ac]'); if (!box || !input) return;
   const show = () => {
-    const q = norm(input.value).trim(); if (!q) { box.hidden = true; return; }
+    let q = norm(input.value).trim(); if (!q) { box.hidden = true; return; }
+    const gl = /[a-z]/.test(q); if (gl) q = latin(q);          // γράφεις με αγγλικό πληκτρολόγιο: «magk» βρίσκει «Μαγκιόρος»
     const all = acList().filter((x) => x.kind === kind || kind === 'Μεταφορά');
     const st = [], inc = [];
-    for (const x of all) { if (x.k === q) continue; if (x.k.startsWith(q)) { st.push(x); if (st.length >= 7) break; } else if (inc.length < 7 && x.k.includes(q)) inc.push(x); }
+    for (const x of all) { const key = gl ? (x.l ||= latin(x.d)) : x.k; if (key === q) continue; if (key.startsWith(q)) { st.push(x); if (st.length >= 7) break; } else if (inc.length < 7 && key.includes(q)) inc.push(x); }
     const hits = [...st, ...inc].slice(0, 5);
     if (!hits.length) { box.hidden = true; return; }
     box.innerHTML = hits.map((x) => `<button type="button" data-acv="${esc(x.d)}"><b>${esc(x.d)}</b><span class="small muted">${esc(x.cat || '')} · ${x.n}×</span></button>`).join('');

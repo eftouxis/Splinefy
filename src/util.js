@@ -26,6 +26,10 @@ export const dShort = (s) => { const d = parseISO(s); return `${DAYS[d.getDay()]
 export const dFull = (s) => { const d = parseISO(s); return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`; };
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g, '').slice(0, 20);
 export const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+/** ελληνικά και greeklish στην ίδια μορφή, για αναζήτηση («magk» ≈ «μαγκ») */
+const GRL = { α: 'a', β: 'v', γ: 'g', δ: 'd', ε: 'e', ζ: 'z', η: 'i', θ: '8', ι: 'i', κ: 'k', λ: 'l', μ: 'm', ν: 'n', ξ: 'x', ο: 'o', π: 'p', ρ: 'r', σ: 's', ς: 's', τ: 't', υ: 'i', φ: 'f', χ: 'x', ψ: '4', ω: 'o' };
+export const latin = (s) => norm(s).replace(/ου/g, 'u').replace(/[α-ω]/g, (c) => GRL[c] || c)
+  .replace(/th/g, '8').replace(/ps/g, '4').replace(/ch/g, 'x').replace(/ks/g, 'x').replace(/ou/g, 'u').replace(/b/g, 'v').replace(/w/g, 'o').replace(/[yh]/g, 'i').replace(/[cq]/g, 'k');
 export const round2 = (x) => Math.round((x || 0) * 100) / 100;
 export function parseAmount(v) {
   if (v == null) return null;
