@@ -233,8 +233,14 @@ export default {
         const def = occ ? defs.find((x) => x.id === occ.rec) : null;
         if (occ) return `<div class="note" style="margin-bottom:10px">↻ Το «${esc(def.name)}» είναι επαναλαμβανόμενο και μπαίνει μόνο του (${esc(occ.d.split('-').reverse().join('/'))}, ${eur(occ.a)}). Για νέο ποσό <a href="#/edit/${esc(def._sp)}/${esc(occ.id)}">πάτα εδώ</a> και διάλεξε «Από εδώ και πέρα» — αλλιώς θα μετρηθεί δύο φορές.</div>`;
         return `<label class="row small" style="margin:0 2px 10px;flex-wrap:wrap"><input type="checkbox" name="rep" style="width:auto" ${f.rep ? 'checked' : ''}> ↻ Επαναλαμβάνεται
-          ${FQ.freqHtml('repf', { fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }, 'width:auto;padding:6px 8px;font-size:14px;margin-left:6px')}</label>`;
+          ${FQ.freqHtml('repf', { fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }, 'width:auto;padding:6px 8px;font-size:14px;margin-left:6px')}</label>
+          ${k === 'Έξοδο' ? `<div class="row small" data-instrow style="margin:0 2px 10px;gap:6px;flex-wrap:wrap;${(parseAmount(f.a) || 0) >= 100 ? '' : 'display:none'}">
+            <label class="row" style="gap:6px"><input type="checkbox" name="inst" style="width:auto" ${f.inst ? 'checked' : ''}> 💳 Σε δόσεις</label>
+            <select name="instn" style="width:auto;padding:6px 8px;font-size:14px">${[2, 3, 4, 5, 6, 8, 10, 12, 18, 24].map((n) => `<option value="${n}" ${String(f.instn || 12) === String(n) ? 'selected' : ''}>${n} δόσεις</option>`).join('')}</select>
+            <span class="muted" data-instinfo></span></div>` : ''}`;
       })() : ''}
+      ${f.id && f.inst && f.inst.n ? `<div class="note" style="margin-bottom:10px">💳 Δόση ${f.inst.i}/${f.inst.n} · σύνολο ${eur(f.inst.total)}
+        <button type="button" class="btn sm ghost red" data-instdel style="margin-left:6px">Διαγραφή όλων των δόσεων</button></div>` : ''}
       ${lesPay ? '' : `<details class="more" ${f.trip || f.share || (f.oth && f.oth.length) || f.moreOpen || (f.note && f.cat !== 'Αυτοκίνητο') ? 'open' : ''}><summary>Περισσότερα ▾</summary>
         ${k === 'Έξοδο' && (f.for === 'Κοινό' || parseAmount(f.share) != null) ? `<label class="f"><span>Κοινό αλλά όχι μισό-μισό: πόσα είναι ${me === 'Άλκης' ? 'τα δικά σου' : 'του Άλκη'} (€)</span><input name="share" inputmode="decimal" value="${esc(f.share)}" placeholder="άδειο = μισό-μισό">
             <div class="small muted" style="margin:4px 2px 0">Π.χ. λογαριασμός 46,73 € όπου τα 10 € ${me === 'Άλκης' ? 'είναι δικά σου' : 'είναι του Άλκη'}: γράψε 10 — τα υπόλοιπα χρεώνονται στη${me === 'Άλκης' ? ' Χαρά' : ' Χαρά (σε σένα)'}.</div></label>` : ''}
@@ -261,6 +267,16 @@ export default {
     };
     bindOth(root, f, read, () => ui.render());
     root.querySelector('[data-back]')?.addEventListener('click', () => { f = null; ui.back(); });
+    // δόσεις: εμφανίζεται από 100 € και πάνω, με «12 × 20,50 €»
+    const updInst = () => { const row = root.querySelector('[data-instrow]'); if (!row) return; const a = parseAmount(root.querySelector('[name=a]')?.value) || 0; row.style.display = a >= 100 ? '' : 'none';
+      const n = Number(root.querySelector('[name=instn]')?.value || 12); const info = row.querySelector('[data-instinfo]'); if (info) info.textContent = a >= 100 ? `${n} × ${eur(Math.floor(a * 100 / n) / 100)}` : ''; };
+    root.addEventListener('input', updInst); root.addEventListener('change', updInst); root.addEventListener('click', () => setTimeout(updInst, 0)); updInst();
+    root.querySelector('[data-instdel]')?.addEventListener('click', async () => {
+      const g = f.inst.g; const all = store.records('tx').filter((r) => r.inst && r.inst.g === g);
+      if (!(await ui.confirm(`Να διαγραφούν και οι ${all.length} δόσεις (${eur(f.inst.total)});`, 'Διαγραφή', false))) return;
+      for (const r of all) await store.del(r._sp, r.id, { quiet: true });
+      f = null; ui.toast(`Διαγράφηκαν ${all.length} δόσεις (υπάρχουν στα «Πρόσφατα διαγραμμένα»)`); ui.back();
+    });
     root.querySelector('[data-cancel]')?.addEventListener('click', () => { f = null; ui.back(); });
     root.querySelector('[data-showkind]')?.addEventListener('click', () => { read(); f.showKind = 1; ui.render(); });
     root.querySelectorAll('[data-seg]').forEach((sg) => sg.addEventListener('click', (e) => {
@@ -399,7 +415,7 @@ export default {
       const rec = { type: 'tx', d: f.d, a: amt, desc: f.desc.trim(), cat: f.kind === 'Μεταφορά' ? 'Μεταφορά μεταξύ μας' : f.cat, kind: f.kind,
         payer: f.payer, for: f.for, both: parseAmount(f.both), share: parseAmount(f.share), trip: f.trip || null, note: f.note || null,
         bill: f.bill || billType(f.desc) || null, period: f.period || null, cons: parseAmount(f.cons), heat: parseAmount(String(f.heat ?? '')), fix: parseAmount(String(f.fix ?? '')),
-        stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null, md: null,
+        stu: f.kind === 'Έσοδο' && f.cat === 'Ιδιαίτερα' ? f.stu || null : null, md: null, ...(f.id && f.inst && typeof f.inst === 'object' ? { inst: f.inst } : {}),
         extra: f.kind === 'Έσοδο' && f.cat === 'Μισθός' && (f.extra === true || f.extra === 'on') ? true : null,
         car: f.kind === 'Έξοδο' && f.car && (K.isFuelText(f.desc) || f.cat === 'Αυτοκίνητο') ? f.car : null,
         km: f.car && K.isFuelText(f.desc) ? parseAmount(String(f.km ?? '').replace(/\./g, '')) : null, q: f.car && K.isFuelText(f.desc) ? parseAmount(f.q) : null,
@@ -429,14 +445,24 @@ export default {
         else await store.put(f.sp, f.id, rec);
       } else {
         const tsp = targetSpace(f);
-        await store.put(tsp, null, rec);
-        if (f.rep && (f.rep === true || f.rep === 'on')) {        // from now on it is a recurring item (starts at the next time)
+        const nInst = (f.inst === true || f.inst === 'on') && f.kind === 'Έξοδο' && amt >= 100 ? Number(f.instn || 12) : 0;
+        if (nInst >= 2) {                                        // δόσεις: το ποσό μοιράζεται σε μηνιαίες κινήσεις «… (δόση 1/12)»
+          const g = `i${Date.now().toString(36)}`; const cents = Math.round(amt * 100); const base = Math.floor(cents / nInst);
+          for (let i = 0; i < nInst; i++) {
+            const part = (i === nInst - 1 ? cents - base * (nInst - 1) : base) / 100; const k2 = part / amt;
+            await store.put(tsp, null, { ...rec, d: addMonths(f.d, i), a: part, desc: `${rec.desc || rec.cat} (δόση ${i + 1}/${nInst})`,
+              both: rec.both != null ? Math.round(rec.both * k2 * 100) / 100 : null, share: rec.share != null ? Math.round(rec.share * k2 * 100) / 100 : null,
+              inst: { g, i: i + 1, n: nInst, total: amt } });
+          }
+          ui.toast(`Καταχωρήθηκαν ${nInst} δόσεις των ${eur(base / 100)} ✓`);
+        } else await store.put(tsp, null, rec);
+        if (nInst >= 2) { /* οι δόσεις δεν γίνονται και επαναλαμβανόμενο */ } else if (f.rep && (f.rep === true || f.rep === 'on')) {        // from now on it is a recurring item (starts at the next time)
           const fr = FQ.toRec({ fq: f.repf || 'm1', cn: f.repfn, cu: f.repfu }) || { unit: 'm', every: 1 }; const [u, e] = [fr.unit, fr.every];
           const next = u === 'd' ? addDays(f.d, e) : addMonths(f.d, e);
           await store.put(tsp, null, { type: 'rec', name: rec.desc || rec.cat, a: rec.a, cat: rec.cat, kind: rec.kind, payer: rec.payer, for: rec.for, unit: u, every: e, start: next, oth: rec.oth || null, both: null });
           await RO.adoptFirst();        // this movement is its first time
           ui.toast('Καταχωρήθηκε ✓ και μπήκε στα επαναλαμβανόμενα');
-        } else ui.toast('Καταχωρήθηκε ✓');
+        } else if (nInst < 2) ui.toast('Καταχωρήθηκε ✓');
       }
       if (f.id) ui.toast('Καταχωρήθηκε ✓');
       if (again) { const kk = KEY[f.kind]; const d = f.d; f = blank(kk); f.kindKey = kk; f.d = d; ui.render(); }
