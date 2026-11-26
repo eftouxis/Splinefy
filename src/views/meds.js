@@ -159,7 +159,6 @@ export function medSheet(ui, m = null, preset = {}) {
     <div class="grid2"><label class="f"><span>Συνταγή (αρ.)</span><input name="rx" inputmode="numeric" value="${esc(v0.rx || '')}"></label>
     <label class="f"><span>Σύνδεσμος</span><input name="rxUrl" value="${esc(v0.rxUrl || '')}" placeholder="https://…"></label></div>
     ${spPick(m, v0.who)}
-    ${s && s.ds.length && M.tracked(m) ? `<details class="small" style="margin:0 2px 10px"><summary>Δόσεις (${s.done}${s.total ? '/' + s.total : ''})</summary>${s.ds.filter((d) => d.at <= Date.now() + 36e5 * 24).slice(-60).map((d) => `<div>${d.given ? '✓' : d.missed ? '✕' : '○'} ${M.when(d.given || d.at)}${d.given && Math.abs(d.given - d.at) > 15 * 60000 ? ` <span class="muted">(πρόγραμμα ${M.hm(d.at)})</span>` : ''}${d.missed ? ' <span class="muted">δεν δόθηκε</span>' : ''}</div>`).join('')}</details>` : ''}
     <button class="btn primary" data-ok>Αποθήκευση</button>
     ${m && s?.done ? '<button class="btn" data-undo>↶ Αναίρεση τελευταίας δόσης</button>' : ''}
     ${m && !s?.over ? '<button class="btn" data-stop>Σταμάτησε</button>' : ''}
