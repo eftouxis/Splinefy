@@ -43,6 +43,8 @@ function burdenHtml(f) {
 const KIND = { exp: 'Έξοδο', inc: 'Έσοδο', trf: 'Μεταφορά' };
 const KEY = { 'Έξοδο': 'exp', 'Έσοδο': 'inc', 'Μεταφορά': 'trf' };
 let f = null;          // form state
+// βγαίνεις από τη φόρμα (πίσω, Άκυρο, άλλη σελίδα) → ό,τι είχες αρχίσει να γράφεις ξεχνιέται· την επόμενη φορά ξεκινάει καθαρή
+window.addEventListener('hashchange', () => { if (!/^#\/(add|edit)\//.test(location.hash)) setTimeout(() => { if (!/^#\/(add|edit)\//.test(location.hash)) f = null; }, 0); });
 
 const STEMS = ['ιανουαρ', 'φεβρουαρ', 'μαρτ', 'απριλ', 'μαι', 'ιουν', 'ιουλ', 'αυγουστ', 'σεπτεμβρ', 'οκτωβρ', 'νοεμβρ', 'δεκεμβρ'];
 /** «μισθός οκτωβρίου» → the month it concerns (nearest one not after the next month) */
