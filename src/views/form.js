@@ -244,12 +244,12 @@ export default {
         <div class="note small">Φίλιππος = ο λογαριασμός του (κατάθεση ή ανάληψη).<br>Με άλλους (μαμά, αδερφή, φίλοι): <a href="#/debts">Οφειλές</a> → το άτομο → «Μου έδωσε» / «Της έδωσα».</div>`
       : lesPay ? (f.stu ? `<label class="f"><span>📌 Για την επόμενη φορά (στην αρχική από την προηγούμενη μέρα)</span><input name="nimp" value="${esc(f.nimp || '')}" placeholder="π.χ. γράφει διαγώνισμα την Παρασκευή"></label>
         <label class="f"><span>📝 Σημείωση (στην καρτέλα του μαθητή)</span><input name="nnote" value="${esc(f.nnote || '')}" placeholder="π.χ. πλήρωσε και τον Οκτώβριο"></label>` : '')
-      : `<label class="f"><span>${k === 'Έσοδο' ? 'Πήρε' : 'Πλήρωσε'}</span>${seg('payer', (k === 'Έξοδο' ? [...people, 'Και οι 2'] : people).map((p) => [p, p]), f.payer)}</label>
+      : `${k === 'Έσοδο' && (!f.id || f.payer === me) ? '' : `<label class="f"><span>${k === 'Έσοδο' ? 'Πήρε' : 'Πλήρωσε'}</span>${seg('payer', (k === 'Έξοδο' ? [...people, 'Και οι 2'] : people).map((p) => [p, p]), f.payer)}</label>`}
         ${(() => { if (k !== 'Έξοδο' || f.occ) return ''; if (!f.cred && !norm(`${f.desc || ''} ${f.cat || ''}`).includes('κοινοχρηστ')) return ''; const cl = P.credits(f.id, f.cred); if (!cl.length) return '';
           return `<label class="f"><span>💳 Πληρωμή από πιστωτικό</span>${seg('cred', [['', 'Όχι'], ...cl.map((c) => [c.id, `${c.name} · ${eur(c.avail)}`])], f.cred || '')}</label>`; })()}
         ${k === 'Έξοδο' && f.payer === 'Και οι 2' ? `<div class="grid2"><label class="f"><span>Έδωσε ο Άλκης (€)</span><input name="both" inputmode="decimal" value="${esc(f.both)}"></label>
           <label class="f"><span>Έδωσε η Χαρά (€)</span><input name="bothX" inputmode="decimal" value="${esc(f.bothX ?? '')}"></label></div>` : ''}
-        ${k === 'Έσοδο' ? `<label class="f"><span>Για ποιον</span>${seg('for', [['', 'Μόνο γι’ αυτόν/ή'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for)}</label>` : forHtml(f, seg)}
+        ${k === 'Έσοδο' ? `<label class="f"><span>Για ποιον</span>${seg('for', [['', f.payer === me ? 'Εμένα' : 'Μόνο γι’ αυτόν/ή'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος (στο πορτοφόλι του)']], f.for)}</label>` : forHtml(f, seg)}
         ${k === 'Έξοδο' && f.for === 'Χαρά' && !f.withOth ? `<label class="row small" style="margin:-4px 2px 10px"><input type="checkbox" name="ofc" style="width:auto" ${f.ofc ? 'checked' : ''}> 🏢 Έξοδο του γραφείου της Χαράς (μετράει στο γραφείο, όχι στα προσωπικά της)</label>
           ${f.ofc ? `<div class="note" style="margin:-4px 0 10px">
             ${f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' ? `<label class="row small" style="margin:0 0 6px"><input type="checkbox" name="ooff" style="width:auto" ${(f.ooff ?? !f.id) ? 'checked' : ''}> <span>Το χρωστάει το γραφείο στον ${esc(f.payer === 'Άλκης' ? 'Άλκη' : f.payer)} (όχι η Χαρά)</span></label>` : ''}
@@ -454,6 +454,7 @@ export default {
         f.both = String(al ?? Math.round((amt - ch) * 100) / 100);
         if (Number(f.both) < 0 || Number(f.both) > amt + 0.005) { ui.toast('Τα ποσά δεν ταιριάζουν με το σύνολο'); return; }
       } else if (f.kind === 'Έξοδο') f.both = '';
+      if (f.kind === 'Έσοδο' && !f.id) f.payer = store.state.user;            // δικό σου έσοδο — δεν περνάς έσοδο του άλλου
       if (f.kind === 'Μεταφορά' && f.payer === f.for) { ui.toast('«Έδωσε» και «Πήρε» δεν μπορεί να είναι ίδιοι'); return; }
       if (f._saving) return;                     // διπλό πάτημα
       if (!f.id) {                               // υπάρχει ήδη ίδια κίνηση την ίδια μέρα;
