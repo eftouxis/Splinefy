@@ -105,6 +105,8 @@ tr.click { cursor: pointer; } tr.click:hover td { background: var(--chip); } .cb
 .burden { margin: -2px 2px 10px; font-size: 13px; line-height: 1.5; }
 .burden b { font-weight: 700; }
 .trip-on { display: flex; align-items: center; gap: 8px; }
+.seg.fit { grid-auto-columns: auto; } .seg.fit button { white-space: nowrap; padding: 8px 6px; font-size: 13.5px; min-width: 0; }
+.seg.fit:has(> :nth-child(5)) { gap: 2px; } .seg.fit:has(> :nth-child(5)) button { padding: 8px 3px; font-size: 12.5px; letter-spacing: -.1px; }
 .seg.per button { font-size: 12.5px; padding: 8px 2px; }
 input[type=date] { min-width: 0; max-width: 100%; }
 .grid2 > *, .grid3 > * { min-width: 0; }

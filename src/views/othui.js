@@ -43,8 +43,8 @@ export function readOth(root) {
 }
 /** «Για ποιον» of an expense — the same in every form: Κοινό ½ / Άλκης / Χαρά / Φίλιππος / + Άλλοι */
 export function forHtml(f, seg) {
-  return `<label class="f"><span>Για ποιον</span>${seg('forx', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος'], ['__oth', '+ Άλλοι']], f.withOth ? '__oth' : f.for)}</label>
-    ${f.for === 'Φίλιππος' && !f.withOth ? '<div class="small muted" style="margin:-6px 2px 10px">👶 Πληρώνεται από τα λεφτά του Φιλίππου — μειώνει όσα έχει. Αν το πληρώνετε εσείς, διάλεξε Κοινό.</div>' : ''}
+  return `<label class="f"><span>Για ποιον</span>${seg('forx', [['Κοινό', 'Άλκης & Χαρά'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος'], ['__oth', '+ Άλλοι']], f.withOth ? '__oth' : f.for, 'fit')}</label>
+    ${f.for === 'Φίλιππος' && !f.withOth ? '<div class="small muted" style="margin:-6px 2px 10px">👶 Πληρώνεται από τα λεφτά του Φιλίππου — μειώνει όσα έχει. Αν το πληρώνετε εσείς, διάλεξε «Άλκης & Χαρά».</div>' : ''}
     ${f.withOth ? `<div class="note" style="margin:-2px 0 10px"><div class="small" style="font-weight:700;margin-bottom:6px">Μοιράζεται</div>${othHtml(f, parseAmount(f.a))}</div>` : ''}`;
 }
 /** tap on «Για ποιον» */

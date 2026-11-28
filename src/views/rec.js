@@ -12,7 +12,7 @@ const FREQ = [['m1', 'Κάθε μήνα', 'm', 1], ['m2', 'Κάθε 2 μήνες
   ['m12', 'Κάθε χρόνο', 'm', 12], ['d7', 'Κάθε εβδομάδα', 'd', 7], ['d14', 'Κάθε 2 εβδομάδες', 'd', 14]];
 const freqKey = (r) => `${r.unit || 'm'}${r.every || 1}`;
 const freqLabel = (r) => { const l = FQ.label(r.unit || 'm', r.every || 1); return l[0].toUpperCase() + l.slice(1); };
-const seg = (name, opts, val) => `<div class="seg" data-seg="${name}">${opts.map(([v, l]) => `<button type="button" data-val="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
+const seg = (name, opts, val, cls = '') => `<div class="seg ${cls}" data-seg="${name}">${opts.map(([v, l]) => `<button type="button" data-val="${esc(v)}" class="${v === val ? 'on' : ''}">${esc(l)}</button>`).join('')}</div>`;
 const personalSpace = () => store.state.spaces.find((s) => s.owner === store.state.user && s.members.length === 1 && s.members.includes(store.state.user));
 /** the last time it happened on or before a day */
 function lastDate(r, upto = today()) {
@@ -82,7 +82,7 @@ const formView = {
       <label class="f"><span>Κάθε πότε</span>${FQ.freqHtml('fq', f)}</label>
       <label class="f"><span>${f.kind === 'Έσοδο' ? 'Τα παίρνει' : 'Πληρώνει'}</span>${seg('payer', [['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά']], f.payer)}</label>
       ${f.kind === 'Έξοδο' ? forHtml(f, seg)
-        : `<label class="f"><span>Για ποιον</span>${seg('for', [['', 'Μόνο γι’ αυτόν/ή'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for || '')}</label>`}
+        : `<label class="f"><span>Για ποιον</span>${seg('for', [['', f.payer || 'Άλκης'], ['Κοινό', 'Άλκης & Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for || '', 'fit')}</label>`}
       ${f.kind === 'Έξοδο' && f.for === 'Χαρά' && !f.withOth ? `<label class="row small" style="margin:-4px 2px 10px"><input type="checkbox" name="ofc" style="width:auto" ${f.ofc && f.ofc !== 'false' ? 'checked' : ''}> 🏢 Έξοδο του γραφείου της Χαράς</label>
         ${f.payer && f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' ? `<label class="row small" style="margin:-6px 2px 10px 26px"><input type="checkbox" name="ooff" style="width:auto" ${f.ooff && f.ooff !== 'false' ? 'checked' : ''}> …και το χρωστάει το γραφείο (όχι η Χαρά)</label>` : ''}` : ''}
       ${f.kind === 'Έσοδο' ? `<label class="f"><span>Φόρος στην εκκαθάριση (%) — π.χ. ενοίκιο</span><input name="taxS" inputmode="decimal" value="${esc(f.taxS ?? (f.tax ? String(Math.round(f.tax * 10000) / 100).replace('.', ',') : ''))}" placeholder="άδειο = κανένας"></label>

@@ -209,8 +209,8 @@ export default {
         <div class="grid2"><label class="f"><span>Ημερομηνία</span><input type="date" name="d" value="${esc(f.d)}"></label>
         <label class="f"><span>Σημείωση</span><input name="note" value="${esc(f.note || '')}"></label></div>
         <label class="f"><span>${k === 'Έσοδο' ? 'Πήρε' : 'Πλήρωσε'}</span>${seg('payer', people.map((p) => [p, p]), f.payer)}</label>
-        <label class="f"><span>Για ποιον</span>${k === 'Έσοδο' ? seg('for', [['', 'Μόνο γι’ αυτόν/ή'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος']], f.for || '')
-          : seg('for', [['Κοινό', 'Κοινό ½'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for || 'Κοινό')}</label>
+        <label class="f"><span>Για ποιον</span>${k === 'Έσοδο' ? seg('for', [['', f.payer || me], ['Κοινό', 'Άλκης & Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for || '', 'fit')
+          : seg('for', [['Κοινό', 'Άλκης & Χαρά'], ['Άλκης', 'Άλκης'], ['Χαρά', 'Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for || 'Κοινό', 'fit')}</label>
         <div class=\"small muted\"><a href="#/rec/${esc(f.sp)}/${esc(f.rec)}">Κατηγορία, συχνότητα και άλλα ›</a></div></div>
       <button class="btn primary" style="width:100%" data-save>Αποθήκευση</button>
       ${f.skipped ? '<button class="btn" style="width:100%;margin-top:8px" data-skip>Επαναφορά (έγινε κανονικά)</button>' : ''}
@@ -249,7 +249,7 @@ export default {
           return `<label class="f"><span>💳 Πληρωμή από πιστωτικό</span>${seg('cred', [['', 'Όχι'], ...cl.map((c) => [c.id, `${c.name} · ${eur(c.avail)}`])], f.cred || '')}</label>`; })()}
         ${k === 'Έξοδο' && f.payer === 'Και οι 2' ? `<div class="grid2"><label class="f"><span>Έδωσε ο Άλκης (€)</span><input name="both" inputmode="decimal" value="${esc(f.both)}"></label>
           <label class="f"><span>Έδωσε η Χαρά (€)</span><input name="bothX" inputmode="decimal" value="${esc(f.bothX ?? '')}"></label></div>` : ''}
-        ${k === 'Έσοδο' ? `<label class="f"><span>Για ποιον</span>${seg('for', [['', f.payer === me ? 'Εμένα' : 'Μόνο γι’ αυτόν/ή'], ['Κοινό', 'Κοινό ½'], ['Φίλιππος', 'Φίλιππος (στο πορτοφόλι του)']], f.for)}</label>` : forHtml(f, seg)}
+        ${k === 'Έσοδο' ? `<label class="f"><span>Για ποιον</span>${seg('for', [['', f.payer || me], ['Κοινό', 'Άλκης & Χαρά'], ['Φίλιππος', 'Φίλιππος']], f.for || '', 'fit')}</label>${f.for === 'Φίλιππος' ? '<div class="small muted" style="margin:-6px 2px 10px">👶 Μπαίνει στα λεφτά του Φιλίππου</div>' : ''}` : forHtml(f, seg)}
         ${k === 'Έξοδο' && f.for === 'Χαρά' && !f.withOth ? `<label class="row small" style="margin:-4px 2px 10px"><input type="checkbox" name="ofc" style="width:auto" ${f.ofc ? 'checked' : ''}> 🏢 Έξοδο του γραφείου της Χαράς (μετράει στο γραφείο, όχι στα προσωπικά της)</label>
           ${f.ofc ? `<div class="note" style="margin:-4px 0 10px">
             ${f.payer !== 'Χαρά' && f.payer !== 'Και οι 2' ? `<label class="row small" style="margin:0 0 6px"><input type="checkbox" name="ooff" style="width:auto" ${(f.ooff ?? !f.id) ? 'checked' : ''}> <span>Το χρωστάει το γραφείο στον ${esc(f.payer === 'Άλκης' ? 'Άλκη' : f.payer)} (όχι η Χαρά)</span></label>` : ''}
