@@ -152,6 +152,8 @@ export async function ensureAdults() {
 export const m2000 = (s) => { const d = parseISO(s); return (d.getFullYear() - 2000) * 12 + d.getMonth() + (d.getDate() - 1) / 31; };
 export const profile = (c = cur()) => profiles().find((p) => p.id === c) || {};
 export const visits = (c) => mine('hvisit', c).sort(byD);
+/** συμβάντα (τραυματισμός, ενόχληση…) με εξέλιξη: { d, title, text, done, ups:[{ d, text, f:'better'|'same'|'worse' }] } — ανοιχτά πρώτα */
+export const events = (c) => mine('hevent', c).sort((a, b) => (!!a.done - !!b.done) || (a.d < b.d ? 1 : -1));
 export const labs = (c) => mine('hlab', c).sort(byD);
 export const vaccines = (c) => mine('hvac', c).sort((a, b) => (a.ord ?? 99) - (b.ord ?? 99) || String(a.disease).localeCompare(b.disease));
 export const docs = (c) => mine('hdoc', c).sort(byD);

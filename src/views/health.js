@@ -6,8 +6,8 @@ import { sheet } from './lessons/ui.js';
 import { rxSheet } from './meds.js';
 import { parseRx } from '../meds.js';
 
-const TABS_ADULT = [['sum', 'Σύνοψη'], ['log', 'Ημερολόγιο'], ['hist', 'Ιστορικό'], ['labs', 'Εξετάσεις'], ['guides', 'Οδηγίες γιατρού'], ['docs', 'Έγγραφα']];
-const TABS = [['sum', 'Σύνοψη'], ['log', 'Ημερολόγιο'], ['hist', 'Ιστορικό'], ['labs', 'Εξετάσεις'], ['vac', 'Εμβόλια'], ['growth', 'Ανάπτυξη'], ['docs', 'Έγγραφα']];
+const TABS_ADULT = [['sum', 'Σύνοψη'], ['ev', 'Συμβάντα'], ['log', 'Ημερολόγιο'], ['hist', 'Ιστορικό'], ['labs', 'Εξετάσεις'], ['guides', 'Οδηγίες γιατρού'], ['docs', 'Έγγραφα']];
+const TABS = [['sum', 'Σύνοψη'], ['ev', 'Συμβάντα'], ['log', 'Ημερολόγιο'], ['hist', 'Ιστορικό'], ['labs', 'Εξετάσεις'], ['vac', 'Εμβόλια'], ['growth', 'Ανάπτυξη'], ['docs', 'Έγγραφα']];
 let q = '', kindF = '', logF = 'health', labView = 'cards', migrated = false;
 const C = () => ({ child: H.cur() === H.FIRST ? null : H.cur() });
 const DR = () => (H.isAdult() ? 'γιατρού' : 'παιδιάτρου');   // «Οδηγίες γιατρού» στους ενήλικες   // new records: which child (the first child's records carry no child field, as before)
@@ -347,6 +347,12 @@ const TAB = {
     }
     return h;
   },
+  ev() {
+    const l = H.events(); const days = (d) => Math.round((new Date(today()) - new Date(d)) / 864e5);
+    return `<div class="list">${l.map((e) => { const last = (e.ups || []).slice(-1)[0]; const fe = EVF.find((x) => x[0] === last?.f);
+      return `<div class="item click" data-ev="${esc(e.id)}"><div class="dot">${e.done ? '✅' : '🩹'}</div><div class="grow"><div class="t">${esc(e.title)}</div>
+        <div class="s">${dFull(e.d)}${e.done ? ` · έγινε καλά ${e.done !== true ? dFull(e.done) : ''}` : ` · ${days(e.d)} μέρες`}${last ? ` · ${fe ? fe[1] + ' ' : ''}${esc((last.text || '').slice(0, 60))}` : ''}</div></div></div>`; }).join('') || '<div class="item muted">Τίποτα ακόμα — π.χ. ένας τραυματισμός ή μια ενόχληση που θες να παρακολουθείς</div>'}</div>`;
+  },
   hist() {
     const kinds = [...new Set(H.visits().map((v) => v.kind).filter(Boolean))];
     const l = H.visits().filter((v) => !kindF || v.kind === kindF);
@@ -580,6 +586,46 @@ function profSheet(isNew = false, adult0 = false) {
 }
 
 // ---------- clicks inside any body (tab, search results, info sheets) ----------
+// συμβάν: τι έγινε + εξέλιξη (πώς νιώθω, τι έκανα) + «έγινε καλά»
+const EVF = [['better', '🙂 Καλύτερα'], ['same', '😐 Ίδια'], ['worse', '😣 Χειρότερα']];
+function evSheet(e = null) {
+  let f = null;
+  sheet(`<div class="mid">${e ? '🩹 ' + esc(e.title) : 'Νέο συμβάν'}</div>
+    ${e ? `<div class="small muted" style="margin:2px 0 8px">${dFull(e.d)}${e.text ? ' · ' + esc(e.text) : ''} <a href="#" data-evedit style="color:var(--brand)">αλλαγή</a></div>` : ''}
+    <div data-evform ${e ? 'hidden' : ''}>
+      <label class="f"><span>Τι έγινε</span><input name="title" value="${esc(e?.title || '')}" placeholder="π.χ. Στραμπούληγμα αριστερού αστραγάλου"></label>
+      <label class="f"><span>Πότε</span><input type="date" name="d" value="${esc(e?.d || today())}"></label>
+      <label class="f"><span>Λεπτομέρειες</span><textarea name="text" rows="3" placeholder="π.χ. παραπάτησα στις σκάλες, πρήστηκε, πονάει όταν στρίβω το πέλμα">${esc(e?.text || '')}</textarea></label>
+      <button class="btn primary" data-evsave style="width:100%">Αποθήκευση</button></div>
+    ${e ? `<h2 style="margin-top:12px">Εξέλιξη</h2>
+      <div class="list">${(e.ups || []).slice().reverse().map((u, i) => `<div class="item"><div class="grow"><div class="t">${(EVF.find((x) => x[0] === u.f) || ['', ''])[1]} <span class="small muted">${dFull(u.d)}</span></div><div class="s">${esc(u.text || '')}</div></div><button class="btn sm ghost" data-updel="${(e.ups || []).length - 1 - i}">✕</button></div>`).join('') || '<div class="item muted">Τίποτα ακόμα</div>'}</div>
+      <div class="card" style="margin-top:8px"><div class="small muted">Πώς είσαι σήμερα;</div>
+        <div class="chips" style="margin:6px 0">${EVF.map(([k, l]) => `<button class="chip" data-upf="${k}">${l}</button>`).join('')}</div>
+        <textarea name="up" rows="2" placeholder="τι έκανες / τι νιώθεις (π.χ. γύρισα στο CrossFit χωρίς άλματα, πονάει λίγο στο στρίψιμο)"></textarea>
+        <button class="btn" data-upadd style="width:100%;margin-top:6px">+ Προσθήκη</button></div>
+      <button class="btn ${e.done ? '' : 'primary'}" data-evdone style="width:100%;margin-top:10px">${e.done ? '↺ Δεν έχει περάσει ακόμα' : '✅ Έγινε καλά'}</button>
+      <button class="btn ghost red" data-evdel style="width:100%;margin-top:6px">Διαγραφή συμβάντος</button>` : ''}
+    <button class="btn ghost" data-no style="width:100%;margin-top:6px">Κλείσιμο</button>`, (el, close) => {
+    el.querySelector('[data-no]').onclick = close;
+    const reopen = () => { close(); setTimeout(() => evSheet(H.events().find((x) => x.id === e.id)), 60); };
+    el.querySelector('[data-evedit]')?.addEventListener('click', (ev) => { ev.preventDefault(); el.querySelector('[data-evform]').hidden = false; });
+    el.querySelector('[data-evsave]').onclick = async () => {
+      const g = (n) => el.querySelector(`[name=${n}]`).value.trim(); if (!g('title')) { ui.toast('Γράψε τι έγινε'); return; }
+      const id = await store.put(e?._sp || H.spOf(), e?.id || null, { ...(e ? {} : { ...C(), ups: [] }), type: 'hevent', title: g('title'), d: g('d') || today(), text: g('text') || null });
+      close(); ui.toast('Αποθηκεύτηκε ✓'); if (!e) setTimeout(() => evSheet(H.events().find((x) => x.id === id)), 60);
+    };
+    if (!e) return;
+    el.querySelectorAll('[data-upf]').forEach((b) => b.addEventListener('click', () => { f = b.dataset.upf; el.querySelectorAll('[data-upf]').forEach((x) => x.classList.toggle('on', x === b)); }));
+    el.querySelector('[data-upadd]').onclick = async () => {
+      const t = el.querySelector('[name=up]').value.trim(); if (!t && !f) { ui.toast('Γράψε κάτι ή διάλεξε πώς είσαι'); return; }
+      await store.put(e._sp, e.id, { ups: [...(e.ups || []), { d: today(), text: t || null, f }] }); reopen();
+    };
+    el.querySelectorAll('[data-updel]').forEach((b) => b.addEventListener('click', async () => { const ups = (e.ups || []).filter((_, i) => i !== Number(b.dataset.updel)); await store.put(e._sp, e.id, { ups }); reopen(); }));
+    el.querySelector('[data-evdone]').onclick = async () => { await store.put(e._sp, e.id, { done: e.done ? null : today() }); close(); ui.toast(e.done ? 'Ξανά ανοιχτό' : 'Περαστικά πια ✅'); };
+    el.querySelector('[data-evdel]').onclick = async () => { if (!(await ui.confirm('Διαγραφή του συμβάντος με όλη την εξέλιξη;', 'Διαγραφή', false))) return; await store.del(e._sp, e.id); close(); };
+  });
+}
+
 function bindBody(root, closeInfo, me = null) {
   const on = (sel, fn) => root.querySelectorAll(sel).forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); fn(b, e); }));
   on('[data-trend]', (b) => { closeInfo?.(); showTrend(b.dataset.trend, closeInfo ? me : null); });
@@ -592,6 +638,7 @@ function bindBody(root, closeInfo, me = null) {
   on('[data-log]', (b, e) => { if (e.target.closest('[data-txlink]')) return; logSheet(null, H.logs().find((x) => x.id === b.dataset.log)); });
   on('[data-newlog]', (b) => logSheet(b.dataset.newlog));
   on('[data-guides]', () => guidesSheet());
+  on('[data-ev]', (b) => evSheet(H.events().find((x) => x.id === b.dataset.ev)));
 }
 
 const body0 = (root) => root.querySelector('[data-body]');
@@ -608,7 +655,7 @@ export default {
         <label class="btn primary" style="width:100%">📥 Εισαγωγή ιστορικού (.json)<input type="file" accept=".json,application/json" data-seed hidden></label>
         <button class="btn" data-newchild style="width:100%;margin-top:8px">👶 Νέο παιδί</button></div>`;
     }
-    const add = { guides: ['data-newg', '+ Οδηγία'], log: ['data-newlog="note"', '+ Καταχώριση'], hist: ['data-newv', '+ Επίσκεψη'], labs: ['data-newl', '+ Εξετάσεις'], vac: ['data-newx', '+ Εμβόλιο'], docs: ['data-newd', '+ Έγγραφο'], growth: ['data-newlog="growth"', '+ Μέτρηση'], sum: ['data-newv', '+ Νέο'] }[tab];
+    const add = { ev: ['data-newev', '+ Συμβάν'], guides: ['data-newg', '+ Οδηγία'], log: ['data-newlog="note"', '+ Καταχώριση'], hist: ['data-newv', '+ Επίσκεψη'], labs: ['data-newl', '+ Εξετάσεις'], vac: ['data-newx', '+ Εμβόλιο'], docs: ['data-newd', '+ Έγγραφο'], growth: ['data-newlog="growth"', '+ Μέτρηση'], sum: ['data-newv', '+ Νέο'] }[tab];
     const ps = H.profiles();
     return `<div class="top"><button class="btn sm ghost" data-back>‹</button><h1>🩺 ${esc(H.appTitle())}</h1><button class="btn sm primary" ${add[0]} style="width:auto">${add[1]}</button></div>
       <div class="chips" style="margin:0 0 8px">${ps.length > 1 ? ps.map((c) => `<button class="chip ${c.id === H.cur() ? 'on' : ''}" data-child="${esc(c.id)}">${c.adult ? (c.emo || (/[αη]$/.test(H.firstName(c) || '') ? '👩' : '👨')) : '👶'} ${esc(H.firstName(c) || '—')}</button>`).join('') : ''}</div>
@@ -637,6 +684,7 @@ export default {
     root.querySelector('[data-newl]')?.addEventListener('click', () => labSheet());
     root.querySelector('[data-newx]')?.addEventListener('click', () => vacSheet());
     root.querySelector('[data-newg]')?.addEventListener('click', () => guideSheet());
+    root.querySelector('[data-newev]')?.addEventListener('click', () => evSheet());
     if (!migrated) { migrated = true; H.toShared().then(() => H.ensureAdults()).then(() => H.fixNames()); }
     root.querySelector('[data-newd]')?.addEventListener('click', () => docSheet());
     const bindAll = () => {
